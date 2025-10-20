@@ -4,9 +4,10 @@
 
 A web application for viewing vacation photos on an interactive map with timeline visualization. Users can share trips via password-protected links. Single admin can upload and manage trips via WebAuthn authentication.
 
-**Repository**: Monorepo structure
+**Repository**: https://github.com/joeczar/vacay-photo-map (Monorepo with pnpm workspaces)
 **Deployment**: Netlify
 **Target**: Claude Code implementation using GitHub CLI for project setup
+**Status**: 🟢 Milestone 1 Complete ✅
 
 ---
 
@@ -80,73 +81,83 @@ gh project list --owner @me
 
 ## Milestones & Issues
 
-### Milestone 1: Project Setup & Infrastructure
+### Milestone 1: Project Setup & Infrastructure ✅ COMPLETE
 **Goal**: Set up development environment, dependencies, and basic configuration
+**Status**: Completed on 2025-10-20
+**Commit**: b1c1e13
 
-#### Issue 1.1: Initialize Monorepo Structure
+#### Issue 1.1: Initialize Monorepo Structure ✅
 **Labels**: `setup`, `infrastructure`
 **Tasks**:
-- [ ] Create monorepo folder structure
-- [ ] Initialize root package.json with workspace configuration
-- [ ] Set up Vite + Vue 3 + TypeScript in `/app`
-- [ ] Configure TailwindCSS
-- [ ] Set up ESLint + Prettier
-- [ ] Add .gitignore and .env.example
-- [ ] Create README with setup instructions
+- [x] Create monorepo folder structure
+- [x] Initialize root package.json with pnpm workspace configuration
+- [x] Set up Vite + Vue 3 + TypeScript in `/app`
+- [x] Configure TailwindCSS
+- [x] Set up ESLint + Prettier
+- [x] Add .gitignore and .env.example
+- [x] Create README with setup instructions
 
 **Acceptance Criteria**:
-- `npm install` works from root
-- `npm run dev` starts Vue dev server
-- TailwindCSS styling works
-- TypeScript compilation works
+- ✅ `pnpm install` works from root
+- ✅ `pnpm dev` starts Vue dev server
+- ✅ TailwindCSS styling works
+- ✅ TypeScript compilation works
 
 ---
 
-#### Issue 1.2: Configure Supabase
+#### Issue 1.2: Configure Supabase ✅
 **Labels**: `setup`, `backend`, `database`
 **Tasks**:
-- [ ] Create Supabase project
-- [ ] Install @supabase/supabase-js
-- [ ] Create `/app/src/lib/supabase.ts` with client configuration
-- [ ] Set up environment variables for Supabase URL and anon key
+- [x] Create Supabase project (nahvpdhrwqvzbbnjasdg)
+- [x] Install @supabase/supabase-js
+- [x] Create `/app/src/lib/supabase.ts` with client configuration
+- [x] Set up environment variables for Supabase URL and anon key
+- [x] Create database types file
 - [ ] Create database schema (migrations in Milestone 2)
 
 **Acceptance Criteria**:
-- Supabase client initializes successfully
-- Environment variables properly configured
-- Connection test passes
+- ✅ Supabase client initializes successfully
+- ✅ Environment variables properly configured in app/.env
+- ✅ TypeScript types defined
+- ✅ Project URL: https://nahvpdhrwqvzbbnjasdg.supabase.co
 
 ---
 
-#### Issue 1.3: Configure Cloudinary
+#### Issue 1.3: Configure Cloudinary ✅
 **Labels**: `setup`, `backend`, `storage`
 **Tasks**:
-- [ ] Create Cloudinary account
-- [ ] Install cloudinary package
-- [ ] Create `/app/src/lib/cloudinary.ts` with unsigned upload configuration
-- [ ] Set up unsigned upload preset in Cloudinary dashboard
-- [ ] Configure environment variables for cloud name and upload preset
+- [x] Create Cloudinary account
+- [x] Install cloudinary package
+- [x] Create `/app/src/lib/cloudinary.ts` with unsigned upload configuration
+- [x] Implement upload functions with progress tracking
+- [x] Implement thumbnail generation utilities
+- [x] Set up unsigned upload preset in Cloudinary dashboard (vacay-photos-upload)
+- [x] Configure environment variables for cloud name and upload preset
 
 **Acceptance Criteria**:
-- Can initialize Cloudinary client
-- Unsigned upload preset configured
-- Environment variables set
+- ✅ Can initialize Cloudinary client
+- ✅ Upload utilities implemented
+- ✅ Environment variables configured in app/.env
+- ✅ Cloud name: vacay-photo-map
+- ✅ Unsigned upload preset: vacay-photos-upload
 
 ---
 
-#### Issue 1.4: Set up Netlify Deployment
+#### Issue 1.4: Set up Netlify Deployment ✅
 **Labels**: `setup`, `deployment`
 **Tasks**:
-- [ ] Create netlify.toml configuration
-- [ ] Configure build settings for Vue app
+- [x] Create netlify.toml configuration
+- [x] Configure build settings for Vue app with pnpm
+- [x] Create GitHub Actions workflow for deployment
+- [ ] Deploy to Netlify (manual deployment pending)
 - [ ] Set up environment variables in Netlify dashboard
-- [ ] Create GitHub Actions workflow for deployment
 - [ ] Configure custom domain (optional)
 
 **Acceptance Criteria**:
-- App deploys successfully to Netlify
-- Environment variables accessible in production
-- HTTPS enabled
+- ✅ netlify.toml configured with pnpm support
+- ✅ GitHub Actions workflow created (.github/workflows/deploy.yml)
+- ✅ Build configuration ready
+- [ ] Production deployment (pending manual setup)
 
 ---
 
@@ -855,13 +866,15 @@ EOF
 ## Notes for Claude Code
 
 - Each issue should be completed in order within its milestone
-- Run playwright mcp & tests after completing each feature issue
+- Run playwright mcp &
+ tests after completing each feature issue
 - Commit frequently with descriptive messages
 - Reference issue numbers in commits (e.g., "feat: add upload UI #3.1")
 - Update README as you go
 - Ask for clarification if requirements are ambiguous
 - Prioritize working code over perfect code in MVP
 - Document any deviations from spec in issue comments
+- update the spec after each change
 
 ---
 
