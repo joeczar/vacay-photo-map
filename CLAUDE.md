@@ -23,6 +23,42 @@ pnpm test             # Run Vitest tests
 # See app/supabase-rls-fix.sql for RLS policies
 ```
 
+## Git Workflow
+
+**Use atomic commits and feature branches for each issue:**
+
+```bash
+# Start work on an issue
+git checkout -b feature/issue-5-dark-mode-testing  # Branch name: feature/issue-{number}-{brief-description}
+
+# Make focused, atomic commits
+git add -A
+git commit -m "feat: add dark mode store with localStorage persistence
+
+- Create useDarkMode composable
+- Detect system preference on mount
+- Save user preference to localStorage
+
+Implements #5"
+
+# When issue is complete, push and create PR
+git push origin feature/issue-5-dark-mode-testing
+gh pr create --title "feat: Dark mode testing (#5)" --body "Closes #5"
+
+# Merge and delete branch after PR approval
+```
+
+**Commit Message Guidelines:**
+- Use conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`
+- Reference issue number in commit body: `Implements #5` or `Closes #5`
+- Keep commits atomic (one logical change per commit)
+- Add Claude Code attribution footer for AI-assisted work:
+  ```
+  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+  Co-Authored-By: Claude <noreply@anthropic.com>
+  ```
+
 ## Architecture Overview
 
 ### Data Flow
