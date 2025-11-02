@@ -1,16 +1,16 @@
 <template>
-  <div class="min-h-screen bg-gray-100">
-    <header class="bg-white shadow">
+  <div class="min-h-screen bg-gray-100 dark:bg-slate-900">
+    <header class="bg-white dark:bg-slate-800 shadow dark:shadow-slate-900/50">
       <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold text-gray-900">Upload Trip Photos</h1>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-slate-100">Upload Trip Photos</h1>
       </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <!-- Success Message -->
-      <div v-if="uploadComplete && tripSlug" class="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
-        <h3 class="text-green-800 font-semibold mb-2">Trip Uploaded Successfully!</h3>
-        <p class="text-green-700 mb-3">Your trip is now live and ready to share.</p>
+      <div v-if="uploadComplete && tripSlug" class="mb-6 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
+        <h3 class="text-green-800 dark:text-green-300 font-semibold mb-2">Trip Uploaded Successfully!</h3>
+        <p class="text-green-700 dark:text-green-400 mb-3">Your trip is now live and ready to share.</p>
         <div class="flex gap-3">
           <a
             :href="`/trip/${tripSlug}`"
@@ -21,7 +21,7 @@
           </a>
           <button
             @click="resetForm"
-            class="px-4 py-2 bg-white text-green-700 border border-green-300 rounded-md hover:bg-green-50"
+            class="px-4 py-2 bg-white dark:bg-slate-800 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 rounded-md hover:bg-green-50 dark:hover:bg-slate-700"
           >
             Upload Another Trip
           </button>
@@ -29,53 +29,53 @@
       </div>
 
       <!-- Upload Form -->
-      <div v-else class="bg-white shadow rounded-lg p-6">
+      <div v-else class="bg-white dark:bg-slate-800 shadow dark:shadow-slate-900/50 rounded-lg p-6">
         <!-- Step 1: Trip Details -->
         <div v-if="currentStep === 1" class="space-y-6">
-          <h2 class="text-xl font-semibold mb-4">Trip Details</h2>
+          <h2 class="text-xl font-semibold dark:text-slate-100 mb-4">Trip Details</h2>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Trip Title *</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Trip Title *</label>
             <input
               v-model="tripTitle"
               type="text"
               required
               placeholder="Summer Vacation 2024"
-              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="input"
             />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Description (optional)</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Description (optional)</label>
             <textarea
               v-model="tripDescription"
               rows="3"
               placeholder="Tell us about your trip..."
-              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="input"
             ></textarea>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Select Photos *</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Select Photos *</label>
             <input
               ref="fileInput"
               type="file"
               multiple
               accept="image/*"
               @change="handleFileSelect"
-              class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="input"
             />
-            <p class="mt-2 text-sm text-gray-500">Select multiple photos from your trip</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-slate-400">Select multiple photos from your trip</p>
           </div>
 
           <div v-if="selectedFiles.length > 0" class="mt-4">
-            <p class="text-sm text-gray-700 mb-2">{{ selectedFiles.length }} photos selected</p>
+            <p class="text-sm text-gray-700 dark:text-slate-300 mb-2">{{ selectedFiles.length }} photos selected</p>
             <div class="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
               <div v-for="(file, index) in selectedFiles" :key="index" class="relative aspect-square">
                 <img
                   :src="getFilePreview(file)"
                   :alt="file.name"
-                  class="w-full h-full object-cover rounded border border-gray-200"
+                  class="w-full h-full object-cover rounded border border-gray-200 dark:border-slate-700"
                 />
               </div>
             </div>
@@ -84,7 +84,7 @@
           <button
             @click="startUpload"
             :disabled="!tripTitle || selectedFiles.length === 0 || isUploading"
-            class="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+            class="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed font-medium"
           >
             {{ isUploading ? 'Processing...' : 'Start Upload' }}
           </button>
@@ -92,14 +92,14 @@
 
         <!-- Step 2: Upload Progress -->
         <div v-if="currentStep === 2" class="space-y-6">
-          <h2 class="text-xl font-semibold mb-4">Uploading Trip...</h2>
+          <h2 class="text-xl font-semibold dark:text-slate-100 mb-4">Uploading Trip...</h2>
 
           <div class="space-y-2">
-            <div class="flex justify-between text-sm text-gray-600">
+            <div class="flex justify-between text-sm text-gray-600 dark:text-slate-300">
               <span>{{ uploadStatus }}</span>
               <span>{{ uploadProgress }}%</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-3">
+            <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-3">
               <div
                 class="bg-blue-600 h-3 rounded-full transition-all duration-300"
                 :style="{ width: `${uploadProgress}%` }"
@@ -107,8 +107,8 @@
             </div>
           </div>
 
-          <div v-if="error" class="p-4 bg-red-50 border border-red-200 rounded-md">
-            <p class="text-red-800">{{ error }}</p>
+          <div v-if="error" class="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md">
+            <p class="text-red-800 dark:text-red-300">{{ error }}</p>
           </div>
         </div>
       </div>

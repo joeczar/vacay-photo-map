@@ -29,6 +29,10 @@ describe('useDarkMode', () => {
     // Reset the module to get fresh shared state
     await vi.resetModules()
 
+    // Import and call the reset function
+    const { _resetDarkModeState } = await import('./useDarkMode')
+    _resetDarkModeState()
+
     // Reset matchMedia mock with callback capture
     Object.defineProperty(window, 'matchMedia', {
       writable: true,

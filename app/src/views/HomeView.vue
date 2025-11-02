@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <header class="bg-white shadow-sm">
+  <div class="min-h-screen bg-gray-50 dark:bg-slate-900">
+    <header class="bg-white dark:bg-slate-800 shadow-sm dark:shadow-slate-900/50">
       <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between">
-          <h1 class="text-3xl font-bold text-gray-900">Vacay Photo Map</h1>
+          <h1 class="text-3xl font-bold text-gray-900 dark:text-slate-100">Vacay Photo Map</h1>
           <a
             href="/admin"
             class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
@@ -18,18 +18,18 @@
       <!-- Loading State -->
       <div v-if="loading" class="text-center py-12">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p class="text-gray-600">Loading trips...</p>
+        <p class="text-gray-600 dark:text-slate-300">Loading trips...</p>
       </div>
 
       <!-- Error State -->
       <div v-else-if="error" class="text-center py-12">
-        <p class="text-red-600">{{ error }}</p>
+        <p class="text-red-600 dark:text-red-400">{{ error }}</p>
       </div>
 
       <!-- Empty State -->
       <div v-else-if="trips.length === 0" class="text-center py-12">
-        <h2 class="text-2xl font-semibold text-gray-700 mb-4">No Trips Yet</h2>
-        <p class="text-gray-600 mb-6">Start by uploading your first vacation photos!</p>
+        <h2 class="text-2xl font-semibold text-gray-700 dark:text-slate-300 mb-4">No Trips Yet</h2>
+        <p class="text-gray-600 dark:text-slate-300 mb-6">Start by uploading your first vacation photos!</p>
         <a
           href="/admin"
           class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
@@ -40,23 +40,23 @@
 
       <!-- Trip Grid -->
       <div v-else>
-        <h2 class="text-2xl font-bold text-gray-900 mb-6">All Trips</h2>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-6">All Trips</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <a
             v-for="trip in trips"
             :key="trip.id"
             :href="`/trip/${trip.slug}`"
-            class="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow group"
+            class="block bg-white dark:bg-slate-800 rounded-lg shadow-md dark:shadow-slate-900/50 overflow-hidden hover:shadow-xl dark:hover:shadow-slate-900 transition-shadow group"
           >
             <!-- Cover Photo -->
-            <div class="relative h-64 bg-gray-200 overflow-hidden">
+            <div class="relative h-64 bg-gray-200 dark:bg-slate-700 overflow-hidden">
               <img
                 v-if="trip.cover_photo_url"
                 :src="trip.cover_photo_url"
                 :alt="trip.title"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
-              <div v-else class="w-full h-full flex items-center justify-center text-gray-400">
+              <div v-else class="w-full h-full flex items-center justify-center text-gray-400 dark:text-slate-500">
                 <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     fill-rule="evenodd"
@@ -69,14 +69,14 @@
 
             <!-- Trip Info -->
             <div class="p-6">
-              <h3 class="text-xl font-bold text-gray-900 mb-2 group-hover:text-blue-600">
+              <h3 class="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400">
                 {{ trip.title }}
               </h3>
-              <p v-if="trip.description" class="text-gray-600 text-sm mb-4 line-clamp-2">
+              <p v-if="trip.description" class="text-gray-600 dark:text-slate-300 text-sm mb-4 line-clamp-2">
                 {{ trip.description }}
               </p>
 
-              <div class="flex items-center gap-4 text-sm text-gray-500">
+              <div class="flex items-center gap-4 text-sm text-gray-500 dark:text-slate-400">
                 <span class="flex items-center gap-1">
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                     <path
