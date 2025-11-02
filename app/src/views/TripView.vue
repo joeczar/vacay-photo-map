@@ -1,57 +1,57 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-slate-900">
+  <TripLayout>
+    <template #actions>
+      <Button variant="destructive" class="w-full justify-start" @click="deleteDialogOpen = true">
+        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        Delete Trip
+      </Button>
+    </template>
+
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p class="text-gray-600 dark:text-slate-300">Loading trip...</p>
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p class="text-muted-foreground">Loading trip...</p>
       </div>
     </div>
 
     <!-- Error State -->
     <div v-else-if="error" class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-2">Trip Not Found</h2>
-        <p class="text-gray-600 dark:text-slate-300 mb-4">{{ error }}</p>
-        <a href="/" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">← Back to Home</a>
+        <h2 class="text-2xl font-bold mb-2">Trip Not Found</h2>
+        <p class="text-muted-foreground mb-4">{{ error }}</p>
+        <Button as-child>
+          <a href="/">← Back to Home</a>
+        </Button>
       </div>
     </div>
 
     <!-- Trip Content -->
     <div v-else-if="trip">
       <!-- Hero Section -->
-      <div class="bg-white dark:bg-slate-800 shadow-sm dark:shadow-slate-900/50">
-        <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-          <div class="flex items-start justify-between">
-            <div>
-              <a href="/" class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 mb-2 inline-block">
-                ← Back to Trips
-              </a>
-              <h1 class="text-4xl font-bold text-gray-900 dark:text-slate-100 mb-2">{{ trip.title }}</h1>
-              <p v-if="trip.description" class="text-gray-600 dark:text-slate-300 mb-4">{{ trip.description }}</p>
-              <div class="flex gap-6 text-sm text-gray-500 dark:text-slate-400">
-                <span>{{ trip.photos.length }} photos</span>
-                <span v-if="dateRange">{{ dateRange }}</span>
-                <span v-if="photosWithLocation">{{ photosWithLocation }} locations</span>
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <button
-                @click="handleDelete"
-                :disabled="isDeleting"
-                class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 dark:disabled:bg-red-800 text-white rounded-lg font-medium transition-colors"
-              >
-                {{ isDeleting ? 'Deleting...' : 'Delete Trip' }}
-              </button>
-            </div>
+      <div class="border-b bg-card">
+        <div class="container py-8 px-4">
+          <h1 class="text-4xl font-bold mb-2">{{ trip.title }}</h1>
+          <p v-if="trip.description" class="text-muted-foreground mb-4">{{ trip.description }}</p>
+          <div class="flex gap-4">
+            <Badge variant="secondary">
+              <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+              </svg>
+              {{ trip.photos.length }} photos
+            </Badge>
+            <Badge v-if="dateRange" variant="outline">{{ dateRange }}</Badge>
+            <Badge v-if="photosWithLocation" variant="outline">{{ photosWithLocation }} locations</Badge>
           </div>
         </div>
       </div>
 
       <!-- Map Section -->
-      <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg dark:shadow-slate-900/50 overflow-hidden">
-          <div style="height: 600px" class="relative">
+      <div class="container py-8 px-4">
+        <Card class="overflow-hidden">
+          <div style="height: 600px" class="relative z-0">
             <l-map
               ref="map"
               v-model:zoom="zoom"
@@ -75,7 +75,7 @@
                   <div class="relative">
                     <div
                       class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform"
-                      :class="selectedPhoto?.id === photo.id ? 'border-primary-500 border-4' : ''"
+                      :class="selectedPhoto?.id === photo.id ? 'border-primary border-4' : ''"
                     >
                       <img :src="photo.thumbnail_url" :alt="photo.caption || 'Photo'" class="w-full h-full object-cover" />
                     </div>
@@ -86,7 +86,7 @@
                   <div class="p-2">
                     <img :src="photo.url" :alt="photo.caption || 'Photo'" class="w-full h-48 object-cover rounded mb-2" />
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
-                    <p class="text-xs text-gray-500">{{ formatDate(photo.taken_at) }}</p>
+                    <p class="text-xs text-muted-foreground">{{ formatDate(photo.taken_at) }}</p>
                   </div>
                 </l-popup>
               </l-marker>
@@ -97,20 +97,21 @@
           </div>
 
           <!-- Photo Grid Below Map -->
-          <div class="p-6 border-t border-gray-200 dark:border-slate-700">
-            <h3 class="text-lg font-semibold dark:text-slate-100 mb-4">All Photos</h3>
+          <Separator />
+          <CardContent class="p-6">
+            <h3 class="text-lg font-semibold mb-4">All Photos</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              <div
+              <Card
                 v-for="photo in trip.photos"
                 :key="photo.id"
-                class="relative aspect-square cursor-pointer group"
+                class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
+                :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
                 @click="selectPhoto(photo)"
               >
                 <img
                   :src="photo.thumbnail_url"
                   :alt="photo.caption || 'Photo'"
-                  class="w-full h-full object-cover rounded border-2 transition-all"
-                  :class="selectedPhoto?.id === photo.id ? 'border-primary-500' : 'border-gray-200 dark:border-slate-700 group-hover:border-primary-300 dark:group-hover:border-primary-500'"
+                  class="w-full h-full object-cover"
                 />
                 <div
                   v-if="!photo.latitude || !photo.longitude"
@@ -125,52 +126,82 @@
                     />
                   </svg>
                 </div>
-              </div>
+              </Card>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <!-- Delete Confirmation Dialog -->
+      <Dialog v-model:open="deleteDialogOpen">
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Trip?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete "{{ trip.title }}" and all {{ trip.photos.length }} photos. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" @click="deleteDialogOpen = false">Cancel</Button>
+            <Button variant="destructive" @click="confirmDelete" :disabled="isDeleting">
+              {{ isDeleting ? 'Deleting...' : 'Delete' }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <!-- Lightbox -->
       <div
         v-if="selectedPhoto"
-        class="fixed inset-0 bg-black bg-opacity-90 dark:bg-black dark:bg-opacity-95 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
         @click="closePhoto"
       >
         <div class="relative max-w-6xl w-full" @click.stop>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             @click="closePhoto"
-            class="absolute -top-12 right-0 text-white hover:text-gray-300 dark:hover:text-slate-400 text-lg font-bold"
+            class="absolute -top-12 right-0 text-white hover:text-white/80"
           >
-            ✕ Close
-          </button>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </Button>
 
           <img :src="selectedPhoto.url" :alt="selectedPhoto.caption || 'Photo'" class="w-full h-auto rounded-lg shadow-2xl" />
 
           <div class="mt-4 text-white">
             <p v-if="selectedPhoto.caption" class="text-lg font-medium mb-2">{{ selectedPhoto.caption }}</p>
-            <p class="text-sm text-gray-300 dark:text-slate-400">{{ formatDate(selectedPhoto.taken_at) }}</p>
+            <p class="text-sm text-gray-300">{{ formatDate(selectedPhoto.taken_at) }}</p>
           </div>
 
           <!-- Navigation -->
-          <button
+          <Button
             v-if="currentPhotoIndex > 0"
+            variant="ghost"
+            size="icon"
             @click.stop="previousPhoto"
-            class="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 dark:bg-slate-800 dark:bg-opacity-50 dark:hover:bg-opacity-70 text-white rounded-full p-3"
+            class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
           >
-            ←
-          </button>
-          <button
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </Button>
+          <Button
             v-if="currentPhotoIndex < trip.photos.length - 1"
+            variant="ghost"
+            size="icon"
             @click.stop="nextPhoto"
-            class="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 dark:bg-slate-800 dark:bg-opacity-50 dark:hover:bg-opacity-70 text-white rounded-full p-3"
+            class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
           >
-            →
-          </button>
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </Button>
         </div>
       </div>
     </div>
-  </div>
+  </TripLayout>
 </template>
 
 <script setup lang="ts">
@@ -181,6 +212,12 @@ import L from 'leaflet'
 import { LMap, LTileLayer, LMarker, LIcon, LPopup, LPolyline } from '@vue-leaflet/vue-leaflet'
 import { getTripBySlug, deleteTrip } from '@/utils/database'
 import type { Database } from '@/lib/database.types'
+import TripLayout from '@/layouts/TripLayout.vue'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // Fix Leaflet default icon issue with bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -205,6 +242,7 @@ const selectedPhoto = ref<Photo | null>(null)
 const zoom = ref(12)
 const map = ref(null)
 const isDeleting = ref(false)
+const deleteDialogOpen = ref(false)
 
 // Load trip data
 onMounted(async () => {
@@ -301,16 +339,8 @@ function previousPhoto() {
   selectedPhoto.value = trip.value.photos[currentPhotoIndex.value - 1]
 }
 
-async function handleDelete() {
+async function confirmDelete() {
   if (!trip.value) return
-
-  const confirmed = confirm(
-    `Are you sure you want to delete "${trip.value.title}"?\n\n` +
-    `This will permanently delete the trip and all ${trip.value.photos.length} photos.\n\n` +
-    `This action cannot be undone.`
-  )
-
-  if (!confirmed) return
 
   isDeleting.value = true
 
@@ -322,6 +352,7 @@ async function handleDelete() {
     console.error('Error deleting trip:', err)
     alert('Failed to delete trip. Please try again.')
     isDeleting.value = false
+    deleteDialogOpen.value = false
   }
 }
 
@@ -334,3 +365,18 @@ function formatDate(dateString: string): string {
   })
 }
 </script>
+
+<style scoped>
+/* Scoped z-index management for Leaflet map to prevent covering overlays */
+:deep(.leaflet-container) {
+  z-index: 0;
+}
+
+:deep(.leaflet-popup-pane) {
+  z-index: 700;
+}
+
+:deep(.leaflet-control-container) {
+  z-index: 800;
+}
+</style>
