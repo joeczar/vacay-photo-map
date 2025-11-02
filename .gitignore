@@ -12,9 +12,6 @@ node_modules
 .pnp
 .pnp.js
 
-# pnpm
-pnpm-lock.yaml
-
 # Testing
 coverage
 *.lcov
