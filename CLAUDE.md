@@ -30,6 +30,7 @@ Run from root: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm type-ch
 - Branch: `feature/issue-{number}-{description}`
 - Commits: Conventional (`feat:`, `fix:`, etc.), atomic, reference issue number
 - Create PR with `gh pr create`
+- Check for Review Comments after pr creation (can take some time) resolve them if relevant
 
 ## Architecture
 
