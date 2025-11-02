@@ -17,19 +17,6 @@ export default {
           800: '#075985',
           900: '#0c4a6e',
           950: '#082f49'
-        },
-        // Dark mode color palette
-        dark: {
-          background: {
-            DEFAULT: '#0f172a', // slate-900
-            elevated: '#1e293b', // slate-800
-            hover: '#334155' // slate-700
-          },
-          text: {
-            DEFAULT: '#f1f5f9', // slate-100
-            muted: '#cbd5e1', // slate-300
-            subtle: '#94a3b8' // slate-400
-          }
         }
       }
     }
