@@ -2,6 +2,45 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Testing & Verification Policy
+
+**CRITICAL: Test every change before committing.**
+
+### Required Testing Workflow
+1. **Make changes** to code
+2. **Verify in browser** using Playwright or manual testing
+3. **Run tests** if they exist (`pnpm test`)
+4. **Only then commit** if everything works
+
+### Available Testing Tools
+- **Playwright (MCP)**: Test UI changes in real browser
+  - `mcp__playwright__browser_navigate` - Load pages
+  - `mcp__playwright__browser_snapshot` - Check page state
+  - `mcp__playwright__browser_take_screenshot` - Visual verification
+  - `mcp__playwright__browser_click` - Test interactions
+- **Vitest**: `pnpm test` for unit/integration tests
+- **TypeScript**: `pnpm type-check` catches type errors
+- **ESLint**: `pnpm lint` catches code issues
+
+### When to Test
+- **UI changes**: Always verify in browser with Playwright
+- **Component changes**: Test all states (loading, error, success)
+- **Layout changes**: Check responsive behavior
+- **Dark mode**: Test both light and dark themes
+- **Interactions**: Test clicks, forms, navigation
+- **Before committing**: Final verification that everything works
+
+### Testing Checklist Example
+```
+✅ Page loads without errors
+✅ Component renders correctly
+✅ Interactions work (clicks, forms)
+✅ Dark mode works
+✅ Responsive on mobile/desktop
+✅ No console errors
+✅ TypeScript passes
+```
+
 ## shadcn-vue Component System
 
 **CRITICAL: Always use shadcn-vue components first!** This project uses shadcn-vue for UI components.

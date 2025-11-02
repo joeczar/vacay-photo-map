@@ -1,11 +1,11 @@
 <template>
   <div class="min-h-screen bg-background">
     <header class="border-b border-border bg-card">
-      <div class="container flex h-16 items-center px-4">
+      <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
         <a href="/" class="text-xl font-bold text-foreground hover:text-primary transition-colors">
           Vacay Photo Map
         </a>
-        <nav class="ml-auto flex items-center gap-4">
+        <nav class="flex items-center gap-4">
           <Button variant="ghost" as-child>
             <a href="/">Home</a>
           </Button>
