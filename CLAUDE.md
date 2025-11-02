@@ -2,6 +2,64 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## shadcn-vue Component System
+
+**CRITICAL: Always use shadcn-vue components first!** This project uses shadcn-vue for UI components.
+
+### Philosophy
+- **Copy-paste, not a package** - Components live in `src/components/ui/`
+- **Full ownership** - Customize any component directly in the codebase
+- **Tailwind CSS** - Built on CSS variables for seamless theming
+- **Accessible** - ARIA-compliant, keyboard navigation, focus management
+
+### Adding Components
+```bash
+# Add a component
+pnpm dlx shadcn-vue@latest add button
+
+# Add multiple components
+pnpm dlx shadcn-vue@latest add card dialog sheet
+```
+
+### Available Components
+**Installed:** Button, Card, Badge, Skeleton, Sheet, Dialog, Separator, Progress, Avatar, DropdownMenu
+
+**Not yet installed:** Alert, Toast, Tabs, Table, Input, Label, Select, Checkbox, etc.
+
+### Component Usage Pattern
+```vue
+<script setup lang="ts">
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+</script>
+
+<template>
+  <Card>
+    <CardHeader>
+      <CardTitle>My Card</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <Button>Click me</Button>
+    </CardContent>
+  </Card>
+</template>
+```
+
+### Theme System
+- CSS variables in `src/assets/main.css` (`:root` and `.dark`)
+- Semantic tokens: `--background`, `--foreground`, `--primary`, `--muted`, etc.
+- Dark mode: Uses existing `useDarkMode` composable with class strategy
+- Theme configured in `components.json` (New York style, Slate base)
+
+### Layout Components
+- **MainLayout** - Full navigation header for Home/Admin pages
+- **TripLayout** - Immersive view with floating Sheet menu for Trip pages
+
+### When NOT to use shadcn
+- Map components (Leaflet) - keep as-is
+- EXIF/GPS utilities - pure logic functions
+- Supabase/Cloudinary clients - external services
+
 ## Development Commands
 
 All commands should be run from the **root directory** (not `app/`):

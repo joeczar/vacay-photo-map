@@ -1,41 +1,36 @@
 <template>
-  <div class="min-h-screen bg-gray-100 dark:bg-slate-900">
-    <header class="bg-white dark:bg-slate-800 shadow dark:shadow-slate-900/50">
-      <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-slate-100">Upload Trip Photos</h1>
+  <MainLayout>
+    <!-- Success Message -->
+    <Alert v-if="uploadComplete && tripSlug" variant="default" class="mb-6 bg-green-50 dark:bg-green-900/30 border-green-600">
+      <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+      </svg>
+      <AlertTitle>Trip Uploaded Successfully!</AlertTitle>
+      <AlertDescription>
+        Your trip is now live and ready to share.
+      </AlertDescription>
+      <div class="flex gap-3 mt-4">
+        <Button as-child>
+          <a :href="`/trip/${tripSlug}`" target="_blank">View Trip</a>
+        </Button>
+        <Button variant="outline" @click="resetForm">
+          Upload Another Trip
+        </Button>
       </div>
-    </header>
+    </Alert>
 
-    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <!-- Success Message -->
-      <div v-if="uploadComplete && tripSlug" class="mb-6 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
-        <h3 class="text-green-800 dark:text-green-300 font-semibold mb-2">Trip Uploaded Successfully!</h3>
-        <p class="text-green-700 dark:text-green-400 mb-3">Your trip is now live and ready to share.</p>
-        <div class="flex gap-3">
-          <a
-            :href="`/trip/${tripSlug}`"
-            target="_blank"
-            class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-          >
-            View Trip
-          </a>
-          <button
-            @click="resetForm"
-            class="px-4 py-2 bg-white dark:bg-slate-800 text-green-700 dark:text-green-400 border border-green-300 dark:border-green-700 rounded-md hover:bg-green-50 dark:hover:bg-slate-700"
-          >
-            Upload Another Trip
-          </button>
-        </div>
-      </div>
+    <!-- Upload Form -->
+    <Card v-else>
+      <!-- Step 1: Trip Details -->
+      <div v-if="currentStep === 1">
+        <CardHeader>
+          <CardTitle>Trip Details</CardTitle>
+          <CardDescription>Upload your vacation photos with location data</CardDescription>
+        </CardHeader>
 
-      <!-- Upload Form -->
-      <div v-else class="bg-white dark:bg-slate-800 shadow dark:shadow-slate-900/50 rounded-lg p-6">
-        <!-- Step 1: Trip Details -->
-        <div v-if="currentStep === 1" class="space-y-6">
-          <h2 class="text-xl font-semibold dark:text-slate-100 mb-4">Trip Details</h2>
-
+        <CardContent class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Trip Title *</label>
+            <label class="block text-sm font-medium mb-2">Trip Title *</label>
             <input
               v-model="tripTitle"
               type="text"
@@ -46,7 +41,7 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Description (optional)</label>
+            <label class="block text-sm font-medium mb-2">Description (optional)</label>
             <textarea
               v-model="tripDescription"
               rows="3"
@@ -56,7 +51,7 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Select Photos *</label>
+            <label class="block text-sm font-medium mb-2">Select Photos *</label>
             <input
               ref="fileInput"
               type="file"
@@ -65,55 +60,55 @@
               @change="handleFileSelect"
               class="input"
             />
-            <p class="mt-2 text-sm text-gray-500 dark:text-slate-400">Select multiple photos from your trip</p>
+            <p class="mt-2 text-sm text-muted-foreground">Select multiple photos from your trip</p>
           </div>
 
           <div v-if="selectedFiles.length > 0" class="mt-4">
-            <p class="text-sm text-gray-700 dark:text-slate-300 mb-2">{{ selectedFiles.length }} photos selected</p>
+            <p class="text-sm mb-2">{{ selectedFiles.length }} photos selected</p>
             <div class="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
               <div v-for="(file, index) in selectedFiles" :key="index" class="relative aspect-square">
                 <img
                   :src="getFilePreview(file)"
                   :alt="file.name"
-                  class="w-full h-full object-cover rounded border border-gray-200 dark:border-slate-700"
+                  class="w-full h-full object-cover rounded border"
                 />
               </div>
             </div>
           </div>
 
-          <button
+          <Button
             @click="startUpload"
             :disabled="!tripTitle || selectedFiles.length === 0 || isUploading"
-            class="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed font-medium"
+            class="w-full"
           >
             {{ isUploading ? 'Processing...' : 'Start Upload' }}
-          </button>
-        </div>
+          </Button>
+        </CardContent>
+      </div>
 
-        <!-- Step 2: Upload Progress -->
-        <div v-if="currentStep === 2" class="space-y-6">
-          <h2 class="text-xl font-semibold dark:text-slate-100 mb-4">Uploading Trip...</h2>
+      <!-- Step 2: Upload Progress -->
+      <div v-if="currentStep === 2">
+        <CardHeader>
+          <CardTitle>Uploading Trip...</CardTitle>
+          <CardDescription>{{ uploadStatus }}</CardDescription>
+        </CardHeader>
 
+        <CardContent class="space-y-4">
           <div class="space-y-2">
-            <div class="flex justify-between text-sm text-gray-600 dark:text-slate-300">
-              <span>{{ uploadStatus }}</span>
+            <div class="flex justify-between text-sm">
+              <span>Progress</span>
               <span>{{ uploadProgress }}%</span>
             </div>
-            <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-3">
-              <div
-                class="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                :style="{ width: `${uploadProgress}%` }"
-              ></div>
-            </div>
+            <Progress :model-value="uploadProgress" />
           </div>
 
-          <div v-if="error" class="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-md">
-            <p class="text-red-800 dark:text-red-300">{{ error }}</p>
-          </div>
-        </div>
+          <Alert v-if="error" variant="destructive">
+            <AlertDescription>{{ error }}</AlertDescription>
+          </Alert>
+        </CardContent>
       </div>
-    </main>
-  </div>
+    </Card>
+  </MainLayout>
 </template>
 
 <script setup lang="ts">
@@ -123,6 +118,11 @@ import { uploadMultipleFiles } from '@/lib/cloudinary'
 import { createTrip, createPhotos, updateTripCoverPhoto } from '@/utils/database'
 import { generateUniqueSlug } from '@/utils/slug'
 import type { PhotoMetadata } from '@/utils/exif'
+import MainLayout from '@/layouts/MainLayout.vue'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Progress } from '@/components/ui/progress'
 
 // Form state
 const currentStep = ref(1)
