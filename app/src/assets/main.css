@@ -1,9 +1,9 @@
+/* Import external CSS first */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* Leaflet CSS will be imported here when we add the map */
-@import 'leaflet/dist/leaflet.css';
 
 /* Custom styles */
 @layer base {

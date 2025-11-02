@@ -40,7 +40,7 @@ export async function uploadToCloudinary(
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', uploadPreset)
-  formData.append('folder', 'vacay-photos') // Organize uploads in a folder
+  // Note: folder can be configured in the upload preset settings if needed
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -73,7 +73,17 @@ export async function uploadToCloudinary(
           reject(new Error('Failed to parse Cloudinary response'))
         }
       } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`))
+        // Try to parse error message from response
+        let errorMessage = `Upload failed with status ${xhr.status}`
+        try {
+          const errorResponse = JSON.parse(xhr.responseText)
+          if (errorResponse.error?.message) {
+            errorMessage = errorResponse.error.message
+          }
+        } catch {
+          // Use default error message
+        }
+        reject(new Error(errorMessage))
       }
     })
 

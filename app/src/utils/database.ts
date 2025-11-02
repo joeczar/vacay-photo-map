@@ -137,3 +137,35 @@ export async function updateTripCoverPhoto(tripId: string, coverPhotoUrl: string
 
   if (error) throw error
 }
+
+/**
+ * Delete a trip and all associated photos
+ * This will cascade delete all photos in the trip due to foreign key constraints
+ */
+export async function deleteTrip(tripId: string): Promise<void> {
+  console.log(`🗑️  Deleting trip ${tripId} and all associated photos...`)
+
+  // First, delete all photos for this trip
+  const { error: photosError } = await supabase
+    .from('photos')
+    .delete()
+    .eq('trip_id', tripId)
+
+  if (photosError) {
+    console.error('Failed to delete photos:', photosError)
+    throw photosError
+  }
+
+  // Then delete the trip itself
+  const { error: tripError } = await supabase
+    .from('trips')
+    .delete()
+    .eq('id', tripId)
+
+  if (tripError) {
+    console.error('Failed to delete trip:', tripError)
+    throw tripError
+  }
+
+  console.log(`✅ Trip ${tripId} and all photos deleted successfully`)
+}

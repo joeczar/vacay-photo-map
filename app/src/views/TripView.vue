@@ -35,6 +35,15 @@
                 <span v-if="photosWithLocation">{{ photosWithLocation }} locations</span>
               </div>
             </div>
+            <div class="flex gap-2">
+              <button
+                @click="handleDelete"
+                :disabled="isDeleting"
+                class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium transition-colors"
+              >
+                {{ isDeleting ? 'Deleting...' : 'Delete Trip' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -166,16 +175,26 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { LMap, LTileLayer, LMarker, LIcon, LPopup, LPolyline } from '@vue-leaflet/vue-leaflet'
-import { getTripBySlug } from '@/utils/database'
-import type { Database } from '@/lib/database.types'
+import { useRoute, useRouter } from 'vue-router'
 import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+import { LMap, LTileLayer, LMarker, LIcon, LPopup, LPolyline } from '@vue-leaflet/vue-leaflet'
+import { getTripBySlug, deleteTrip } from '@/utils/database'
+import type { Database } from '@/lib/database.types'
+
+// Fix Leaflet default icon issue with bundlers
+delete (L.Icon.Default.prototype as any)._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
+  iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
+  shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href
+})
 
 type Trip = Database['public']['Tables']['trips']['Row']
 type Photo = Database['public']['Tables']['photos']['Row']
 
 const route = useRoute()
+const router = useRouter()
 const slug = route.params.slug as string
 
 // State
@@ -185,6 +204,7 @@ const error = ref('')
 const selectedPhoto = ref<Photo | null>(null)
 const zoom = ref(12)
 const map = ref(null)
+const isDeleting = ref(false)
 
 // Load trip data
 onMounted(async () => {
@@ -279,6 +299,30 @@ function nextPhoto() {
 function previousPhoto() {
   if (!trip.value || currentPhotoIndex.value <= 0) return
   selectedPhoto.value = trip.value.photos[currentPhotoIndex.value - 1]
+}
+
+async function handleDelete() {
+  if (!trip.value) return
+
+  const confirmed = confirm(
+    `Are you sure you want to delete "${trip.value.title}"?\n\n` +
+    `This will permanently delete the trip and all ${trip.value.photos.length} photos.\n\n` +
+    `This action cannot be undone.`
+  )
+
+  if (!confirmed) return
+
+  isDeleting.value = true
+
+  try {
+    await deleteTrip(trip.value.id)
+    // Navigate back to home page after successful deletion
+    router.push('/')
+  } catch (err) {
+    console.error('Error deleting trip:', err)
+    alert('Failed to delete trip. Please try again.')
+    isDeleting.value = false
+  }
 }
 
 function formatDate(dateString: string): string {
