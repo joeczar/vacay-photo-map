@@ -37,7 +37,7 @@ jobs:
         run: pnpm lint
 
       - name: Test
-        run: pnpm test -- --run
+        run: pnpm --filter vacay-photo-map-app test -- --run
 
       - name: Build
         run: pnpm build
