@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
+  darkMode: 'class', // Enable dark mode with class strategy
   theme: {
     extend: {
       colors: {
@@ -16,6 +17,21 @@ export default {
           800: '#075985',
           900: '#0c4a6e',
           950: '#082f49'
+        }
+      },
+      // Dark mode specific background and text colors
+      backgroundColor: {
+        dark: {
+          DEFAULT: '#0f172a', // slate-900
+          elevated: '#1e293b', // slate-800
+          hover: '#334155' // slate-700
+        }
+      },
+      textColor: {
+        dark: {
+          DEFAULT: '#f1f5f9', // slate-100
+          muted: '#cbd5e1', // slate-300
+          subtle: '#94a3b8' // slate-400
         }
       }
     }
