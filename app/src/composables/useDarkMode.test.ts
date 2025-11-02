@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
+import { _resetDarkModeState } from './useDarkMode'
 
 // Helper to create test component with fresh import
 async function createTestComponent() {
@@ -55,6 +56,7 @@ describe('useDarkMode', () => {
   })
 
   afterEach(() => {
+    _resetDarkModeState()
     vi.restoreAllMocks()
   })
 
