@@ -1,35 +1,35 @@
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen bg-gray-50 dark:bg-slate-900">
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center min-h-screen">
       <div class="text-center">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p class="text-gray-600">Loading trip...</p>
+        <p class="text-gray-600 dark:text-slate-300">Loading trip...</p>
       </div>
     </div>
 
     <!-- Error State -->
     <div v-else-if="error" class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Trip Not Found</h2>
-        <p class="text-gray-600 mb-4">{{ error }}</p>
-        <a href="/" class="text-blue-600 hover:text-blue-700">← Back to Home</a>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-2">Trip Not Found</h2>
+        <p class="text-gray-600 dark:text-slate-300 mb-4">{{ error }}</p>
+        <a href="/" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">← Back to Home</a>
       </div>
     </div>
 
     <!-- Trip Content -->
     <div v-else-if="trip">
       <!-- Hero Section -->
-      <div class="bg-white shadow-sm">
+      <div class="bg-white dark:bg-slate-800 shadow-sm dark:shadow-slate-900/50">
         <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
           <div class="flex items-start justify-between">
             <div>
-              <a href="/" class="text-sm text-blue-600 hover:text-blue-700 mb-2 inline-block">
+              <a href="/" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-2 inline-block">
                 ← Back to Trips
               </a>
-              <h1 class="text-4xl font-bold text-gray-900 mb-2">{{ trip.title }}</h1>
-              <p v-if="trip.description" class="text-gray-600 mb-4">{{ trip.description }}</p>
-              <div class="flex gap-6 text-sm text-gray-500">
+              <h1 class="text-4xl font-bold text-gray-900 dark:text-slate-100 mb-2">{{ trip.title }}</h1>
+              <p v-if="trip.description" class="text-gray-600 dark:text-slate-300 mb-4">{{ trip.description }}</p>
+              <div class="flex gap-6 text-sm text-gray-500 dark:text-slate-400">
                 <span>{{ trip.photos.length }} photos</span>
                 <span v-if="dateRange">{{ dateRange }}</span>
                 <span v-if="photosWithLocation">{{ photosWithLocation }} locations</span>
@@ -39,7 +39,7 @@
               <button
                 @click="handleDelete"
                 :disabled="isDeleting"
-                class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white rounded-lg font-medium transition-colors"
+                class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 dark:disabled:bg-red-800 text-white rounded-lg font-medium transition-colors"
               >
                 {{ isDeleting ? 'Deleting...' : 'Delete Trip' }}
               </button>
@@ -50,7 +50,7 @@
 
       <!-- Map Section -->
       <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg dark:shadow-slate-900/50 overflow-hidden">
           <div style="height: 600px" class="relative">
             <l-map
               ref="map"
@@ -97,8 +97,8 @@
           </div>
 
           <!-- Photo Grid Below Map -->
-          <div class="p-6 border-t border-gray-200">
-            <h3 class="text-lg font-semibold mb-4">All Photos</h3>
+          <div class="p-6 border-t border-gray-200 dark:border-slate-700">
+            <h3 class="text-lg font-semibold dark:text-slate-100 mb-4">All Photos</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <div
                 v-for="photo in trip.photos"
@@ -110,7 +110,7 @@
                   :src="photo.thumbnail_url"
                   :alt="photo.caption || 'Photo'"
                   class="w-full h-full object-cover rounded border-2 transition-all"
-                  :class="selectedPhoto?.id === photo.id ? 'border-blue-500' : 'border-gray-200 group-hover:border-blue-300'"
+                  :class="selectedPhoto?.id === photo.id ? 'border-blue-500' : 'border-gray-200 dark:border-slate-700 group-hover:border-blue-300 dark:group-hover:border-blue-500'"
                 />
                 <div
                   v-if="!photo.latitude || !photo.longitude"
@@ -134,13 +134,13 @@
       <!-- Lightbox -->
       <div
         v-if="selectedPhoto"
-        class="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 bg-black bg-opacity-90 dark:bg-black dark:bg-opacity-95 z-50 flex items-center justify-center p-4"
         @click="closePhoto"
       >
         <div class="relative max-w-6xl w-full" @click.stop>
           <button
             @click="closePhoto"
-            class="absolute -top-12 right-0 text-white hover:text-gray-300 text-lg font-bold"
+            class="absolute -top-12 right-0 text-white hover:text-gray-300 dark:hover:text-slate-400 text-lg font-bold"
           >
             ✕ Close
           </button>
@@ -149,21 +149,21 @@
 
           <div class="mt-4 text-white">
             <p v-if="selectedPhoto.caption" class="text-lg font-medium mb-2">{{ selectedPhoto.caption }}</p>
-            <p class="text-sm text-gray-300">{{ formatDate(selectedPhoto.taken_at) }}</p>
+            <p class="text-sm text-gray-300 dark:text-slate-400">{{ formatDate(selectedPhoto.taken_at) }}</p>
           </div>
 
           <!-- Navigation -->
           <button
             v-if="currentPhotoIndex > 0"
             @click.stop="previousPhoto"
-            class="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-full p-3"
+            class="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 dark:bg-slate-800 dark:bg-opacity-50 dark:hover:bg-opacity-70 text-white rounded-full p-3"
           >
             ←
           </button>
           <button
             v-if="currentPhotoIndex < trip.photos.length - 1"
             @click.stop="nextPhoto"
-            class="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-full p-3"
+            class="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-30 dark:bg-slate-800 dark:bg-opacity-50 dark:hover:bg-opacity-70 text-white rounded-full p-3"
           >
             →
           </button>
