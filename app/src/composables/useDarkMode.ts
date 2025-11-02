@@ -1,4 +1,4 @@
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 
 const STORAGE_KEY = 'theme-preference'
 const DARK_CLASS = 'dark'
@@ -6,6 +6,10 @@ const DARK_CLASS = 'dark'
 // Shared state across all component instances
 const isDark = ref(false)
 const isInitialized = ref(false)
+
+// Store media query listener for cleanup
+let mediaQueryListener: ((e: MediaQueryListEvent) => void) | null = null
+let mediaQuery: MediaQueryList | null = null
 
 /**
  * Composable for managing dark mode state
@@ -42,12 +46,7 @@ export function useDarkMode() {
    */
   function applyTheme(dark: boolean) {
     if (typeof document === 'undefined') return
-
-    if (dark) {
-      document.documentElement.classList.add(DARK_CLASS)
-    } else {
-      document.documentElement.classList.remove(DARK_CLASS)
-    }
+    document.documentElement.classList.toggle(DARK_CLASS, dark)
   }
 
   /**
@@ -63,6 +62,7 @@ export function useDarkMode() {
    */
   function toggleDark() {
     isDark.value = !isDark.value
+    savePreference(isDark.value)
   }
 
   /**
@@ -70,6 +70,7 @@ export function useDarkMode() {
    */
   function setDark(value: boolean) {
     isDark.value = value
+    savePreference(isDark.value)
   }
 
   /**
@@ -91,34 +92,53 @@ export function useDarkMode() {
 
     applyTheme(isDark.value)
     isInitialized.value = true
+  }
 
-    // Watch for future changes and persist
+  // Setup system preference listener (once)
+  function setupSystemListener() {
+    if (typeof window === 'undefined' || mediaQuery) return
+
+    mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    mediaQueryListener = (e: MediaQueryListEvent) => {
+      // Only auto-update if user hasn't set a preference
+      const stored = getStoredPreference()
+      if (stored === null) {
+        isDark.value = e.matches
+      }
+    }
+    mediaQuery.addEventListener('change', mediaQueryListener)
+  }
+
+  // Cleanup listener
+  function cleanup() {
+    if (mediaQuery && mediaQueryListener) {
+      mediaQuery.removeEventListener('change', mediaQueryListener)
+    }
+  }
+
+  // Watch for changes and apply theme (only, no save)
+  // This watch is registered once at module level, not per component
+  if (!isInitialized.value) {
     watch(isDark, (newValue) => {
       applyTheme(newValue)
-      savePreference(newValue)
     })
-
-    // Listen for system preference changes (optional enhancement)
-    if (typeof window !== 'undefined') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-      mediaQuery.addEventListener('change', (e) => {
-        // Only auto-update if user hasn't set a preference
-        const stored = getStoredPreference()
-        if (stored === null) {
-          isDark.value = e.matches
-        }
-      })
-    }
   }
 
   // Initialize immediately if not in SSR context
   // This ensures the state is ready before mounting
   if (typeof window !== 'undefined' && !isInitialized.value) {
     initialize()
+    setupSystemListener()
   }
 
   // Also initialize on mount for SSR compatibility
-  onMounted(initialize)
+  onMounted(() => {
+    initialize()
+    setupSystemListener()
+  })
+
+  // Cleanup on unmount
+  onBeforeUnmount(cleanup)
 
   return {
     isDark,
