@@ -69,7 +69,7 @@
 
             <!-- Trip Info -->
             <div class="p-6">
-              <h3 class="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+              <h3 class="text-xl font-bold text-gray-900 dark:text-slate-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400">
                 {{ trip.title }}
               </h3>
               <p v-if="trip.description" class="text-gray-600 dark:text-slate-300 text-sm mb-4 line-clamp-2">

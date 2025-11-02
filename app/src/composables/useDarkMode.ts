@@ -92,6 +92,8 @@ export function useDarkMode() {
    * Priority: localStorage > system preference > default (light)
    */
   function initialize() {
+    if (isInitialized.value) return
+
     const stored = getStoredPreference()
 
     if (stored !== null) {

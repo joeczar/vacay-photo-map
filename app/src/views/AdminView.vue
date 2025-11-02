@@ -41,7 +41,7 @@
               type="text"
               required
               placeholder="Summer Vacation 2024"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="input"
             />
           </div>
 
@@ -51,7 +51,7 @@
               v-model="tripDescription"
               rows="3"
               placeholder="Tell us about your trip..."
-              class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="input"
             ></textarea>
           </div>
 
@@ -63,7 +63,7 @@
               multiple
               accept="image/*"
               @change="handleFileSelect"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="input"
             />
             <p class="mt-2 text-sm text-gray-500 dark:text-slate-400">Select multiple photos from your trip</p>
           </div>

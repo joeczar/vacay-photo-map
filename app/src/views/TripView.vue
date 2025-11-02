@@ -13,7 +13,7 @@
       <div class="text-center">
         <h2 class="text-2xl font-bold text-gray-900 dark:text-slate-100 mb-2">Trip Not Found</h2>
         <p class="text-gray-600 dark:text-slate-300 mb-4">{{ error }}</p>
-        <a href="/" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">← Back to Home</a>
+        <a href="/" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">← Back to Home</a>
       </div>
     </div>
 
@@ -24,7 +24,7 @@
         <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
           <div class="flex items-start justify-between">
             <div>
-              <a href="/" class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-2 inline-block">
+              <a href="/" class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 mb-2 inline-block">
                 ← Back to Trips
               </a>
               <h1 class="text-4xl font-bold text-gray-900 dark:text-slate-100 mb-2">{{ trip.title }}</h1>
@@ -75,7 +75,7 @@
                   <div class="relative">
                     <div
                       class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform"
-                      :class="selectedPhoto?.id === photo.id ? 'border-blue-500 border-4' : ''"
+                      :class="selectedPhoto?.id === photo.id ? 'border-primary-500 border-4' : ''"
                     >
                       <img :src="photo.thumbnail_url" :alt="photo.caption || 'Photo'" class="w-full h-full object-cover" />
                     </div>
@@ -110,7 +110,7 @@
                   :src="photo.thumbnail_url"
                   :alt="photo.caption || 'Photo'"
                   class="w-full h-full object-cover rounded border-2 transition-all"
-                  :class="selectedPhoto?.id === photo.id ? 'border-blue-500' : 'border-gray-200 dark:border-slate-700 group-hover:border-blue-300 dark:group-hover:border-blue-500'"
+                  :class="selectedPhoto?.id === photo.id ? 'border-primary-500' : 'border-gray-200 dark:border-slate-700 group-hover:border-primary-300 dark:group-hover:border-primary-500'"
                 />
                 <div
                   v-if="!photo.latitude || !photo.longitude"
