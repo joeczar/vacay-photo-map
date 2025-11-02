@@ -53,12 +53,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useDarkMode } from '@/composables/useDarkMode'
 
-const { setDark } = useDarkMode()
+const { setDark, isDark } = useDarkMode()
 
 function useSystemTheme() {
-  // Remove saved preference and use system
+  // Remove saved preference to allow system preference to take over
   localStorage.removeItem('theme-preference')
+  // Update to match current system preference without persisting
   const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  setDark(systemPrefersDark)
+  isDark.value = systemPrefersDark
 }
 </script>

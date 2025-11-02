@@ -52,6 +52,10 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import { useDarkMode } from '@/composables/useDarkMode'
+
+// Initialize dark mode on mount
+useDarkMode()
 
 const menuOpen = ref(false)
 </script>

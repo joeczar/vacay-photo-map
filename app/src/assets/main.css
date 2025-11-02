@@ -74,19 +74,3 @@
   }
 }
 
-@layer components {
-  /* Ensure Leaflet map doesn't cover shadcn overlays */
-  .leaflet-container {
-    z-index: 0 !important;
-  }
-
-  /* Leaflet popups should still appear above the map */
-  .leaflet-popup-pane {
-    z-index: 700 !important;
-  }
-
-  /* Leaflet controls should stay functional */
-  .leaflet-control-container {
-    z-index: 800 !important;
-  }
-}

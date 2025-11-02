@@ -365,3 +365,18 @@ function formatDate(dateString: string): string {
   })
 }
 </script>
+
+<style scoped>
+/* Scoped z-index management for Leaflet map to prevent covering overlays */
+:deep(.leaflet-container) {
+  z-index: 0;
+}
+
+:deep(.leaflet-popup-pane) {
+  z-index: 700;
+}
+
+:deep(.leaflet-control-container) {
+  z-index: 800;
+}
+</style>
