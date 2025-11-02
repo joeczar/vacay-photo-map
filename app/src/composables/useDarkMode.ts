@@ -12,6 +12,20 @@ let mediaQueryListener: ((e: MediaQueryListEvent) => void) | null = null
 let mediaQuery: MediaQueryList | null = null
 
 /**
+ * Reset the dark mode state (for testing)
+ * @internal
+ */
+export function _resetDarkModeState() {
+  isDark.value = false
+  isInitialized.value = false
+  if (mediaQuery && mediaQueryListener) {
+    mediaQuery.removeEventListener('change', mediaQueryListener)
+  }
+  mediaQuery = null
+  mediaQueryListener = null
+}
+
+/**
  * Composable for managing dark mode state
  *
  * Features:
@@ -78,8 +92,6 @@ export function useDarkMode() {
    * Priority: localStorage > system preference > default (light)
    */
   function initialize() {
-    if (isInitialized.value) return
-
     const stored = getStoredPreference()
 
     if (stored !== null) {
@@ -124,17 +136,12 @@ export function useDarkMode() {
     })
   }
 
-  // Initialize immediately if not in SSR context
-  // This ensures the state is ready before mounting
-  if (typeof window !== 'undefined' && !isInitialized.value) {
-    initialize()
-    setupSystemListener()
-  }
-
-  // Also initialize on mount for SSR compatibility
+  // Initialize on mount only (for both SSR and test compatibility)
   onMounted(() => {
-    initialize()
-    setupSystemListener()
+    if (!isInitialized.value) {
+      initialize()
+      setupSystemListener()
+    }
   })
 
   // Cleanup on unmount
