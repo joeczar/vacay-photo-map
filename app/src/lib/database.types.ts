@@ -1,8 +1,17 @@
 // Database types for Supabase
-// These will be generated from the database schema in Milestone 2
-// For now, we'll create placeholder types
+// These types match the schema defined in supabase-schema.sql
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
+// Type helpers for better type inference
+export type TablesInsert<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Insert']
+
+export type TablesRow<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Row']
+
+export type TablesUpdate<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Update']
 
 export interface Database {
   public: {
