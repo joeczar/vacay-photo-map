@@ -105,7 +105,7 @@
 
             <Button
                     type="submit"
-                    :disabled="!values.tripTitle || selectedFiles.length === 0 || isUploading">
+                    :disabled="!meta.valid || selectedFiles.length === 0 || isUploading">
               {{ isUploading ? 'Processing...' : 'Start Upload' }}
             </Button>
           </form>
@@ -159,7 +159,6 @@ import { Textarea } from '@/components/ui/textarea'
 // Form validation schema
 const formSchema = toTypedSchema(z.object({
   tripTitle: z.string()
-    .min(1, 'Trip title is required')
     .min(3, 'Trip title must be at least 3 characters')
     .max(100, 'Trip title must be less than 100 characters'),
   tripDescription: z.string()
@@ -167,7 +166,7 @@ const formSchema = toTypedSchema(z.object({
     .optional()
 }))
 
-const { handleSubmit, resetForm: resetVeeForm, values } = useForm({
+const { handleSubmit, resetForm: resetVeeForm, meta } = useForm({
   validationSchema: formSchema,
   initialValues: {
     tripTitle: '',
@@ -202,11 +201,6 @@ function getFilePreview(file: File): string {
 
 // Upload process - wrapped with validation
 const onSubmit = handleSubmit(async (formValues) => {
-  if (selectedFiles.value.length === 0) {
-    error.value = 'Please select at least one photo'
-    return
-  }
-
   isUploading.value = true
   currentStep.value = 2
   error.value = ''

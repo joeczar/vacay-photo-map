@@ -76,6 +76,35 @@ describe('AdminView Form Validation', () => {
     expect(uploadButton?.attributes('disabled')).toBeDefined()
   })
 
+  it('should disable upload button with invalid short title', async () => {
+    const wrapper = mount(AdminView, {
+      global: {
+        plugins: [router]
+      }
+    })
+
+    // Set invalid short title (2 chars)
+    const titleInput = wrapper.find('input[placeholder="Summer Vacation 2024"]')
+    await titleInput.setValue('ab')
+    await flushPromises()
+
+    // Add files
+    const fileInput = wrapper.find('input[type="file"]')
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [file],
+      writable: false
+    })
+    await fileInput.trigger('change')
+    await flushPromises()
+
+    // Button should be disabled
+    const buttons = wrapper.findAll('button')
+    const uploadButton = buttons.find(btn => btn.text().includes('Start Upload'))
+    expect(uploadButton).toBeDefined()
+    expect(uploadButton?.attributes('disabled')).toBeDefined()
+  })
+
   it('should enable upload button with valid short title and files', async () => {
     const wrapper = mount(AdminView, {
       global: {
