@@ -124,12 +124,21 @@ const NOUNS = [
 
 /**
  * Generates a cryptographically random integer between 0 (inclusive) and max (exclusive)
+ * Uses rejection sampling to avoid modulo bias for uniform distribution
  */
 function getRandomInt(max: number): number {
   // Use crypto.getRandomValues for cryptographic randomness
+  // The loop prevents modulo bias, ensuring a uniform distribution
   const array = new Uint32Array(1)
-  crypto.getRandomValues(array)
-  return array[0] % max
+  const maxAllowed = Math.floor(0x100000000 / max) * max
+  let value
+
+  do {
+    crypto.getRandomValues(array)
+    value = array[0]
+  } while (value >= maxAllowed)
+
+  return value % max
 }
 
 /**

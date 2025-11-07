@@ -16,10 +16,9 @@ describe('tokenGenerator', () => {
       const token2 = generateTripToken()
       const token3 = generateTripToken()
 
-      // With sufficient randomness, these should be different
-      // (could theoretically be same, but extremely unlikely)
+      // With sufficient randomness and 180k combinations, all 3 should be unique
       const tokens = new Set([token1, token2, token3])
-      expect(tokens.size).toBeGreaterThan(1)
+      expect(tokens.size).toBe(3)
     })
 
     it('should only use lowercase letters and hyphens', () => {
@@ -78,7 +77,6 @@ describe('tokenGenerator', () => {
       const combinations = getTokenCombinations()
 
       // With 50 adjectives and 60 nouns: 50 * 60 * 60 = 180,000
-      expect(combinations).toBe(50 * 60 * 60)
       expect(combinations).toBe(180000)
     })
 
