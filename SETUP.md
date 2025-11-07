@@ -7,6 +7,16 @@
 3. Copy and paste the contents of `supabase-schema.sql` into the editor
 4. Click "Run" to create the database tables
 
+## Step 1.5: Configure Supabase Authentication
+
+Follow the detailed guide in [docs/SUPABASE_AUTH_SETUP.md](./docs/SUPABASE_AUTH_SETUP.md) to:
+- Enable email authentication provider
+- Configure email templates
+- Set up redirect URLs
+- Configure auth settings
+
+This step is required for user authentication features in Milestone 2.
+
 ## Step 2: Configure Environment Variables
 
 1. Copy the environment template:

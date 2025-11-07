@@ -7,21 +7,23 @@ An interactive web application for viewing vacation photos on a map with timelin
 - **Interactive Map View**: View photos plotted on an interactive Leaflet map
 - **Timeline Visualization**: Chronological photo timeline with playback mode
 - **EXIF Extraction**: Automatic GPS and timestamp extraction from photos
-- **Password Protection**: Share trips with password-protected links
-- **WebAuthn Authentication**: Secure admin login using WebAuthn (biometric/hardware keys)
+- **Trip Protection**: Share trips with token-protected links
+- **User Authentication**: Secure email/password authentication via Supabase Auth
 - **Cloud Storage**: Images hosted on Cloudinary CDN
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Dark Mode**: Full dark mode support with smooth transitions
 
 ## Tech Stack
 
 - **Frontend**: Vue 3 (Composition API), TypeScript, Vite
-- **Styling**: TailwindCSS
+- **UI Components**: shadcn-vue (New York style)
+- **Styling**: TailwindCSS with CSS variables
 - **State Management**: Pinia
 - **Map**: Leaflet + vue3-leaflet
-- **Backend**: Supabase (PostgreSQL, Auth)
+- **Backend**: Supabase (PostgreSQL, Auth, Edge Functions)
 - **Storage**: Cloudinary
 - **Hosting**: Netlify
-- **Authentication**: WebAuthn via @simplewebauthn
+- **Authentication**: Supabase Auth (Email/Password)
 
 ## Project Structure
 
@@ -102,7 +104,12 @@ VITE_WEBAUTHN_RP_ID=localhost
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Copy your project URL and anon key to `.env`
-3. Run the database migrations (see Milestone 2 in SPEC.md)
+3. Run the database migrations:
+   - In Supabase Dashboard → SQL Editor
+   - Run the contents of `supabase-schema.sql`
+4. **Configure Authentication** (required for Milestone 2):
+   - Follow the detailed guide: [docs/SUPABASE_AUTH_SETUP.md](./docs/SUPABASE_AUTH_SETUP.md)
+   - Enable email provider, configure templates, set redirect URLs
 
 ### 5. Set Up Cloudinary
 
@@ -182,18 +189,23 @@ Make sure to set these in your Netlify dashboard:
 
 ## Database Schema
 
-See [SPEC.md](./SPEC.md#issue-21-design-and-implement-database-schema) for the complete database schema including:
+Current schema (see `supabase-schema.sql` and `supabase/migrations/`):
 
-- `trips` - Trip metadata
-- `photos` - Photo data with GPS coordinates
-- `trip_passwords` - Password protection
-- `admin_credentials` - WebAuthn credentials
+- `trips` - Trip metadata with optional access token protection
+- `photos` - Photo data with GPS coordinates and EXIF metadata
+
+Upcoming (Milestone 2+):
+
+- `user_profiles` - Extended user profile data
+- `photo_comments` - Comments on photos
+- `invites` - Admin invite system
 
 ## Security
 
-- **WebAuthn**: Admin authentication uses WebAuthn for strong, phishing-resistant authentication
-- **Password Hashing**: Trip passwords are hashed before storage
+- **Supabase Auth**: User authentication via Supabase Auth with email/password
+- **Token Hashing**: Trip access tokens are bcrypt-hashed before storage
 - **RLS Policies**: Row-level security in Supabase prevents unauthorized data access
+- **Edge Functions**: Backend validation logic runs in Supabase Edge Functions
 - **Environment Variables**: Sensitive credentials stored in environment variables
 - **HTTPS**: All production traffic encrypted via Netlify
 
