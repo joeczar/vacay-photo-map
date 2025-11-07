@@ -73,8 +73,8 @@ This application uses Supabase Auth with email/password authentication. Future m
 
    For production, also add:
    ```
-   https://your-production-domain.com/**
-   https://your-production-domain.com/auth/callback
+   https://vacay-photo-map.netlify.app/**
+   https://vacay-photo-map.netlify.app/auth/callback
    ```
 
 4. **Rate Limiting (Optional)**
