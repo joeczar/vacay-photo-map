@@ -20,7 +20,7 @@
  *
  * @example
  * const token = generateTripToken()
- * // Returns: "np8xK2mV7qR4sL9wT3fH6gC1bN5pX0yZaB2dE4fG"
+ * // Returns: "4iWzVn-rN1pC0mYqXzBwE8sF7jH6gA3dK9lO2hJ5kUo"
  */
 export function generateTripToken(): string {
   // Generate 32 random bytes (256 bits of entropy)
@@ -68,10 +68,10 @@ function base64UrlEncode(buffer: Uint8Array): string {
  * - Total atoms in observable universe: ~10^80
  * - Collision probability is astronomically low
  *
- * @returns The number of possible unique tokens
+ * @returns The number of possible unique tokens (approximately 1.16e77, exceeds Number.MAX_SAFE_INTEGER)
  */
 export function getTokenCombinations(): number {
-  // 2^256 is too large for JavaScript Number type
-  // Return a string representation for documentation purposes
+  // 2^256 exceeds Number.MAX_SAFE_INTEGER, so exact integer precision is lost.
+  // Returns approximate value of 1.157920892373162e+77 for documentation purposes.
   return Math.pow(2, 256)
 }

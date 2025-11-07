@@ -106,7 +106,7 @@ Based on our discussion and architectural decision (Issue #39):
 - Trips have `is_public` flag (boolean)
 - Private trips have `access_token_hash` (bcrypt)
 - Tokens are cryptographically secure 43-character strings (base64url encoded)
-- Example: `np8xK2mV7qR4sL9wT3fH6gC1bN5pX0yZaB2dE4fG`
+- Example: `4iWzVn-rN1pC0mYqXzBwE8sF7jH6gA3dK9lO2hJ5kUo`
 - **Admins always bypass token checks**
 
 **Backend: Supabase Edge Function**
@@ -139,7 +139,7 @@ export default async (req: Request) => {
 ```
 
 **Frontend: Share Link Flow**
-- Admin generates share link: `/trip/california-roadtrip?token=np8xK2mV7qR4sL9wT3fH6gC1bN5p`
+- Admin generates share link: `/trip/california-roadtrip?token=4iWzVn-rN1pC0mYqXzBwE8sF7jH6gA3dK9lO2hJ5kUo`
 - User clicks link → Token auto-validated on page load
 - Valid token → Trip loads immediately
 - Invalid/missing token → Show "Invalid or expired link" error message
