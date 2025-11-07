@@ -86,6 +86,7 @@ describe('AdminView Form Validation', () => {
     // Set invalid short title (2 chars)
     const titleInput = wrapper.find('input[placeholder="Summer Vacation 2024"]')
     await titleInput.setValue('ab')
+    await titleInput.trigger('blur') // Trigger validation
     await flushPromises()
 
     // Add files

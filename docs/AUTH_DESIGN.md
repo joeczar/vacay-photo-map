@@ -99,20 +99,23 @@ This document outlines the authentication and authorization strategy for the Vac
 ### The Core Question
 **How do you control who can view specific trips?**
 
-### The Agreed Approach: Token Protection
-Based on our discussion:
+### The Agreed Approach: Share Link Protection
+Based on our discussion and architectural decision (Issue #39):
 
 **Architecture:**
 - Trips have `is_public` flag (boolean)
 - Private trips have `access_token_hash` (bcrypt)
-- Tokens are 3 random words (e.g., `mountain-grateful-coffee`)
+- Tokens are cryptographically secure 43-character strings (base64url encoded)
+- Example: `4iWzVn-rN1pC0mYqXzBwE8sF7jH6gA3dK9lO2hJ5kUo`
 - **Admins always bypass token checks**
 
 **Backend: Supabase Edge Function**
 ```typescript
 // functions/get-trip/index.ts
 export default async (req: Request) => {
-  const { slug, token } = await req.json()
+  const url = new URL(req.url)
+  const slug = url.searchParams.get('slug')
+  const token = url.searchParams.get('token')
 
   // Check if user is authenticated admin
   const user = await getUser(req)
@@ -135,17 +138,20 @@ export default async (req: Request) => {
 }
 ```
 
-**Frontend: Token Entry**
-- `/trip/california-roadtrip` without valid token → Show token entry form
-- User enters token → Validates → URL becomes `/trip/california-roadtrip?token=mountain-grateful-coffee`
-- Subsequent visits with token in URL work automatically
+**Frontend: Share Link Flow**
+- Admin generates share link: `/trip/california-roadtrip?token=4iWzVn-rN1pC0mYqXzBwE8sF7jH6gA3dK9lO2hJ5kUo`
+- User clicks link → Token auto-validated on page load
+- Valid token → Trip loads immediately
+- Invalid/missing token → Show "Invalid or expired link" error message
+- No manual entry form needed (simpler UX than manual token entry)
 
 **Admin UI: Trip Protection Management**
 - Offcanvas/Sheet in AdminView (or TripView when authenticated)
 - Public/Private toggle
-- Auto-generate 3-word token button
-- Copy shareable URL button (with accessible feedback)
-- Regenerate token to revoke access
+- "Generate Share Link" button (creates token, hashes it, builds URL)
+- Copy share link button (with accessible feedback)
+- **Note:** Admin never sees plaintext token (immediately hashed on generation)
+- Regenerate link to revoke access (invalidates old token)
 
 ---
 
