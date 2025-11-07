@@ -26,6 +26,7 @@ export interface Database {
           updated_at: string
           is_public: boolean
           slug: string
+          access_token_hash: string | null
         }
         Insert: {
           id?: string
@@ -36,6 +37,7 @@ export interface Database {
           updated_at?: string
           is_public?: boolean
           slug: string
+          access_token_hash?: string | null
         }
         Update: {
           id?: string
@@ -46,6 +48,7 @@ export interface Database {
           updated_at?: string
           is_public?: boolean
           slug?: string
+          access_token_hash?: string | null
         }
       }
       photos: {
@@ -86,46 +89,6 @@ export interface Database {
           taken_at?: string
           caption?: string | null
           album?: string | null
-          created_at?: string
-        }
-      }
-      trip_passwords: {
-        Row: {
-          trip_id: string
-          password_hash: string
-          created_at: string
-        }
-        Insert: {
-          trip_id: string
-          password_hash: string
-          created_at?: string
-        }
-        Update: {
-          trip_id?: string
-          password_hash?: string
-          created_at?: string
-        }
-      }
-      admin_credentials: {
-        Row: {
-          id: string
-          credential_id: string
-          public_key: string
-          counter: number
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          credential_id: string
-          public_key: string
-          counter?: number
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          credential_id?: string
-          public_key?: string
-          counter?: number
           created_at?: string
         }
       }
