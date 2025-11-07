@@ -50,6 +50,7 @@ dist-ssr
 
 # Netlify
 .netlify
+NETLIFY_DEPLOYMENT_INFO.md
 
 # OS
 Thumbs.db
