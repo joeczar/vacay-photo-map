@@ -16,7 +16,6 @@ describe('tokenGenerator', () => {
       const token2 = generateTripToken()
       const token3 = generateTripToken()
 
-      // With sufficient randomness and 180k combinations, all 3 should be unique
       const tokens = new Set([token1, token2, token3])
       expect(tokens.size).toBe(3)
     })
@@ -31,8 +30,6 @@ describe('tokenGenerator', () => {
     it('should generate tokens of reasonable length', () => {
       for (let i = 0; i < 10; i++) {
         const token = generateTripToken()
-        // Each word is at least 3 chars, plus 2 hyphens = minimum 11 chars
-        // Most words are 5-8 chars, so typical range is 17-26 chars
         expect(token.length).toBeGreaterThanOrEqual(11)
         expect(token.length).toBeLessThanOrEqual(50)
       }
@@ -55,8 +52,6 @@ describe('tokenGenerator', () => {
         tokens.add(generateTripToken())
       }
 
-      // With 50 adjectives and 60 nouns, we have 180,000 combinations
-      // Generating 100 tokens should yield close to 100 unique ones
       expect(tokens.size).toBeGreaterThan(iterations * 0.95)
     })
 
@@ -64,7 +59,6 @@ describe('tokenGenerator', () => {
       const token = generateTripToken()
       const parts = token.split('-')
 
-      // Each part should be a recognizable English word (not random chars)
       parts.forEach(word => {
         expect(word.length).toBeGreaterThan(2)
         expect(word.length).toBeLessThan(15)
@@ -76,15 +70,12 @@ describe('tokenGenerator', () => {
     it('should return the total number of possible combinations', () => {
       const combinations = getTokenCombinations()
 
-      // With 50 adjectives and 60 nouns: 50 * 60 * 60 = 180,000
       expect(combinations).toBe(180000)
     })
 
     it('should indicate sufficient security for trip tokens', () => {
       const combinations = getTokenCombinations()
 
-      // 180,000 combinations is sufficient for trip protection
-      // (not meant to be military-grade, just prevent casual access)
       expect(combinations).toBeGreaterThan(100000)
     })
   })
