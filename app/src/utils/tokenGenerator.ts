@@ -1,161 +1,77 @@
 /**
  * Token Generator Utility
- * Generates human-readable 3-word access tokens for trip protection
- * Format: adjective-noun-noun (e.g., "bright-mountain-coffee")
+ * Generates cryptographically secure random tokens for trip protection
+ * Tokens are URL-safe and suitable for use in share links
  */
-
-// Curated list of positive, easy-to-remember adjectives
-const ADJECTIVES = [
-  'bright',
-  'calm',
-  'clever',
-  'cool',
-  'cozy',
-  'eager',
-  'easy',
-  'fair',
-  'fancy',
-  'fast',
-  'fresh',
-  'gentle',
-  'glad',
-  'golden',
-  'grand',
-  'grateful',
-  'great',
-  'green',
-  'happy',
-  'kind',
-  'light',
-  'lucky',
-  'merry',
-  'mighty',
-  'neat',
-  'nice',
-  'noble',
-  'perfect',
-  'proud',
-  'quick',
-  'quiet',
-  'rapid',
-  'rich',
-  'safe',
-  'sharp',
-  'silver',
-  'simple',
-  'smart',
-  'smooth',
-  'soft',
-  'solid',
-  'speedy',
-  'sunny',
-  'super',
-  'swift',
-  'tall',
-  'warm',
-  'wise',
-  'witty',
-  'young',
-] as const
-
-// Curated list of common, concrete nouns (easy to visualize and remember)
-const NOUNS = [
-  'anchor',
-  'apple',
-  'autumn',
-  'beach',
-  'bridge',
-  'castle',
-  'cloud',
-  'coast',
-  'coffee',
-  'coral',
-  'creek',
-  'dawn',
-  'desert',
-  'diamond',
-  'eagle',
-  'echo',
-  'field',
-  'flame',
-  'forest',
-  'garden',
-  'glacier',
-  'harbor',
-  'horizon',
-  'island',
-  'journey',
-  'lake',
-  'meadow',
-  'moon',
-  'morning',
-  'mountain',
-  'ocean',
-  'palace',
-  'pearl',
-  'peak',
-  'pine',
-  'planet',
-  'prairie',
-  'rain',
-  'rainbow',
-  'river',
-  'shadow',
-  'spring',
-  'star',
-  'storm',
-  'stream',
-  'summer',
-  'summit',
-  'sunrise',
-  'sunset',
-  'thunder',
-  'tiger',
-  'tower',
-  'trail',
-  'valley',
-  'voyage',
-  'water',
-  'wave',
-  'willow',
-  'winter',
-  'wonder',
-] as const
 
 /**
- * Generates a cryptographically random integer between 0 (inclusive) and max (exclusive)
- * Uses rejection sampling to avoid modulo bias for uniform distribution
+ * Generates a cryptographically secure random token for trip access protection
+ *
+ * The token is generated using crypto.getRandomValues() and encoded in base64url format,
+ * making it URL-safe for use in share links (e.g., /trip/slug?token=abc123...)
+ *
+ * Token properties:
+ * - 32 bytes of entropy (256 bits)
+ * - 43 characters when base64url encoded
+ * - URL-safe (contains only: A-Z, a-z, 0-9, -, _)
+ * - Cryptographically secure random generation
+ *
+ * @returns A URL-safe random token string (43 characters)
+ *
+ * @example
+ * const token = generateTripToken()
+ * // Returns: "np8xK2mV7qR4sL9wT3fH6gC1bN5pX0yZaB2dE4fG"
  */
-function getRandomInt(max: number): number {
-  const array = new Uint32Array(1)
-  const maxAllowed = Math.floor(0x100000000 / max) * max
-  let value
+export function generateTripToken(): string {
+  // Generate 32 random bytes (256 bits of entropy)
+  const buffer = new Uint8Array(32)
+  crypto.getRandomValues(buffer)
 
-  do {
-    crypto.getRandomValues(array)
-    value = array[0]
-  } while (value >= maxAllowed)
-
-  return value % max
+  // Convert to base64url format (URL-safe)
+  return base64UrlEncode(buffer)
 }
 
 /**
- * Generates a random 3-word token in the format: adjective-noun-noun
- * Example: "bright-mountain-coffee"
+ * Encodes a Uint8Array to base64url format (URL-safe base64)
  *
- * @returns A string token consisting of 3 words separated by hyphens
+ * Standard base64 uses +, /, and = which are not URL-safe
+ * base64url uses -, _, and no padding (=)
+ *
+ * @param buffer - The byte array to encode
+ * @returns base64url encoded string
  */
-export function generateTripToken(): string {
-  const adjective = ADJECTIVES[getRandomInt(ADJECTIVES.length)]
-  const noun1 = NOUNS[getRandomInt(NOUNS.length)]
-  const noun2 = NOUNS[getRandomInt(NOUNS.length)]
+function base64UrlEncode(buffer: Uint8Array): string {
+  // Convert buffer to binary string
+  let binary = ''
+  for (let i = 0; i < buffer.length; i++) {
+    binary += String.fromCharCode(buffer[i])
+  }
 
-  return `${adjective}-${noun1}-${noun2}`
+  // Encode to base64
+  const base64 = btoa(binary)
+
+  // Convert to base64url (replace +/= with URL-safe characters)
+  return base64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '')
 }
 
 /**
  * Calculate the total number of possible token combinations
+ *
+ * With 32 bytes (256 bits) of entropy:
+ * - Possible combinations: 2^256
+ * - Approximate: 1.16 × 10^77 combinations
+ *
+ * For comparison:
+ * - Total atoms in observable universe: ~10^80
+ * - Collision probability is astronomically low
+ *
+ * @returns The number of possible unique tokens
  */
 export function getTokenCombinations(): number {
-  return ADJECTIVES.length * NOUNS.length * NOUNS.length
+  // 2^256 is too large for JavaScript Number type
+  // Return a string representation for documentation purposes
+  return Math.pow(2, 256)
 }

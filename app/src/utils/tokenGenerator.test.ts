@@ -3,12 +3,21 @@ import { generateTripToken, getTokenCombinations } from './tokenGenerator'
 
 describe('tokenGenerator', () => {
   describe('generateTripToken', () => {
-    it('should generate a token with 3 words separated by hyphens', () => {
+    it('should generate a token with exactly 43 characters', () => {
       const token = generateTripToken()
-      const parts = token.split('-')
+      expect(token).toHaveLength(43)
+    })
 
-      expect(parts).toHaveLength(3)
-      expect(token).toMatch(/^[a-z]+-[a-z]+-[a-z]+$/)
+    it('should generate URL-safe tokens (base64url format)', () => {
+      for (let i = 0; i < 10; i++) {
+        const token = generateTripToken()
+        // base64url uses: A-Z, a-z, 0-9, -, _
+        expect(token).toMatch(/^[A-Za-z0-9_-]+$/)
+        // Should not contain standard base64 characters: +, /, =
+        expect(token).not.toContain('+')
+        expect(token).not.toContain('/')
+        expect(token).not.toContain('=')
+      }
     })
 
     it('should generate different tokens on subsequent calls', () => {
@@ -20,22 +29,7 @@ describe('tokenGenerator', () => {
       expect(tokens.size).toBe(3)
     })
 
-    it('should only use lowercase letters and hyphens', () => {
-      for (let i = 0; i < 10; i++) {
-        const token = generateTripToken()
-        expect(token).toMatch(/^[a-z-]+$/)
-      }
-    })
-
-    it('should generate tokens of reasonable length', () => {
-      for (let i = 0; i < 10; i++) {
-        const token = generateTripToken()
-        expect(token.length).toBeGreaterThanOrEqual(11)
-        expect(token.length).toBeLessThanOrEqual(50)
-      }
-    })
-
-    it('should use crypto.getRandomValues for randomness', () => {
+    it('should use crypto.getRandomValues for cryptographic randomness', () => {
       const spy = vi.spyOn(crypto, 'getRandomValues')
 
       generateTripToken()
@@ -44,39 +38,69 @@ describe('tokenGenerator', () => {
       spy.mockRestore()
     })
 
-    it('should generate many unique tokens', () => {
+    it('should generate highly unique tokens with no collisions', () => {
       const tokens = new Set<string>()
-      const iterations = 100
+      const iterations = 1000
 
       for (let i = 0; i < iterations; i++) {
         tokens.add(generateTripToken())
       }
 
-      expect(tokens.size).toBeGreaterThan(iterations * 0.95)
+      // With 256 bits of entropy, collisions are astronomically unlikely
+      expect(tokens.size).toBe(iterations)
     })
 
-    it('should generate memorable tokens with real words', () => {
-      const token = generateTripToken()
-      const parts = token.split('-')
+    it('should have consistent length across many generations', () => {
+      const lengths = new Set<number>()
 
-      parts.forEach(word => {
-        expect(word.length).toBeGreaterThan(2)
-        expect(word.length).toBeLessThan(15)
-      })
+      for (let i = 0; i < 100; i++) {
+        lengths.add(generateTripToken().length)
+      }
+
+      // All tokens should be exactly 43 characters
+      expect(lengths.size).toBe(1)
+      expect(lengths.has(43)).toBe(true)
+    })
+
+    it('should produce tokens suitable for URLs', () => {
+      const token = generateTripToken()
+      const url = `https://example.com/trip/slug?token=${token}`
+
+      // Should not need URL encoding
+      expect(encodeURIComponent(token)).toBe(token)
+
+      // Should be parseable from URL
+      const parsed = new URL(url)
+      expect(parsed.searchParams.get('token')).toBe(token)
+    })
+
+    it('should have high entropy distribution', () => {
+      // Generate multiple tokens and verify character distribution
+      const tokens = Array.from({ length: 100 }, () => generateTripToken())
+      const allChars = tokens.join('')
+
+      // Count unique characters used
+      const uniqueChars = new Set(allChars)
+
+      // base64url alphabet has 64 characters (A-Z, a-z, 0-9, -, _)
+      // With enough samples, we should see most of the alphabet
+      expect(uniqueChars.size).toBeGreaterThan(50)
     })
   })
 
   describe('getTokenCombinations', () => {
-    it('should return the total number of possible combinations', () => {
+    it('should return an astronomically large number', () => {
       const combinations = getTokenCombinations()
 
-      expect(combinations).toBe(180000)
+      // 2^256 = approximately 1.16 × 10^77
+      expect(combinations).toBeGreaterThan(1e77)
     })
 
-    it('should indicate sufficient security for trip tokens', () => {
+    it('should indicate extreme security for trip tokens', () => {
       const combinations = getTokenCombinations()
 
-      expect(combinations).toBeGreaterThan(100000)
+      // With 256 bits of entropy, this is cryptographically secure
+      expect(combinations).toBeGreaterThan(Number.MAX_SAFE_INTEGER)
     })
   })
 })
