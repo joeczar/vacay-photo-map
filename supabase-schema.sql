@@ -25,6 +25,7 @@ BEGIN
     FROM information_schema.columns
     WHERE table_name = 'trips'
     AND column_name = 'access_token_hash'
+    AND table_schema = 'public'
   ) THEN
     ALTER TABLE trips ADD COLUMN access_token_hash TEXT;
     COMMENT ON COLUMN trips.access_token_hash IS 'Bcrypt hash of the access token for private trips. NULL for public trips.';
@@ -73,14 +74,23 @@ END $$;
 
 DO $$
 BEGIN
+  -- Drop the old insecure policy if it exists
+  DROP POLICY IF EXISTS "Photos are viewable by everyone" ON photos;
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE tablename = 'photos'
-    AND policyname = 'Photos are viewable by everyone'
+    AND policyname = 'Photos of public trips are viewable'
   ) THEN
-    CREATE POLICY "Photos are viewable by everyone"
+    CREATE POLICY "Photos of public trips are viewable"
       ON photos FOR SELECT
-      USING (true);
+      USING (
+        EXISTS (
+          SELECT 1 FROM trips
+          WHERE trips.id = photos.trip_id
+          AND trips.is_public = true
+        )
+      );
   END IF;
 END $$;
 
