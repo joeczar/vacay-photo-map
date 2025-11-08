@@ -52,5 +52,8 @@ dist-ssr
 .netlify
 NETLIFY_DEPLOYMENT_INFO.md
 
+# Supabase
+supabase/.temp/
+
 # OS
 Thumbs.db
