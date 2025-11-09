@@ -258,7 +258,7 @@ onMounted(async () => {
     console.error('Error loading trip:', err)
 
     // Handle 401 Unauthorized specifically
-    if (err instanceof Error && 'status' in err && (err as any).status === 401) {
+    if (err instanceof Error && 'status' in err && (err as { status: number }).status === 401) {
       error.value = 'This trip is private. Please use the link provided by the trip owner.'
     } else {
       error.value = 'Failed to load trip'
