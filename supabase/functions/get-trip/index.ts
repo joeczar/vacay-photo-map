@@ -23,9 +23,6 @@ interface Trip {
   slug: string;
   title: string;
   description: string | null;
-  location: string | null;
-  start_date: string;
-  end_date: string;
   is_public: boolean;
   access_token_hash: string | null;
   cover_photo_url: string | null;
@@ -39,13 +36,10 @@ interface Photo {
   cloudinary_public_id: string;
   url: string;
   thumbnail_url: string;
-  width: number;
-  height: number;
   latitude: number | null;
   longitude: number | null;
   taken_at: string;
-  camera_make: string | null;
-  camera_model: string | null;
+  caption: string | null;
   created_at: string;
 }
 
