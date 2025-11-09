@@ -38,34 +38,69 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
 }
 
 /**
- * Get a trip by slug with all photos
- * Note: Type assertion required due to Supabase-js v2.39 type inference limitations
+ * Get a trip by slug with all photos via Edge Function
+ * Handles access control for public and protected trips
+ * @param slug - Trip slug identifier
+ * @param token - Optional access token for protected trips
+ * @returns Trip with photos or null if not found/unauthorized
+ * @throws Error with status code for proper error handling
  */
-export async function getTripBySlug(slug: string): Promise<(Trip & { photos: Photo[] }) | null> {
-  const tripResult = (await supabase.from('trips').select('*').eq('slug', slug).single()) as {
-    data: Trip | null
-    error: unknown
+export async function getTripBySlug(
+  slug: string,
+  token?: string
+): Promise<(Trip & { photos: Photo[] }) | null> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+
+  if (!supabaseUrl) {
+    throw new Error('Missing VITE_SUPABASE_URL environment variable')
   }
 
-  if (tripResult.error) return null
-  if (!tripResult.data) return null
-
-  const trip = tripResult.data
-
-  const photosResult = (await supabase
-    .from('photos')
-    .select('*')
-    .eq('trip_id', trip.id)
-    .order('taken_at', { ascending: true })) as {
-    data: Photo[] | null
-    error: unknown
+  // Build URL with query parameters
+  const url = new URL(`${supabaseUrl}/functions/v1/get-trip`)
+  url.searchParams.set('slug', slug)
+  if (token) {
+    url.searchParams.set('token', token)
   }
 
-  if (photosResult.error) throw photosResult.error
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        // No Authorization header needed - using query params for token
+      },
+    })
 
-  return {
-    ...trip,
-    photos: photosResult.data || []
+    // Handle unauthorized access (missing/invalid token)
+    if (response.status === 401) {
+      const error = new Error('Unauthorized') as Error & { status: number }
+      error.status = 401
+      throw error
+    }
+
+    // Handle not found
+    if (response.status === 404) {
+      return null
+    }
+
+    // Handle other errors
+    if (!response.ok) {
+      const error = new Error(`HTTP error ${response.status}`) as Error & { status: number }
+      error.status = response.status
+      throw error
+    }
+
+    const trip = await response.json()
+    return trip as (Trip & { photos: Photo[] })
+  } catch (error) {
+    // Re-throw errors with status codes for proper handling in TripView
+    if (error instanceof Error && 'status' in error) {
+      throw error
+    }
+
+    // Network or other errors
+    console.error('Error fetching trip:', error)
+    return null
   }
 }
 

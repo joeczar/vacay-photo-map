@@ -233,6 +233,7 @@ type Photo = Database['public']['Tables']['photos']['Row']
 const route = useRoute()
 const router = useRouter()
 const slug = route.params.slug as string
+const token = route.query.token as string | undefined
 
 // State
 const trip = ref<(Trip & { photos: Photo[] }) | null>(null)
@@ -247,7 +248,7 @@ const deleteDialogOpen = ref(false)
 // Load trip data
 onMounted(async () => {
   try {
-    const data = await getTripBySlug(slug)
+    const data = await getTripBySlug(slug, token)
     if (!data) {
       error.value = 'Trip not found'
     } else {
@@ -255,7 +256,13 @@ onMounted(async () => {
     }
   } catch (err) {
     console.error('Error loading trip:', err)
-    error.value = 'Failed to load trip'
+
+    // Handle 401 Unauthorized specifically
+    if (err instanceof Error && 'status' in err && (err as any).status === 401) {
+      error.value = 'This trip is private. Please use the link provided by the trip owner.'
+    } else {
+      error.value = 'Failed to load trip'
+    }
   } finally {
     loading.value = false
   }
