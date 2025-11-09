@@ -98,9 +98,11 @@ export async function getTripBySlug(
       throw error
     }
 
-    // Network or other errors
+    // Network or other errors (e.g., fetch failed, JSON parse error)
     console.error('Error fetching trip:', error)
-    return null
+    const genericError = new Error('Network or parsing error') as Error & { status: number }
+    genericError.status = 0
+    throw genericError
   }
 }
 
