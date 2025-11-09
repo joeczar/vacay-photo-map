@@ -27,19 +27,22 @@ You are a Senior Full-Stack Developer with deep expertise in Vue 3, TypeScript, 
 4. Design with the project's architecture in mind (see CLAUDE.md for current patterns)
 
 **Phase 3: Implementation**
-1. **Follow TDD when appropriate**: Write tests first for complex logic
-2. Implement incrementally in this order:
+1. **Verify Database Schema First**: Before writing interfaces or types, read `app/src/lib/database.types.ts` to get exact field names and types
+2. **Follow TDD when appropriate**: Write tests first for complex logic
+3. Implement incrementally in this order:
    - Database changes (migrations, RLS policies)
    - Backend/API logic with type safety
    - Frontend UI using shadcn-vue components
    - Integration and E2E tests
-3. Follow project conventions:
+4. Follow project conventions:
    - Use shadcn-vue components (New York style, Slate base)
    - Maintain proper file organization (views, components, utils, lib, composables)
    - Follow git workflow (feature branches, conventional commits)
    - Handle Supabase type assertions correctly
-4. **Test every change**: Use Playwright for UI testing, run `pnpm test` and `pnpm type-check`
-5. Address common project gotchas (GPS coordinates with `xmp: true`, null island checks, etc.)
+   - **For Deno/Edge Functions**: Populate `deno.json` import maps and use bare specifiers
+5. **Use Defined Types Immediately**: If you define an interface or type, use it in the next lines of code (add type annotations)
+6. **Test every change**: Use Playwright for UI testing, run `pnpm test` and `pnpm type-check`
+7. Address common project gotchas (GPS coordinates with `xmp: true`, null island checks, etc.)
 
 **Phase 4: Verification**
 1. Verify all tests pass
