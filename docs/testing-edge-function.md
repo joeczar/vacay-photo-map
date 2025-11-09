@@ -117,11 +117,8 @@ Successful responses match the format of the existing `getTripBySlug()` function
 {
   "id": "uuid",
   "slug": "trip-slug",
-  "name": "Trip Name",
+  "title": "Trip Name",
   "description": "Trip description",
-  "location": "Location",
-  "start_date": "2025-01-01",
-  "end_date": "2025-01-10",
   "is_public": false,
   "access_token_hash": "bcrypt-hash",
   "cover_photo_url": "https://...",
@@ -132,15 +129,13 @@ Successful responses match the format of the existing `getTripBySlug()` function
       "id": "uuid",
       "trip_id": "uuid",
       "cloudinary_public_id": "...",
-      "cloudinary_url": "https://...",
+      "url": "https://...",
       "thumbnail_url": "https://...",
-      "width": 1920,
-      "height": 1080,
       "latitude": 37.7749,
       "longitude": -122.4194,
       "taken_at": "2025-01-01T12:00:00.000Z",
-      "camera_make": "Apple",
-      "camera_model": "iPhone 15 Pro",
+      "caption": null,
+      "album": null,
       "created_at": "2025-01-01T00:00:00.000Z"
     }
   ]

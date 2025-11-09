@@ -96,8 +96,8 @@ serve(async (req: Request) => {
 
   // 5. Handle trip not found
   if (error || !trip) {
-    return new Response(JSON.stringify({ error: 'Trip not found' }), {
-      status: 404,
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
       headers: { 'Content-Type': 'application/json' }
     })
   }
@@ -122,7 +122,7 @@ serve(async (req: Request) => {
   const isValid = await bcrypt.compare(token, trip.access_token_hash)
 
   if (!isValid) {
-    return new Response(JSON.stringify({ error: 'Invalid token' }), {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
     })

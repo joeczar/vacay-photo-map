@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
       `
       )
       .eq('slug', slug)
-      .single();
+      .single<TripWithPhotos>();
 
     // Handle errors - use generic "Unauthorized" for security
     // This prevents information leakage about trip existence
