@@ -1,7 +1,7 @@
 // Setup type definitions for built-in Supabase Runtime APIs
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'jsr:@supabase/supabase-js@2';
-import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts';
+import '@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from '@supabase/supabase-js';
+import * as bcrypt from 'bcrypt';
 
 // CORS headers for frontend access
 const corsHeaders = {
