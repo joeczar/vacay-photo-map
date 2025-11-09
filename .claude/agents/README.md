@@ -8,6 +8,7 @@ This project uses a hybrid multi-agent system optimized for both simplicity and 
 Planning/Implementation (Sequential - Keep Simple)
 ├── feature-planner       → Analyze issues, create implementation plans
 └── feature-implementer   → Research, design, build, verify
+    ├── Can delegate to: test-writer, doc-writer, ui-polisher
 
 PR Review (Parallel - Optimize for Speed)
 ├── pr-manager (orchestrator)  → Coordinates parallel validation
@@ -16,6 +17,11 @@ PR Review (Parallel - Optimize for Speed)
     ├── doc-syncer            → Documentation sync
     ├── test-verifier         → Test coverage & execution
     └── code-reviewer         → Readability & best practices
+
+Utility Agents (Specialized - Use for Focused Tasks)
+├── test-writer           → Comprehensive Playwright test creation
+├── doc-writer           → Technical documentation (deployment, API, architecture)
+└── ui-polisher          → UI polish (responsive, animations, loading states)
 ```
 
 ## Design Principles
@@ -96,6 +102,26 @@ Each validator agent:
 - Focus: Self-documenting code, simplicity, conventions
 - Checks compliance with CLAUDE.md patterns
 
+### Utility Agents
+
+**test-writer** (Specialized Utility)
+- Writes comprehensive Playwright tests for UI features
+- Perfect for test-heavy issues like #35 (Playwright tests)
+- Includes test templates, best practices, reliability patterns
+- Can be used standalone or for specific test needs
+
+**doc-writer** (Specialized Utility)
+- Creates technical documentation (deployment, API, architecture)
+- Perfect for doc-heavy issues like #43 (deployment docs)
+- Includes templates for deployment guides, API docs, feature guides
+- Ensures docs are clear, accurate, and maintainable
+
+**ui-polisher** (Specialized Utility)
+- Handles UI polish tasks (responsive, animations, loading states)
+- Perfect for polish-heavy issues like #21 (UI improvements)
+- Uses shadcn-vue components, tests with Playwright
+- Focuses on user experience and visual refinement
+
 ## Usage Examples
 
 ### Planning a Feature
@@ -131,6 +157,30 @@ User: "Check if my types match the database"
 → Gets focused validation in < 30 seconds
 ```
 
+### Writing Tests (Utility Agent)
+
+```
+User: "Write Playwright tests for issue #35"
+→ Use test-writer agent
+→ Gets comprehensive E2E tests with best practices
+```
+
+### Creating Documentation (Utility Agent)
+
+```
+User: "Write deployment docs for issue #43"
+→ Use doc-writer agent
+→ Gets structured docs with examples and troubleshooting
+```
+
+### UI Polish (Utility Agent)
+
+```
+User: "Fix responsive issues for issue #21"
+→ Use ui-polisher agent
+→ Gets mobile/tablet/desktop improvements + tests
+```
+
 ## Performance Characteristics
 
 | Agent | Type | Latency | Token Usage | When to Use |
@@ -143,6 +193,9 @@ User: "Check if my types match the database"
 | doc-syncer | Worker | 30-45 sec | Low | Verify docs |
 | test-verifier | Worker | 45-60 sec | Medium | Check tests |
 | code-reviewer | Worker | 30-45 sec | Medium | Code quality |
+| test-writer | Utility | 3-7 min | Medium | Test-heavy issues (#35) |
+| doc-writer | Utility | 3-6 min | Medium | Doc-heavy issues (#43) |
+| ui-polisher | Utility | 4-8 min | Medium-High | UI polish issues (#21) |
 
 ## Why This Architecture?
 
@@ -186,16 +239,42 @@ This architecture addresses issues found in PR #45:
 - Validators are reusable (can run standalone)
 - Easier to maintain (single responsibility)
 
+## Utility Agents
+
+Based on analysis of 24 open issues, we identified that ~29% of work is parallelizable (test-writing, documentation, UI polish). Rather than parallelize the implementer (which would duplicate planning research), we created specialized utility agents:
+
+**test-writer** - Writes comprehensive Playwright tests
+- Use for: Test-heavy issues like #35 (Playwright tests for all views)
+- Provides: Test templates, best practices, reliability patterns
+- Can run: Standalone or called by implementer after feature completion
+
+**doc-writer** - Creates technical documentation
+- Use for: Doc-heavy issues like #43 (deployment documentation)
+- Provides: Deployment guides, API docs, architecture docs with templates
+- Can run: Standalone or called by implementer for feature docs
+
+**ui-polisher** - Handles UI polish and refinement
+- Use for: Polish-heavy issues like #21 (UI improvements)
+- Provides: Responsive fixes, animations, loading states, accessibility
+- Can run: Standalone for focused polish work
+
+**Why Utility Agents Work:**
+- Focused expertise (testing, docs, UI polish)
+- Don't duplicate planning research (implementer already has context)
+- Parallelizable within their domain (test-writer can test multiple views in parallel)
+- Reusable across issues
+- Lower coordination complexity than breaking down implementer
+
 ## Future Expansion
 
 **Easy to add:**
-- New validator to pr-manager (security-checker, performance-analyzer)
+- New validators to pr-manager (security-checker, performance-analyzer)
+- New utility agents (migration-helper, refactoring-assistant)
 - Specialized planning agents (milestone-strategist)
-- Domain-specific implementers (api-builder, ui-builder)
 
 **Architecture supports:**
-- Parallel execution (already implemented)
-- Standalone utility agents (workers can run directly)
+- Parallel execution (already implemented in pr-manager)
+- Standalone utility agents (all can run directly)
 - Clear responsibilities (single-purpose agents)
 
 ## Success Metrics
