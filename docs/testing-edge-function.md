@@ -145,7 +145,7 @@ Successful responses match the format of the existing `getTripBySlug()` function
 ## Next Steps
 
 After verifying the Edge Function works:
-1. Issue #32 - Update frontend to use Edge Function
+1. ✅ Issue #32 - Frontend updated to use Edge Function (completed)
 2. Issue #33 - Add error handling UI
 3. Issue #34 - Build admin UI for protection
 4. Issue #35 - Playwright testing of full flow
