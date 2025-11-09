@@ -42,8 +42,8 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
  * Handles access control for public and protected trips
  * @param slug - Trip slug identifier
  * @param token - Optional access token for protected trips
- * @returns Trip with photos or null if not found/unauthorized
- * @throws Error with status code for proper error handling
+ * @returns Trip with photos if found, or null if not found
+ * @throws Error with status code (401 for unauthorized, others for HTTP errors)
  */
 export async function getTripBySlug(
   slug: string,
