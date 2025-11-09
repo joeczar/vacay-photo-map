@@ -47,15 +47,24 @@ You coordinate **5 specialized validators** that run in parallel:
 Use Task tool to spawn multiple agents in SINGLE message:
 - Launch all relevant validators simultaneously
 - Each validator gets specific context from PR
+- Pass AI review comments (from Copilot/Gemini) to code-reviewer for evaluation
 - Validators run independently and return findings
 ```
 
+**IMPORTANT: AI Review Comments**
+External AI comments (from GitHub Copilot, Gemini, etc.) should be passed to the **code-reviewer** agent with these instructions:
+- Evaluate each AI comment for validity
+- Confirm if it's a real issue or false positive
+- Include valid AI findings in code-reviewer's report
+- Dismiss invalid findings with reasoning
+
 **Phase 3: Synthesize Results (You)**
 ```
-1. Collect findings from all validators
+1. Collect findings from all validators (including AI comment evaluations)
 2. Categorize by severity (critical, high, medium, low)
-3. Identify overlapping findings
+3. Identify overlapping findings (e.g., AI found same issue as validator)
 4. Prioritize fixes by impact
+5. Ensure all valid AI comments are addressed or dismissed with reason
 ```
 
 **Phase 4: Fix Issues (You)**

@@ -101,6 +101,8 @@ Each validator agent:
 - Single task: Evaluate code quality and readability
 - Focus: Self-documenting code, simplicity, conventions
 - Checks compliance with CLAUDE.md patterns
+- Validates import maps populated (for Edge Functions)
+- Evaluates external AI review comments (from Copilot/Gemini)
 
 ### Utility Agents
 

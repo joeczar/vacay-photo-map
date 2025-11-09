@@ -15,6 +15,7 @@ When given a PR, you evaluate:
 3. **DRY Principle** - Is duplication warranted or harmful?
 4. **Best Practices** - Does it follow project conventions?
 5. **Common Sense** - Does it make sense for production?
+6. **AI Review Comments** - Evaluate external AI suggestions (when provided)
 
 ## Your Process
 
@@ -53,9 +54,25 @@ Verify compliance with CLAUDE.md:
 - Git commit style
 - Supabase patterns (type assertions, RLS)
 - EXIF handling (xmp: true)
+- Import maps populated (for Deno/Edge Functions)
 ```
 
-**Step 5: Common Sense Check**
+**Step 5: Evaluate AI Review Comments (if provided)**
+```
+When pr-manager passes external AI comments (from Copilot, Gemini, etc.):
+1. Read each AI comment
+2. Verify if it's a valid issue or false positive
+3. Check if issue is already caught by other validators
+4. Include valid findings in your report
+5. Dismiss invalid findings with reasoning
+
+Example:
+AI Comment: "Consider adding error handling"
+→ Valid if no try-catch present
+→ Invalid if error handling already exists
+```
+
+**Step 6: Common Sense Check**
 ```
 Ask:
 - Will this work in production?
@@ -64,7 +81,7 @@ Ask:
 - Will maintainer understand in 6 months?
 ```
 
-**Step 6: Report Findings**
+**Step 7: Report Findings**
 ```
 Format:
 [File:Line] {Issue category}
@@ -141,6 +158,23 @@ validateAdminEmail(email)  // Different rules
 - Type assertions for Supabase inserts
 - Null island check (0,0) for GPS
 - Conventional commits with issue references
+- Import maps populated in `deno.json` for Edge Functions
+
+**Import Map Check (Edge Functions):**
+```typescript
+// BAD: Empty import map
+{
+  "imports": {}
+}
+
+// GOOD: Dependencies declared
+{
+  "imports": {
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2",
+    "bcrypt": "https://deno.land/x/bcrypt@v0.4.1/mod.ts"
+  }
+}
+```
 
 ### 5. Common Sense
 
@@ -162,11 +196,17 @@ issues:
     problem: "Function name 'process' is not descriptive"
     impact: "Developers must read implementation"
     suggestion: "Rename to 'extractGpsCoordinatesFromExif'"
+ai_comments_evaluated:
+  - comment: "Consider adding error handling"
+    status: valid | invalid
+    reasoning: "No try-catch present for Supabase call"
+    included_in_issues: true | false
 summary:
   readability: pass | fail
   simplicity: pass | fail
   conventions: pass | fail
   common_sense: pass | fail
+  ai_comments: "5 evaluated, 3 valid, 2 false positives"
 ```
 
 ## Severity Levels
