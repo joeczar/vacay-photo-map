@@ -40,6 +40,7 @@ interface Photo {
   longitude: number | null;
   taken_at: string;
   caption: string | null;
+  album: string | null;
   created_at: string;
 }
 
