@@ -1,88 +1,85 @@
 // Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { createClient } from "jsr:@supabase/supabase-js@2"
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts"
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts';
 
 // CORS headers for frontend access
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+};
+
+// Helper function to create JSON responses with CORS headers
+const createJsonResponse = (body: unknown, status: number): Response => {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+};
 
 interface Trip {
-  id: string
-  slug: string
-  name: string
-  description: string | null
-  location: string | null
-  start_date: string
-  end_date: string
-  is_public: boolean
-  access_token_hash: string | null
-  cover_photo_url: string | null
-  created_at: string
-  updated_at: string
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  start_date: string;
+  end_date: string;
+  is_public: boolean;
+  access_token_hash: string | null;
+  cover_photo_url: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface Photo {
-  id: string
-  trip_id: string
-  cloudinary_public_id: string
-  cloudinary_url: string
-  thumbnail_url: string
-  width: number
-  height: number
-  latitude: number | null
-  longitude: number | null
-  taken_at: string
-  camera_make: string | null
-  camera_model: string | null
-  created_at: string
+  id: string;
+  trip_id: string;
+  cloudinary_public_id: string;
+  url: string;
+  thumbnail_url: string;
+  width: number;
+  height: number;
+  latitude: number | null;
+  longitude: number | null;
+  taken_at: string;
+  camera_make: string | null;
+  camera_model: string | null;
+  created_at: string;
 }
 
 interface TripWithPhotos extends Trip {
-  photos: Photo[]
+  photos: Photo[];
 }
 
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     // Parse query parameters
-    const url = new URL(req.url)
-    const slug = url.searchParams.get('slug')
-    const token = url.searchParams.get('token')
+    const url = new URL(req.url);
+    const slug = url.searchParams.get('slug');
+    const token = url.searchParams.get('token');
 
     // Validate slug parameter
     if (!slug) {
-      return new Response(
-        JSON.stringify({ error: 'Missing slug parameter' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return createJsonResponse({ error: 'Missing slug parameter' }, 400);
     }
 
     // Initialize Supabase client with service role key for database access
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
-      console.error('Missing Supabase environment variables')
-      return new Response(
-        JSON.stringify({ error: 'Server configuration error' }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      console.error('Missing Supabase environment variables');
+      return createJsonResponse({ error: 'Server configuration error' }, 500);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // TODO: Future enhancement - Check for authenticated admin user
     // const authHeader = req.headers.get('Authorization')
@@ -91,94 +88,53 @@ Deno.serve(async (req: Request) => {
     // Fetch trip by slug with all photos
     const { data: trip, error: tripError } = await supabase
       .from('trips')
-      .select(`
+      .select(
+        `
         *,
         photos (*)
-      `)
+      `
+      )
       .eq('slug', slug)
-      .single()
+      .single();
 
     // Handle errors - use generic "Unauthorized" for security
     // This prevents information leakage about trip existence
     if (tripError || !trip) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return createJsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     // If trip is public, return immediately without token validation
     if (trip.is_public) {
-      return new Response(
-        JSON.stringify(trip),
-        {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return createJsonResponse(trip, 200);
     }
 
     // For private trips, validate token
     // Missing token -> Unauthorized
     if (!token) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return createJsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     // No hash stored -> Unauthorized (shouldn't happen but handle gracefully)
     if (!trip.access_token_hash) {
-      console.error(`Private trip ${slug} has no access_token_hash`)
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      console.error(`Private trip ${slug} has no access_token_hash`);
+      return createJsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     // Compare provided token with stored hash using bcrypt
-    const isValid = await bcrypt.compare(token, trip.access_token_hash)
+    const isValid = await bcrypt.compare(token, trip.access_token_hash);
 
     // Invalid token -> Unauthorized
     if (!isValid) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return createJsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     // Valid token - return trip data
-    return new Response(
-      JSON.stringify(trip),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-
+    return createJsonResponse(trip, 200);
   } catch (error) {
-    console.error('Edge function error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+    console.error('Edge function error:', error);
+    return createJsonResponse({ error: 'Internal server error' }, 500);
   }
-})
+});
 
 /* To invoke locally:
 
