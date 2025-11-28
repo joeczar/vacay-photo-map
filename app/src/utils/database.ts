@@ -1,10 +1,39 @@
 import { supabase } from '@/lib/supabase'
 import type { TablesInsert, TablesRow, TablesUpdate } from '@/lib/database.types'
+import { z } from 'zod'
 
 type Trip = TablesRow<'trips'>
 type TripInsert = TablesInsert<'trips'>
 type Photo = TablesRow<'photos'>
 type PhotoInsert = TablesInsert<'photos'>
+
+// Zod schemas for runtime validation of Edge Function responses
+const PhotoSchema = z.object({
+  id: z.string().uuid(),
+  trip_id: z.string().uuid(),
+  cloudinary_public_id: z.string(),
+  url: z.string().url(),
+  thumbnail_url: z.string().url(),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  taken_at: z.string(),
+  caption: z.string().nullable(),
+  album: z.string().nullable(),
+  created_at: z.string(),
+})
+
+const TripWithPhotosSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string().nullable(),
+  cover_photo_url: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  is_public: z.boolean(),
+  slug: z.string(),
+  access_token_hash: z.string().nullable(),
+  photos: z.array(PhotoSchema),
+})
 
 /**
  * Create a new trip
@@ -66,32 +95,35 @@ export async function getTripBySlug(
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        // No Authorization header needed - using query params for token
+        'Accept': 'application/json',
       },
     })
-
-    // Handle unauthorized access (missing/invalid token)
-    if (response.status === 401) {
-      const error = new Error('Unauthorized') as Error & { status: number }
-      error.status = 401
-      throw error
-    }
 
     // Handle not found
     if (response.status === 404) {
       return null
     }
 
-    // Handle other errors
+    // Handle errors (401 unauthorized, or other HTTP errors)
     if (!response.ok) {
-      const error = new Error(`HTTP error ${response.status}`) as Error & { status: number }
+      const message = response.status === 401 ? 'Unauthorized' : `HTTP error ${response.status}`
+      const error = new Error(message) as Error & { status: number }
       error.status = response.status
       throw error
     }
 
-    const trip = await response.json()
-    return trip as (Trip & { photos: Photo[] })
+    // Parse and validate response with Zod
+    const data = await response.json()
+    const parseResult = TripWithPhotosSchema.safeParse(data)
+
+    if (!parseResult.success) {
+      console.error('API response validation error:', parseResult.error)
+      const validationError = new Error('Invalid data from server') as Error & { status: number }
+      validationError.status = 500
+      throw validationError
+    }
+
+    return parseResult.data as Trip & { photos: Photo[] }
   } catch (error) {
     // Re-throw errors with status codes for proper handling in TripView
     if (error instanceof Error && 'status' in error) {
