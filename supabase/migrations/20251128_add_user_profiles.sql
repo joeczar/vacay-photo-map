@@ -60,3 +60,20 @@ CREATE TRIGGER update_user_profiles_updated_at
 
 -- Add index for faster admin lookups
 CREATE INDEX IF NOT EXISTS idx_user_profiles_is_admin ON user_profiles(is_admin) WHERE is_admin = TRUE;
+
+-- Prevent users from changing their own admin status (privilege escalation protection)
+-- This allows updates via service_role key or direct DB access where auth.uid() is null
+CREATE OR REPLACE FUNCTION public.prevent_is_admin_self_update()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND NEW.is_admin IS DISTINCT FROM OLD.is_admin THEN
+    RAISE EXCEPTION 'Users are not allowed to change their own admin status.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS on_profile_update_prevent_admin_change ON user_profiles;
+CREATE TRIGGER on_profile_update_prevent_admin_change
+  BEFORE UPDATE ON public.user_profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_is_admin_self_update();
