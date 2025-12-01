@@ -3,6 +3,25 @@ import { mount, flushPromises } from '@vue/test-utils'
 import AdminView from './AdminView.vue'
 import { createRouter, createMemoryHistory } from 'vue-router'
 
+// Mock Supabase (required by MainLayout -> useAuth)
+vi.mock('@/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      signInWithPassword: vi.fn(),
+      signOut: vi.fn(),
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: () => Promise.resolve({ data: null, error: null }),
+        }),
+      }),
+    }),
+  },
+}))
+
 // Mock the modules
 vi.mock('@/utils/exif', () => ({
   extractExifBatch: vi.fn().mockResolvedValue(new Map())

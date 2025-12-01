@@ -9,9 +9,19 @@
           <Button variant="ghost" as-child>
             <router-link to="/">Home</router-link>
           </Button>
-          <Button variant="ghost" as-child>
+          <Button v-if="isAuthenticated" variant="ghost" as-child>
             <router-link to="/admin">Upload</router-link>
           </Button>
+          <template v-if="isAuthenticated">
+            <Button variant="ghost" @click="handleLogout" :disabled="isLoading">
+              Logout
+            </Button>
+          </template>
+          <template v-else>
+            <Button variant="ghost" as-child>
+              <router-link to="/login">Login</router-link>
+            </Button>
+          </template>
           <ThemeToggle />
         </nav>
       </div>
@@ -23,6 +33,20 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+
+const router = useRouter()
+const { isAuthenticated, isLoading, logout } = useAuth()
+
+async function handleLogout() {
+  const { error } = await logout()
+  if (error) {
+    console.error('Logout failed:', error)
+    return
+  }
+  router.push('/')
+}
 </script>
