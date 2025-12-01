@@ -65,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -75,6 +75,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const router = useRouter()
+const route = useRoute()
 const { login, isAuthenticated } = useAuth()
 
 const email = ref('')
@@ -101,8 +102,9 @@ async function handleSubmit() {
       return
     }
 
-    // Successful login - redirect to admin
-    router.push('/admin')
+    // Successful login - redirect to intended page or admin
+    const redirectTo = route.query.redirect as string || '/admin'
+    router.push(redirectTo)
   } catch (err) {
     errorMessage.value = 'An unexpected error occurred. Please try again.'
     console.error('Login error:', err)

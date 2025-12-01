@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { supabase } from '@/lib/supabase'
 import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
@@ -28,12 +29,15 @@ const router = createRouter({
   ]
 })
 
-// Auth guard will be added when implementing authentication
-router.beforeEach((to, _from, next) => {
+// Auth guard - redirect to login if not authenticated
+router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresAuth) {
-    // TODO: Check authentication status
-    // For now, allow all access
-    next()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      next({ name: 'login', query: { redirect: to.fullPath } })
+    } else {
+      next()
+    }
   } else {
     next()
   }
