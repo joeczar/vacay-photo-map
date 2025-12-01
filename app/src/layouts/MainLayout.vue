@@ -12,12 +12,16 @@
           <Button v-if="isAuthenticated" variant="ghost" as-child>
             <router-link to="/admin">Upload</router-link>
           </Button>
-          <Button v-if="isAuthenticated" variant="ghost" @click="handleLogout" :disabled="isLoading">
-            Logout
-          </Button>
-          <Button v-else variant="ghost" as-child>
-            <router-link to="/login">Login</router-link>
-          </Button>
+          <template v-if="isAuthenticated">
+            <Button variant="ghost" @click="handleLogout" :disabled="isLoading">
+              Logout
+            </Button>
+          </template>
+          <template v-else>
+            <Button variant="ghost" as-child>
+              <router-link to="/login">Login</router-link>
+            </Button>
+          </template>
           <ThemeToggle />
         </nav>
       </div>
@@ -38,7 +42,11 @@ const router = useRouter()
 const { isAuthenticated, isLoading, logout } = useAuth()
 
 async function handleLogout() {
-  await logout()
+  const { error } = await logout()
+  if (error) {
+    console.error('Logout failed:', error)
+    return
+  }
   router.push('/')
 }
 </script>
