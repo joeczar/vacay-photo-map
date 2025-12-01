@@ -71,7 +71,7 @@ describe('useAuth', () => {
       const wrapper = mount(TestComponent)
 
       // Wait for async initialization to complete
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise(resolve => setImmediate(resolve))
       await nextTick()
 
       expect(wrapper.vm.user).toEqual(mockUser)
@@ -138,7 +138,7 @@ describe('useAuth', () => {
       const wrapper = mount(TestComponent)
 
       // Wait for async initialization to complete
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise(resolve => setImmediate(resolve))
       await nextTick()
 
       expect(wrapper.vm.isAuthenticated).toBe(true)
@@ -184,7 +184,7 @@ describe('useAuth', () => {
       const wrapper = mount(TestComponent)
 
       // Wait for async initialization to complete
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise(resolve => setImmediate(resolve))
       await nextTick()
 
       expect(wrapper.vm.isAdmin).toBe(false)
@@ -201,10 +201,34 @@ describe('useAuth', () => {
       const wrapper = mount(TestComponent)
 
       // Wait for async initialization to complete
-      await new Promise(resolve => setTimeout(resolve, 10))
+      await new Promise(resolve => setImmediate(resolve))
       await nextTick()
 
       expect(wrapper.vm.isAdmin).toBe(true)
+    })
+  })
+
+  describe('profile fetch failure', () => {
+    it('should sign out and return error if profile fetch fails during login', async () => {
+      const mockUser = { id: 'user-123', email: 'test@example.com' }
+      const mockSession = { user: mockUser, access_token: 'token' }
+
+      mockSignInWithPassword.mockResolvedValue({
+        data: { user: mockUser, session: mockSession },
+        error: null,
+      })
+      mockSelect.mockResolvedValue({ data: null, error: { message: 'Profile not found' } })
+      mockSignOut.mockResolvedValue({ error: null })
+
+      const wrapper = mount(TestComponent)
+      await nextTick()
+
+      const { error } = await wrapper.vm.login('test@example.com', 'password')
+
+      expect(error).not.toBeNull()
+      expect(error?.message).toBe('Failed to retrieve user profile after login.')
+      expect(mockSignOut).toHaveBeenCalled()
+      expect(wrapper.vm.isAuthenticated).toBe(false)
     })
   })
 })

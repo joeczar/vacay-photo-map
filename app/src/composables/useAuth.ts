@@ -1,5 +1,5 @@
-import { ref, computed, onMounted } from 'vue'
-import type { User, Session, AuthError } from '@supabase/supabase-js'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import type { User, Session, AuthError, Subscription } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import type { TablesRow } from '@/lib/database.types'
 
@@ -12,6 +12,9 @@ const profile = ref<UserProfile | null>(null)
 const isLoading = ref(true)
 const isInitialized = ref(false)
 
+// Store subscription for cleanup
+let authSubscription: Subscription | null = null
+
 /**
  * Reset auth state (for testing)
  * @internal
@@ -22,6 +25,10 @@ export function _resetAuthState() {
   profile.value = null
   isLoading.value = true
   isInitialized.value = false
+  if (authSubscription) {
+    authSubscription.unsubscribe()
+    authSubscription = null
+  }
 }
 
 /**
@@ -62,25 +69,38 @@ export function useAuth() {
   async function login(email: string, password: string): Promise<{ error: AuthError | null }> {
     isLoading.value = true
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
+      if (error) {
+        return { error }
+      }
+
+      if (data.user) {
+        const userProfile = await fetchProfile(data.user.id)
+        if (userProfile) {
+          user.value = data.user
+          session.value = data.session
+          profile.value = userProfile
+        } else {
+          // Profile fetch failed - sign out to prevent inconsistent state
+          await supabase.auth.signOut()
+          return {
+            error: {
+              name: 'ProfileFetchError',
+              message: 'Failed to retrieve user profile after login.',
+            } as AuthError,
+          }
+        }
+      }
+
+      return { error: null }
+    } finally {
       isLoading.value = false
-      return { error }
     }
-
-    user.value = data.user
-    session.value = data.session
-
-    if (data.user) {
-      profile.value = await fetchProfile(data.user.id)
-    }
-
-    isLoading.value = false
-    return { error: null }
   }
 
   /**
@@ -89,19 +109,21 @@ export function useAuth() {
   async function logout(): Promise<{ error: AuthError | null }> {
     isLoading.value = true
 
-    const { error } = await supabase.auth.signOut()
+    try {
+      const { error } = await supabase.auth.signOut()
 
-    if (error) {
+      if (error) {
+        return { error }
+      }
+
+      user.value = null
+      session.value = null
+      profile.value = null
+
+      return { error: null }
+    } finally {
       isLoading.value = false
-      return { error }
     }
-
-    user.value = null
-    session.value = null
-    profile.value = null
-    isLoading.value = false
-
-    return { error: null }
   }
 
   /**
@@ -112,31 +134,59 @@ export function useAuth() {
 
     isLoading.value = true
 
-    // Get current session
-    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    try {
+      // Get current session
+      const {
+        data: { session: currentSession },
+      } = await supabase.auth.getSession()
 
-    if (currentSession) {
-      session.value = currentSession
-      user.value = currentSession.user
-
-      // Fetch profile
-      profile.value = await fetchProfile(currentSession.user.id)
-    }
-
-    isInitialized.value = true
-    isLoading.value = false
-
-    // Listen for auth state changes
-    supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      session.value = newSession
-      user.value = newSession?.user ?? null
-
-      if (newSession?.user) {
-        profile.value = await fetchProfile(newSession.user.id)
-      } else {
-        profile.value = null
+      if (currentSession) {
+        const userProfile = await fetchProfile(currentSession.user.id)
+        if (userProfile) {
+          session.value = currentSession
+          user.value = currentSession.user
+          profile.value = userProfile
+        } else {
+          // Profile fetch failed - sign out to prevent inconsistent state
+          console.error('Failed to fetch profile during initialization. Signing out.')
+          await supabase.auth.signOut()
+        }
       }
-    })
+
+      isInitialized.value = true
+
+      // Listen for auth state changes
+      const { data } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        if (newSession?.user) {
+          const newProfile = await fetchProfile(newSession.user.id)
+          if (newProfile) {
+            session.value = newSession
+            user.value = newSession.user
+            profile.value = newProfile
+          } else {
+            // Profile fetch failed - sign out to prevent inconsistent state
+            console.error('Failed to fetch profile on auth state change. Signing out.')
+            await supabase.auth.signOut()
+          }
+        } else {
+          session.value = null
+          user.value = null
+          profile.value = null
+        }
+      })
+
+      authSubscription = data.subscription
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // Cleanup subscription on unmount
+  function cleanup() {
+    if (authSubscription) {
+      authSubscription.unsubscribe()
+      authSubscription = null
+    }
   }
 
   // Initialize on mount
@@ -145,6 +195,9 @@ export function useAuth() {
       initialize()
     }
   })
+
+  // Cleanup on unmount
+  onBeforeUnmount(cleanup)
 
   return {
     // State
