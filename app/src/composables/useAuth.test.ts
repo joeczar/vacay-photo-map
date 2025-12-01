@@ -231,4 +231,149 @@ describe('useAuth', () => {
       expect(wrapper.vm.isAuthenticated).toBe(false)
     })
   })
+
+  describe('onAuthStateChange callback', () => {
+    // Helper type for auth callback
+    type AuthCallback = (event: string, session: { user: { id: string; email: string }; access_token: string } | null) => void
+
+    it('should update state when user signs in via callback', async () => {
+      let authChangeCallback: AuthCallback | null = null
+
+      // Capture the callback
+      mockOnAuthStateChange.mockImplementation((callback: AuthCallback) => {
+        authChangeCallback = callback
+        return { data: { subscription: { unsubscribe: vi.fn() } } }
+      })
+
+      const wrapper = mount(TestComponent)
+
+      // Wait for initialization
+      await new Promise(resolve => setImmediate(resolve))
+      await nextTick()
+
+      expect(wrapper.vm.isAuthenticated).toBe(false)
+
+      // Simulate auth state change - new user signs in
+      const newUser = { id: 'new-user-456', email: 'new@example.com' }
+      const newSession = { user: newUser, access_token: 'new-token' }
+      const newProfile = { id: 'new-user-456', display_name: 'New User', is_admin: false }
+
+      mockSelect.mockResolvedValue({ data: newProfile, error: null })
+
+      // Trigger the callback
+      authChangeCallback!('SIGNED_IN', newSession)
+
+      // Wait for profile fetch
+      await new Promise(resolve => setImmediate(resolve))
+      await nextTick()
+
+      expect(wrapper.vm.user).toEqual(newUser)
+      expect(wrapper.vm.isAuthenticated).toBe(true)
+      expect(wrapper.vm.profile).toEqual(newProfile)
+    })
+
+    it('should clear state when user signs out via callback', async () => {
+      let authChangeCallback: AuthCallback | null = null
+
+      // Setup with logged in user
+      const mockUser = { id: 'user-123', email: 'test@example.com' }
+      const mockSession = { user: mockUser, access_token: 'token' }
+      const mockProfile = { id: 'user-123', display_name: 'Test', is_admin: true }
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } })
+      mockSelect.mockResolvedValue({ data: mockProfile, error: null })
+
+      mockOnAuthStateChange.mockImplementation((callback: AuthCallback) => {
+        authChangeCallback = callback
+        return { data: { subscription: { unsubscribe: vi.fn() } } }
+      })
+
+      const wrapper = mount(TestComponent)
+
+      // Wait for initialization
+      await new Promise(resolve => setImmediate(resolve))
+      await nextTick()
+
+      expect(wrapper.vm.isAuthenticated).toBe(true)
+
+      // Simulate sign out
+      authChangeCallback!('SIGNED_OUT', null)
+
+      await nextTick()
+
+      expect(wrapper.vm.user).toBeNull()
+      expect(wrapper.vm.session).toBeNull()
+      expect(wrapper.vm.profile).toBeNull()
+      expect(wrapper.vm.isAuthenticated).toBe(false)
+    })
+
+    it('should only update session on token refresh (same user)', async () => {
+      let authChangeCallback: AuthCallback | null = null
+
+      const mockUser = { id: 'user-123', email: 'test@example.com' }
+      const mockSession = { user: mockUser, access_token: 'token' }
+      const mockProfile = { id: 'user-123', display_name: 'Test', is_admin: true }
+
+      mockGetSession.mockResolvedValue({ data: { session: mockSession } })
+      mockSelect.mockResolvedValue({ data: mockProfile, error: null })
+
+      mockOnAuthStateChange.mockImplementation((callback: AuthCallback) => {
+        authChangeCallback = callback
+        return { data: { subscription: { unsubscribe: vi.fn() } } }
+      })
+
+      const wrapper = mount(TestComponent)
+
+      // Wait for initialization
+      await new Promise(resolve => setImmediate(resolve))
+      await nextTick()
+
+      // Clear mock to track new calls
+      mockSelect.mockClear()
+
+      // Simulate token refresh (same user, new token)
+      const refreshedSession = { user: mockUser, access_token: 'new-refreshed-token' }
+      authChangeCallback!('TOKEN_REFRESHED', refreshedSession)
+
+      await nextTick()
+
+      // Profile should NOT be fetched again
+      expect(mockSelect).not.toHaveBeenCalled()
+
+      // Session should be updated
+      expect(wrapper.vm.session).toEqual(refreshedSession)
+    })
+
+    it('should sign out if profile fetch fails on auth state change', async () => {
+      let authChangeCallback: AuthCallback | null = null
+
+      mockOnAuthStateChange.mockImplementation((callback: AuthCallback) => {
+        authChangeCallback = callback
+        return { data: { subscription: { unsubscribe: vi.fn() } } }
+      })
+      mockSignOut.mockResolvedValue({ error: null })
+
+      const wrapper = mount(TestComponent)
+
+      // Wait for initialization
+      await new Promise(resolve => setImmediate(resolve))
+      await nextTick()
+
+      // Simulate new user sign in with failing profile fetch
+      const newUser = { id: 'new-user-456', email: 'new@example.com' }
+      const newSession = { user: newUser, access_token: 'new-token' }
+
+      mockSelect.mockResolvedValue({ data: null, error: { message: 'Profile not found' } })
+
+      authChangeCallback!('SIGNED_IN', newSession)
+
+      // Wait for profile fetch attempt
+      await new Promise(resolve => setImmediate(resolve))
+      await nextTick()
+
+      // Should have signed out
+      expect(mockSignOut).toHaveBeenCalled()
+      expect(wrapper.vm.isAuthenticated).toBe(false)
+    })
+  })
 })

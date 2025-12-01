@@ -15,6 +15,9 @@ const isInitialized = ref(false)
 // Store subscription for cleanup
 let authSubscription: Subscription | null = null
 
+// Flag to prevent race condition during initialization
+let isInitializing = false
+
 /**
  * Reset auth state (for testing)
  * @internal
@@ -25,6 +28,7 @@ export function _resetAuthState() {
   profile.value = null
   isLoading.value = true
   isInitialized.value = false
+  isInitializing = false
   if (authSubscription) {
     authSubscription.unsubscribe()
     authSubscription = null
@@ -128,10 +132,12 @@ export function useAuth() {
 
   /**
    * Initialize auth state from existing session
+   * @internal - Called automatically on mount, not intended for external use
    */
   async function initialize() {
-    if (isInitialized.value) return
+    if (isInitialized.value || isInitializing) return
 
+    isInitializing = true
     isLoading.value = true
 
     try {
@@ -156,17 +162,27 @@ export function useAuth() {
       isInitialized.value = true
 
       // Listen for auth state changes
+      // Only process changes after initialization is complete to avoid race conditions
       const { data } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+        // Skip if we're still initializing to avoid duplicate profile fetches
+        if (isInitializing && !isInitialized.value) return
+
         if (newSession?.user) {
-          const newProfile = await fetchProfile(newSession.user.id)
-          if (newProfile) {
-            session.value = newSession
-            user.value = newSession.user
-            profile.value = newProfile
+          // Only fetch profile if user changed
+          if (newSession.user.id !== user.value?.id) {
+            const newProfile = await fetchProfile(newSession.user.id)
+            if (newProfile) {
+              session.value = newSession
+              user.value = newSession.user
+              profile.value = newProfile
+            } else {
+              // Profile fetch failed - sign out to prevent inconsistent state
+              console.error('Failed to fetch profile on auth state change. Signing out.')
+              await supabase.auth.signOut()
+            }
           } else {
-            // Profile fetch failed - sign out to prevent inconsistent state
-            console.error('Failed to fetch profile on auth state change. Signing out.')
-            await supabase.auth.signOut()
+            // Same user, just update session (token refresh)
+            session.value = newSession
           }
         } else {
           session.value = null
@@ -178,6 +194,7 @@ export function useAuth() {
       authSubscription = data.subscription
     } finally {
       isLoading.value = false
+      isInitializing = false
     }
   }
 
@@ -213,6 +230,5 @@ export function useAuth() {
     // Methods
     login,
     logout,
-    initialize,
   }
 }
