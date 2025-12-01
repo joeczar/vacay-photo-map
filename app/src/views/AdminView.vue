@@ -14,7 +14,7 @@
       </AlertDescription>
       <div class="flex gap-3 mt-4">
         <Button as-child>
-          <a :href="`/trip/${tripSlug}`" target="_blank">View Trip</a>
+          <router-link :to="`/trip/${tripSlug}`" target="_blank">View Trip</router-link>
         </Button>
         <Button variant="outline" @click="resetForm">
           Upload Another Trip
@@ -69,7 +69,8 @@
                         variant="outline"
                         @click="() => fileInput?.click()">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       class="mr-2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -77,7 +78,7 @@
                   Choose Files
                 </Button>
                 <span class="text-sm text-muted-foreground">
-                  {{ selectedFiles.length > 0 ? `${selectedFiles.length } file${selectedFiles.length > 1 ? 's' : ''}
+                  {{ selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''}
                   selected` : 'No files chosen' }}
                 </span>
               </div>
