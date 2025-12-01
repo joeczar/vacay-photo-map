@@ -16,6 +16,30 @@ export type TablesUpdate<T extends keyof Database['public']['Tables']> =
 export interface Database {
   public: {
     Tables: {
+      user_profiles: {
+        Row: {
+          id: string
+          display_name: string | null
+          is_admin: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          display_name?: string | null
+          is_admin?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          // id is primary key and cannot be updated
+          display_name?: string | null
+          // is_admin update is protected by RLS and trigger
+          is_admin?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       trips: {
         Row: {
           id: string
