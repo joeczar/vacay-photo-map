@@ -32,8 +32,9 @@ export interface Database {
           updated_at?: string
         }
         Update: {
-          id?: string
+          // id is primary key and cannot be updated
           display_name?: string | null
+          // is_admin update is protected by RLS and trigger
           is_admin?: boolean
           created_at?: string
           updated_at?: string
