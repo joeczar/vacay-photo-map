@@ -2,15 +2,15 @@
   <div class="min-h-screen bg-background">
     <header class="border-b border-border bg-card">
       <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
-        <a href="/" class="text-xl font-bold text-foreground hover:text-primary transition-colors">
+        <router-link to="/" class="text-xl font-bold text-foreground hover:text-primary transition-colors">
           Vacay Photo Map
-        </a>
+        </router-link>
         <nav class="flex items-center gap-4">
           <Button variant="ghost" as-child>
-            <a href="/">Home</a>
+            <router-link to="/">Home</router-link>
           </Button>
           <Button variant="ghost" as-child>
-            <a href="/admin">Upload</a>
+            <router-link to="/admin">Upload</router-link>
           </Button>
           <ThemeToggle />
         </nav>

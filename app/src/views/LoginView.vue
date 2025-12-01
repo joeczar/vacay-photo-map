@@ -2,12 +2,12 @@
   <div class="min-h-screen bg-background flex flex-col">
     <header class="border-b border-border bg-card">
       <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
-        <a href="/" class="text-xl font-bold text-foreground hover:text-primary transition-colors">
+        <router-link to="/" class="text-xl font-bold text-foreground hover:text-primary transition-colors">
           Vacay Photo Map
-        </a>
+        </router-link>
         <nav class="flex items-center gap-4">
           <Button variant="ghost" as-child>
-            <a href="/">Home</a>
+            <router-link to="/">Home</router-link>
           </Button>
           <ThemeToggle />
         </nav>
@@ -27,25 +27,23 @@
             <div class="space-y-2">
               <Label for="email">Email</Label>
               <Input
-                id="email"
-                type="email"
-                v-model="email"
-                placeholder="admin@example.com"
-                required
-                :disabled="isLoading"
-              />
+                     id="email"
+                     type="email"
+                     v-model="email"
+                     placeholder="admin@example.com"
+                     required
+                     :disabled="isLoading" />
             </div>
 
             <div class="space-y-2">
               <Label for="password">Password</Label>
               <Input
-                id="password"
-                type="password"
-                v-model="password"
-                placeholder="Enter your password"
-                required
-                :disabled="isLoading"
-              />
+                     id="password"
+                     type="password"
+                     v-model="password"
+                     placeholder="Enter your password"
+                     required
+                     :disabled="isLoading" />
             </div>
 
             <Alert v-if="errorMessage" variant="destructive">
@@ -53,10 +51,9 @@
             </Alert>
 
             <Button
-              type="submit"
-              class="w-full"
-              :disabled="isLoading || !email || !password"
-            >
+                    type="submit"
+                    class="w-full"
+                    :disabled="isLoading || !email || !password">
               {{ isLoading ? 'Signing in...' : 'Sign In' }}
             </Button>
           </form>
