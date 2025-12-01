@@ -103,7 +103,11 @@ async function handleSubmit() {
     }
 
     // Successful login - redirect to intended page or admin
-    const redirectTo = route.query.redirect as string || '/admin'
+    // Validate redirect path to prevent open redirect vulnerabilities
+    const redirectPath = route.query.redirect
+    const redirectTo = (typeof redirectPath === 'string' && redirectPath.startsWith('/'))
+      ? redirectPath
+      : '/admin'
     router.push(redirectTo)
   } catch (err) {
     errorMessage.value = 'An unexpected error occurred. Please try again.'
