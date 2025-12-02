@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { supabase } from '@/lib/supabase'
 import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
@@ -28,15 +29,31 @@ const router = createRouter({
   ]
 })
 
-// Auth guard will be added when implementing authentication
-router.beforeEach((to, _from, next) => {
-  if (to.meta.requiresAuth) {
-    // TODO: Check authentication status
-    // For now, allow all access
-    next()
-  } else {
-    next()
+// Auth guard - redirect to login if not authenticated, check admin status
+router.beforeEach(async (to, _from, next) => {
+  if (!to.meta.requiresAuth) {
+    return next()
   }
+
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) {
+    return next({ name: 'login', query: { redirect: to.fullPath } })
+  }
+
+  // Authorization check for admin routes
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('is_admin')
+    .eq('id', session.user.id)
+    .single() as { data: { is_admin: boolean } | null }
+
+  if (profile?.is_admin) {
+    return next()
+  }
+
+  // Redirect non-admins away from admin routes
+  return next({ name: 'home' })
 })
 
 export default router
