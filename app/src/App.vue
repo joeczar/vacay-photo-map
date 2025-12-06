@@ -1,11 +1,13 @@
 <template>
   <div id="app" class="min-h-screen bg-gray-50 dark:bg-slate-900">
     <RouterView />
+    <Toaster />
   </div>
 </template>
 
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import { Toaster } from '@/components/ui/toast'
 </script>
 
 <style>

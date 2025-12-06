@@ -206,3 +206,52 @@ export async function deleteTrip(tripId: string): Promise<void> {
 
   console.log(`✅ Trip ${tripId} and all photos deleted successfully`)
 }
+
+/**
+ * Update trip protection settings via Edge Function
+ * Handles token hashing server-side for security
+ * @param tripId - Trip UUID
+ * @param isPublic - Whether the trip should be public
+ * @param token - Plaintext token to hash (required when isPublic is false)
+ * @param authToken - User's auth token for authorization
+ */
+export async function updateTripProtection(
+  tripId: string,
+  isPublic: boolean,
+  token: string | undefined,
+  authToken: string
+): Promise<void> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+
+  if (!supabaseUrl) {
+    throw new Error('Missing VITE_SUPABASE_URL environment variable')
+  }
+
+  const url = `${supabaseUrl}/functions/v1/update-trip-protection`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({
+      tripId,
+      isPublic,
+      token,
+    }),
+  })
+
+  if (response.status === 401) {
+    throw new Error('Unauthorized: Please log in again')
+  }
+
+  if (response.status === 403) {
+    throw new Error('Forbidden: Admin access required')
+  }
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || `Failed to update trip protection (${response.status})`)
+  }
+}
