@@ -42,6 +42,9 @@ const port = parseInt(process.env.PORT || '3000', 10)
 
 console.log(`Server starting on port ${port}...`)
 
+// Export app for testing
+export { app }
+
 export default {
   port,
   fetch: app.fetch,
