@@ -5,12 +5,15 @@
   "description": "Interactive vacation photo map with timeline visualization",
   "scripts": {
     "dev": "pnpm --filter vacay-photo-map-app dev",
+    "dev:api": "pnpm --filter vacay-photo-map-api dev",
     "build": "pnpm --filter vacay-photo-map-app build",
     "preview": "pnpm --filter vacay-photo-map-app preview",
     "lint": "pnpm --filter vacay-photo-map-app lint",
     "format": "pnpm --filter vacay-photo-map-app format",
     "test": "pnpm --filter vacay-photo-map-app test",
-    "type-check": "pnpm --filter vacay-photo-map-app type-check"
+    "test:api": "pnpm --filter vacay-photo-map-api test",
+    "type-check": "pnpm --filter vacay-photo-map-app type-check",
+    "type-check:api": "pnpm --filter vacay-photo-map-api type-check"
   },
   "devDependencies": {},
   "engines": {
