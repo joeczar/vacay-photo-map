@@ -30,7 +30,10 @@ app.notFound((c) => {
 app.onError((err, c) => {
   console.error('Server error:', err)
   return c.json(
-    { error: 'Internal Server Error', message: err.message },
+    {
+      error: 'Internal Server Error',
+      ...(process.env.NODE_ENV !== 'production' && { message: err.message }),
+    },
     500
   )
 })

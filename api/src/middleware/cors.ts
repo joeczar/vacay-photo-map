@@ -8,9 +8,8 @@ const ALLOWED_ORIGINS = [
 
 export const corsMiddleware = cors({
   origin: (origin) => {
-    if (!origin) return '*'
+    if (!origin) return null
     if (ALLOWED_ORIGINS.includes(origin)) return origin
-    if (process.env.NODE_ENV === 'development') return origin
     return null
   },
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
