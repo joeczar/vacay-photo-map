@@ -1,11 +1,13 @@
 import { Hono } from 'hono'
 import { logger } from 'hono/logger'
+import { corsMiddleware } from './middleware/cors'
 import { health } from './routes/health'
 
 const app = new Hono()
 
 // Middleware
 app.use('*', logger())
+app.use('*', corsMiddleware)
 
 // Routes
 app.route('/health', health)
