@@ -1,0 +1,25 @@
+# General
+.git
+.gitignore
+node_modules
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# App/API build outputs
+**/dist
+**/.turbo
+**/.cache
+**/.vite
+**/.nuxt
+**/.next
+**/.vercel
+
+# Environment
+.env
+*.local
+.DS_Store
+
+# Dependency vendors
+**/.pnpm-store
+**/bun.lock
+**/.bun
