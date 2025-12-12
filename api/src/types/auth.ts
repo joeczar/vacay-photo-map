@@ -29,6 +29,6 @@ export interface AuthUser {
  */
 export type AuthEnv = {
   Variables: {
-    user: AuthUser
+    user?: AuthUser
   }
 }

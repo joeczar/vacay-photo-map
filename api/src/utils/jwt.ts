@@ -5,7 +5,7 @@ import type { JWTPayload } from '../types/auth'
 const TOKEN_EXPIRATION = process.env.JWT_EXPIRATION || '24h'
 
 /**
- * Get the secret key, throwing if not configured
+ * Get the secret key, throwing if not configured or too short
  * Lazy evaluation allows tests to set env var before use
  */
 function getSecretKey(): Uint8Array {
@@ -13,7 +13,11 @@ function getSecretKey(): Uint8Array {
   if (!secret) {
     throw new Error('JWT_SECRET environment variable is required')
   }
-  return new TextEncoder().encode(secret)
+  const secretBytes = new TextEncoder().encode(secret)
+  if (secretBytes.byteLength < 32) {
+    throw new Error('JWT_SECRET must be at least 32 bytes long for HS256')
+  }
+  return secretBytes
 }
 
 /**
@@ -32,9 +36,19 @@ export async function signToken(
 /**
  * Verify and decode a JWT token
  * @throws {jose.errors.JWTExpired} if token is expired
- * @throws {jose.errors.JWTInvalid} if token is invalid
+ * @throws {jose.errors.JWTInvalid} if token is invalid or missing required claims
  */
 export async function verifyToken(token: string): Promise<JWTPayload> {
   const { payload } = await jose.jwtVerify(token, getSecretKey())
+
+  // Validate required claims
+  if (
+    typeof payload.sub !== 'string' ||
+    typeof payload.email !== 'string' ||
+    typeof payload.isAdmin !== 'boolean'
+  ) {
+    throw new jose.errors.JWTInvalid('Token payload is missing required claims')
+  }
+
   return payload as unknown as JWTPayload
 }

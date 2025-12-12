@@ -13,6 +13,19 @@ function extractBearerToken(authHeader: string | undefined): string | null {
 }
 
 /**
+ * Verify token and create AuthUser object
+ * @throws Error if token is invalid or expired
+ */
+async function authenticateToken(token: string): Promise<AuthUser> {
+  const payload = await verifyToken(token)
+  return {
+    id: payload.sub,
+    email: payload.email,
+    isAdmin: payload.isAdmin,
+  }
+}
+
+/**
  * Middleware that requires a valid JWT token
  * Returns 401 if token is missing or invalid
  * Sets `c.var.user` with authenticated user data
@@ -28,12 +41,7 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   }
 
   try {
-    const payload = await verifyToken(token)
-    const user: AuthUser = {
-      id: payload.sub,
-      email: payload.email,
-      isAdmin: payload.isAdmin,
-    }
+    const user = await authenticateToken(token)
     c.set('user', user)
     await next()
   } catch {
@@ -60,20 +68,15 @@ export const requireAdmin = createMiddleware<AuthEnv>(async (c, next) => {
   }
 
   try {
-    const payload = await verifyToken(token)
+    const user = await authenticateToken(token)
 
-    if (!payload.isAdmin) {
+    if (!user.isAdmin) {
       return c.json(
         { error: 'Forbidden', message: 'Admin access required' },
         403
       )
     }
 
-    const user: AuthUser = {
-      id: payload.sub,
-      email: payload.email,
-      isAdmin: payload.isAdmin,
-    }
     c.set('user', user)
     await next()
   } catch {
@@ -94,22 +97,15 @@ export const optionalAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const token = extractBearerToken(c.req.header('Authorization'))
 
   if (!token) {
-    // No token provided - continue without auth
     await next()
     return
   }
 
   try {
-    const payload = await verifyToken(token)
-    const user: AuthUser = {
-      id: payload.sub,
-      email: payload.email,
-      isAdmin: payload.isAdmin,
-    }
+    const user = await authenticateToken(token)
     c.set('user', user)
     await next()
   } catch {
-    // Token was provided but is invalid - fail
     return c.json(
       { error: 'Unauthorized', message: 'Invalid or expired token' },
       401

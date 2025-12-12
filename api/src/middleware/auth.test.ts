@@ -28,12 +28,12 @@ function createTestApp() {
   const app = new Hono<AuthEnv>()
 
   app.get('/protected', requireAuth, (c) => {
-    const user = c.var.user
+    const user = c.var.user!
     return c.json({ userId: user.id, email: user.email })
   })
 
   app.get('/admin', requireAdmin, (c) => {
-    const user = c.var.user
+    const user = c.var.user!
     return c.json({ userId: user.id, isAdmin: user.isAdmin })
   })
 
