@@ -4,9 +4,9 @@ services:
     container_name: vacay-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: vacay
-      POSTGRES_PASSWORD: vacay
-      POSTGRES_DB: vacay
+      POSTGRES_USER: ${POSTGRES_USER:-vacay}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vacay}
+      POSTGRES_DB: ${POSTGRES_DB:-vacay}
     ports:
       - '5432:5432'
     volumes:
