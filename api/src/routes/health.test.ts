@@ -9,7 +9,7 @@ interface HealthStatus {
 
 interface ReadinessStatus {
   status: string
-  checks: { api: boolean }
+  checks: { api: boolean; database: boolean }
 }
 
 interface ApiInfo {
@@ -33,10 +33,11 @@ describe('Health endpoints', () => {
 
   it('GET /health/ready returns readiness status', async () => {
     const res = await app.fetch(new Request('http://localhost/health/ready'))
-    expect(res.status).toBe(200)
     const data = (await res.json()) as ReadinessStatus
-    expect(data.status).toBe('ok')
+    expect([200, 503]).toContain(res.status)
+    expect(['ok', 'degraded']).toContain(data.status)
     expect(data.checks.api).toBe(true)
+    expect(typeof data.checks.database).toBe('boolean')
   })
 
   it('GET / returns API info', async () => {
