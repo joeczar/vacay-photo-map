@@ -2,7 +2,10 @@
   <div class="min-h-screen bg-background">
     <header class="border-b border-border bg-card">
       <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
-        <router-link to="/" class="text-xl font-bold text-foreground hover:text-primary transition-colors">
+        <router-link
+          to="/"
+          class="text-xl font-bold text-foreground hover:text-primary transition-colors"
+        >
           Vacay Photo Map
         </router-link>
         <nav class="flex items-center gap-4">
@@ -13,9 +16,7 @@
             <router-link to="/admin">Upload</router-link>
           </Button>
           <template v-if="isAuthenticated">
-            <Button variant="ghost" @click="handleLogout" :disabled="isLoading">
-              Logout
-            </Button>
+            <Button variant="ghost" @click="handleLogout" :disabled="isLoading"> Logout </Button>
           </template>
           <template v-else>
             <Button variant="ghost" as-child>

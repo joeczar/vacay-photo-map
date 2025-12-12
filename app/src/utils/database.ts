@@ -27,7 +27,7 @@ export async function createTrip(trip: TripInsert): Promise<Trip> {
  * Note: Type assertion required due to Supabase-js v2.39 type inference limitations
  */
 export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
-  const { data, error} = await supabase
+  const { data, error } = await supabase
     .from('photos')
     .insert(photos as unknown as never)
     .select()
@@ -66,9 +66,9 @@ export async function getTripBySlug(
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
         // No Authorization header needed - using query params for token
-      },
+      }
     })
 
     // Handle unauthorized access (missing/invalid token)
@@ -91,7 +91,7 @@ export async function getTripBySlug(
     }
 
     const trip = await response.json()
-    return trip as (Trip & { photos: Photo[] })
+    return trip as Trip & { photos: Photo[] }
   } catch (error) {
     // Re-throw errors with status codes for proper handling in TripView
     if (error instanceof Error && 'status' in error) {
@@ -183,10 +183,7 @@ export async function deleteTrip(tripId: string): Promise<void> {
   console.log(`🗑️  Deleting trip ${tripId} and all associated photos...`)
 
   // First, delete all photos for this trip
-  const { error: photosError } = await supabase
-    .from('photos')
-    .delete()
-    .eq('trip_id', tripId)
+  const { error: photosError } = await supabase.from('photos').delete().eq('trip_id', tripId)
 
   if (photosError) {
     console.error('Failed to delete photos:', photosError)
@@ -194,10 +191,7 @@ export async function deleteTrip(tripId: string): Promise<void> {
   }
 
   // Then delete the trip itself
-  const { error: tripError } = await supabase
-    .from('trips')
-    .delete()
-    .eq('id', tripId)
+  const { error: tripError } = await supabase.from('trips').delete().eq('id', tripId)
 
   if (tripError) {
     console.error('Failed to delete trip:', tripError)
@@ -233,13 +227,13 @@ export async function updateTripProtection(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      Authorization: `Bearer ${authToken}`
     },
     body: JSON.stringify({
       tripId,
       isPublic,
-      token,
-    }),
+      token
+    })
   })
 
   if (response.status === 401) {

@@ -19,7 +19,7 @@ export async function extractExif(file: File): Promise<PhotoMetadata> {
     const data = await exifr.parse(file, {
       gps: true,
       tiff: true,
-      xmp: true,  // Enable XMP to catch GPS in XMP format (iOS/edited photos)
+      xmp: true, // Enable XMP to catch GPS in XMP format (iOS/edited photos)
       icc: false,
       iptc: false,
       jfif: false,
@@ -43,7 +43,9 @@ export async function extractExif(file: File): Promise<PhotoMetadata> {
       if (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) {
         // Check it's not the null island (0,0) which usually indicates invalid data
         if (latitude !== 0 || longitude !== 0) {
-          console.log(`✅ GPS found in ${file.name}: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`)
+          console.log(
+            `✅ GPS found in ${file.name}: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+          )
         } else {
           console.warn(`⚠️  GPS coordinates are (0,0) in ${file.name} - likely invalid`)
           return {
@@ -83,7 +85,9 @@ export async function extractExif(file: File): Promise<PhotoMetadata> {
  * Extract GPS coordinates only (faster than full EXIF extraction)
  * Use this when you only need location data
  */
-export async function extractGPS(file: File): Promise<{ latitude: number; longitude: number } | null> {
+export async function extractGPS(
+  file: File
+): Promise<{ latitude: number; longitude: number } | null> {
   try {
     // exifr.gps() is optimized specifically for GPS extraction (30x faster than parse)
     const gps = await exifr.gps(file)
@@ -93,8 +97,7 @@ export async function extractGPS(file: File): Promise<{ latitude: number; longit
     }
 
     // Validate coordinate ranges
-    if (gps.latitude < -90 || gps.latitude > 90 ||
-        gps.longitude < -180 || gps.longitude > 180) {
+    if (gps.latitude < -90 || gps.latitude > 90 || gps.longitude < -180 || gps.longitude > 180) {
       console.error(`Invalid GPS coordinates in ${file.name}: ${gps.latitude}, ${gps.longitude}`)
       return null
     }
@@ -118,9 +121,7 @@ export async function extractGPS(file: File): Promise<{ latitude: number; longit
 /**
  * Extract EXIF data from multiple files in parallel
  */
-export async function extractExifBatch(
-  files: File[]
-): Promise<Map<File, PhotoMetadata>> {
+export async function extractExifBatch(files: File[]): Promise<Map<File, PhotoMetadata>> {
   console.log(`📦 Extracting EXIF from ${files.length} files...`)
   const results = new Map<File, PhotoMetadata>()
 

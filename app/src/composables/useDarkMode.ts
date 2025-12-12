@@ -133,7 +133,7 @@ export function useDarkMode() {
   // Watch for changes and apply theme (only, no save)
   // This watch is registered once at module level, not per component
   if (!isInitialized.value) {
-    watch(isDark, (newValue) => {
+    watch(isDark, newValue => {
       applyTheme(newValue)
     })
   }

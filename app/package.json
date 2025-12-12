@@ -8,7 +8,9 @@
     "build": "vue-tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path ../.gitignore",
+    "lint:check": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --max-warnings=0 --ignore-path ../.gitignore",
     "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
     "test": "vitest",
     "type-check": "vue-tsc --noEmit"
   },

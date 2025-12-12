@@ -2,7 +2,10 @@
   <div class="min-h-screen bg-background flex flex-col">
     <header class="border-b border-border bg-card">
       <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
-        <router-link to="/" class="text-xl font-bold text-foreground hover:text-primary transition-colors">
+        <router-link
+          to="/"
+          class="text-xl font-bold text-foreground hover:text-primary transition-colors"
+        >
           Vacay Photo Map
         </router-link>
         <nav class="flex items-center gap-4">
@@ -17,9 +20,7 @@
       <Card class="w-full max-w-md">
         <CardHeader class="text-center">
           <CardTitle class="text-2xl">Admin Login</CardTitle>
-          <CardDescription>
-            Sign in to access the admin dashboard
-          </CardDescription>
+          <CardDescription> Sign in to access the admin dashboard </CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -27,33 +28,32 @@
             <div class="space-y-2">
               <Label for="email">Email</Label>
               <Input
-                     id="email"
-                     type="email"
-                     v-model="email"
-                     placeholder="admin@example.com"
-                     required
-                     :disabled="isLoading" />
+                id="email"
+                type="email"
+                v-model="email"
+                placeholder="admin@example.com"
+                required
+                :disabled="isLoading"
+              />
             </div>
 
             <div class="space-y-2">
               <Label for="password">Password</Label>
               <Input
-                     id="password"
-                     type="password"
-                     v-model="password"
-                     placeholder="Enter your password"
-                     required
-                     :disabled="isLoading" />
+                id="password"
+                type="password"
+                v-model="password"
+                placeholder="Enter your password"
+                required
+                :disabled="isLoading"
+              />
             </div>
 
             <Alert v-if="errorMessage" variant="destructive">
               <AlertDescription>{{ errorMessage }}</AlertDescription>
             </Alert>
 
-            <Button
-                    type="submit"
-                    class="w-full"
-                    :disabled="isLoading || !email || !password">
+            <Button type="submit" class="w-full" :disabled="isLoading || !email || !password">
               {{ isLoading ? 'Signing in...' : 'Sign In' }}
             </Button>
           </form>
@@ -105,9 +105,8 @@ async function handleSubmit() {
     // Successful login - redirect to intended page or admin
     // Validate redirect path to prevent open redirect vulnerabilities
     const redirectPath = route.query.redirect
-    const redirectTo = (typeof redirectPath === 'string' && redirectPath.startsWith('/'))
-      ? redirectPath
-      : '/admin'
+    const redirectTo =
+      typeof redirectPath === 'string' && redirectPath.startsWith('/') ? redirectPath : '/admin'
     router.push(redirectTo)
   } catch (err) {
     errorMessage.value = 'An unexpected error occurred. Please try again.'

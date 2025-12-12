@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Lint
+        run: pnpm lint:check
+
+      - name: Format (check)
+        run: pnpm format:check
+
+      - name: Type check (app)
+        run: pnpm type-check
+
+      - name: Type check (api)
+        run: pnpm type-check:api
+
+      - name: Test (app)
+        run: pnpm --filter vacay-photo-map-app test -- --run
+
+      - name: Test (api)
+        run: pnpm test:api

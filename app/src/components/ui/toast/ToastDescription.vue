@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import type { ToastDescriptionProps } from "reka-ui"
-import type { HTMLAttributes } from "vue"
-import { reactiveOmit } from "@vueuse/core"
-import { ToastDescription } from "reka-ui"
-import { cn } from "@/lib/utils"
+import type { ToastDescriptionProps } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
+import { reactiveOmit } from '@vueuse/core'
+import { ToastDescription } from 'reka-ui'
+import { cn } from '@/lib/utils'
 
-const props = defineProps<ToastDescriptionProps & { class?: HTMLAttributes["class"] }>()
+const props = defineProps<ToastDescriptionProps & { class?: HTMLAttributes['class'] }>()
 
-const delegatedProps = reactiveOmit(props, "class")
+const delegatedProps = reactiveOmit(props, 'class')
 </script>
 
 <template>

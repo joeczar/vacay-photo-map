@@ -35,18 +35,20 @@ router.beforeEach(async (to, _from, next) => {
     return next()
   }
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session }
+  } = await supabase.auth.getSession()
 
   if (!session) {
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 
   // Authorization check for admin routes
-  const { data: profile } = await supabase
+  const { data: profile } = (await supabase
     .from('user_profiles')
     .select('is_admin')
     .eq('id', session.user.id)
-    .single() as { data: { is_admin: boolean } | null }
+    .single()) as { data: { is_admin: boolean } | null }
 
   if (profile?.is_admin) {
     return next()
