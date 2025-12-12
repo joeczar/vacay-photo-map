@@ -30,23 +30,29 @@
       <h2 class="text-2xl font-bold text-foreground mb-6">All Trips</h2>
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card
-              v-for="trip in trips"
-              :key="trip.id"
-              class="overflow-hidden hover:shadow-xl transition-shadow group cursor-pointer">
+          v-for="trip in trips"
+          :key="trip.id"
+          class="overflow-hidden hover:shadow-xl transition-shadow group cursor-pointer"
+        >
           <router-link :to="`/trip/${trip.slug}`" class="block">
             <!-- Cover Photo -->
             <div class="aspect-video relative bg-muted overflow-hidden">
               <img
-                   v-if="trip.cover_photo_url"
-                   :src="trip.cover_photo_url"
-                   :alt="trip.title"
-                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-              <div v-else class="w-full h-full flex items-center justify-center text-muted-foreground">
+                v-if="trip.cover_photo_url"
+                :src="trip.cover_photo_url"
+                :alt="trip.title"
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+              <div
+                v-else
+                class="w-full h-full flex items-center justify-center text-muted-foreground"
+              >
                 <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
                   <path
-                        fill-rule="evenodd"
-                        d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                        clip-rule="evenodd" />
+                    fill-rule="evenodd"
+                    d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
               </div>
             </div>
@@ -66,9 +72,10 @@
                 <Badge variant="secondary">
                   <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path
-                          fill-rule="evenodd"
-                          d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                          clip-rule="evenodd" />
+                      fill-rule="evenodd"
+                      d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                   {{ trip.photo_count }} photos
                 </Badge>
@@ -96,9 +103,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 type Trip = Database['public']['Tables']['trips']['Row']
 
-const trips = ref<
-  (Trip & { photo_count: number; date_range: { start: string; end: string } })[]
->([])
+const trips = ref<(Trip & { photo_count: number; date_range: { start: string; end: string } })[]>(
+  []
+)
 const loading = ref(true)
 const error = ref('')
 

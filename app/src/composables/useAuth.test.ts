@@ -16,16 +16,16 @@ vi.mock('@/lib/supabase', () => ({
       signInWithPassword: (...args: unknown[]) => mockSignInWithPassword(...args),
       signOut: (...args: unknown[]) => mockSignOut(...args),
       getSession: (...args: unknown[]) => mockGetSession(...args),
-      onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args),
+      onAuthStateChange: (...args: unknown[]) => mockOnAuthStateChange(...args)
     },
     from: () => ({
       select: () => ({
         eq: () => ({
-          single: () => mockSelect(),
-        }),
-      }),
-    }),
-  },
+          single: () => mockSelect()
+        })
+      })
+    })
+  }
 }))
 
 // Test component that uses the composable
@@ -33,7 +33,7 @@ const TestComponent = defineComponent({
   setup() {
     return useAuth()
   },
-  template: '<div></div>',
+  template: '<div></div>'
 })
 
 describe('useAuth', () => {
@@ -88,7 +88,7 @@ describe('useAuth', () => {
 
       mockSignInWithPassword.mockResolvedValue({
         data: { user: mockUser, session: mockSession },
-        error: null,
+        error: null
       })
       mockSelect.mockResolvedValue({ data: mockProfile, error: null })
 
@@ -102,7 +102,7 @@ describe('useAuth', () => {
       expect(wrapper.vm.isAuthenticated).toBe(true)
       expect(mockSignInWithPassword).toHaveBeenCalledWith({
         email: 'test@example.com',
-        password: 'password',
+        password: 'password'
       })
     })
 
@@ -110,7 +110,7 @@ describe('useAuth', () => {
       const mockError = { message: 'Invalid credentials' }
       mockSignInWithPassword.mockResolvedValue({
         data: { user: null, session: null },
-        error: mockError,
+        error: mockError
       })
 
       const wrapper = mount(TestComponent)
@@ -215,7 +215,7 @@ describe('useAuth', () => {
 
       mockSignInWithPassword.mockResolvedValue({
         data: { user: mockUser, session: mockSession },
-        error: null,
+        error: null
       })
       mockSelect.mockResolvedValue({ data: null, error: { message: 'Profile not found' } })
       mockSignOut.mockResolvedValue({ error: null })
@@ -234,7 +234,10 @@ describe('useAuth', () => {
 
   describe('onAuthStateChange callback', () => {
     // Helper type for auth callback
-    type AuthCallback = (event: string, session: { user: { id: string; email: string }; access_token: string } | null) => void
+    type AuthCallback = (
+      event: string,
+      session: { user: { id: string; email: string }; access_token: string } | null
+    ) => void
 
     it('should update state when user signs in via callback', async () => {
       let authChangeCallback: AuthCallback | null = null

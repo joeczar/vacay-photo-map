@@ -10,16 +10,18 @@ vi.mock('@/lib/supabase', () => ({
       signInWithPassword: vi.fn(),
       signOut: vi.fn(),
       getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-      onAuthStateChange: vi.fn().mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      onAuthStateChange: vi
+        .fn()
+        .mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } })
     },
     from: () => ({
       select: () => ({
         eq: () => ({
-          single: () => Promise.resolve({ data: null, error: null }),
-        }),
-      }),
-    }),
-  },
+          single: () => Promise.resolve({ data: null, error: null })
+        })
+      })
+    })
+  }
 }))
 
 // Mock the modules
@@ -29,8 +31,16 @@ vi.mock('@/utils/exif', () => ({
 
 vi.mock('@/lib/cloudinary', () => ({
   uploadMultipleFiles: vi.fn().mockResolvedValue([
-    { publicId: 'test1', url: 'https://test.com/1.jpg', thumbnailUrl: 'https://test.com/1_thumb.jpg' },
-    { publicId: 'test2', url: 'https://test.com/2.jpg', thumbnailUrl: 'https://test.com/2_thumb.jpg' }
+    {
+      publicId: 'test1',
+      url: 'https://test.com/1.jpg',
+      thumbnailUrl: 'https://test.com/1_thumb.jpg'
+    },
+    {
+      publicId: 'test2',
+      url: 'https://test.com/2.jpg',
+      thumbnailUrl: 'https://test.com/2_thumb.jpg'
+    }
   ])
 }))
 

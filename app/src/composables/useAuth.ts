@@ -76,7 +76,7 @@ export function useAuth() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       })
 
       if (error) {
@@ -95,8 +95,8 @@ export function useAuth() {
           return {
             error: {
               name: 'ProfileFetchError',
-              message: 'Failed to retrieve user profile after login.',
-            } as AuthError,
+              message: 'Failed to retrieve user profile after login.'
+            } as AuthError
           }
         }
       }
@@ -143,7 +143,7 @@ export function useAuth() {
     try {
       // Get current session
       const {
-        data: { session: currentSession },
+        data: { session: currentSession }
       } = await supabase.auth.getSession()
 
       if (currentSession) {
@@ -229,6 +229,6 @@ export function useAuth() {
 
     // Methods
     login,
-    logout,
+    logout
   }
 }

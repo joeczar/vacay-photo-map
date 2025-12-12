@@ -41,7 +41,6 @@ export function generateTripToken(): string {
  * @returns base64url encoded string
  */
 function base64UrlEncode(buffer: Uint8Array): string {
-  
   // Convert buffer to binary string using spread syntax for better performance
   const binary = String.fromCharCode(...buffer)
 
@@ -49,10 +48,7 @@ function base64UrlEncode(buffer: Uint8Array): string {
   const base64 = btoa(binary)
 
   // Convert to base64url (replace +/= with URL-safe characters)
-  return base64
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '')
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 
 /**
