@@ -52,6 +52,7 @@ vacay-photo-map/
 
 - Node.js >= 18.0.0
 - pnpm >= 8.0.0 (Install with `npm install -g pnpm` or use Corepack)
+- Docker (for local Postgres via Docker Compose)
 - A Supabase account and project
 - A Cloudinary account
 - A Netlify account (for deployment)
@@ -111,7 +112,40 @@ VITE_WEBAUTHN_RP_ID=localhost
    - Follow the detailed guide: [docs/SUPABASE_AUTH_SETUP.md](./docs/SUPABASE_AUTH_SETUP.md)
    - Enable email provider, configure templates, set redirect URLs
 
-### 5. Set Up Cloudinary
+### 5. Local Postgres via Docker Compose (optional)
+
+The self-hosted migration uses a local Postgres instance. A ready-made Compose setup seeds one sample trip + photo.
+
+```bash
+# Start Postgres
+docker compose up -d postgres
+
+# Inspect containers
+docker compose ps
+```
+
+Connect with `DATABASE_URL=postgresql://vacay:vacay@localhost:5432/vacay`.
+
+Run the API against the Compose Postgres (pick one):
+
+```bash
+# Host machine (Bun)
+cd api
+bun install
+DATABASE_URL=postgresql://vacay:vacay@localhost:5432/vacay bun run src/index.ts
+
+# OR run API in Docker (includes bun install)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up api postgres
+```
+
+Notes:
+- Seed data: a sample Amsterdam trip + photo is loaded on first start.
+- Data persists via the `postgres_data` volume. Reset with `docker compose down -v`.
+- Health check (when API is running): `curl http://localhost:3000/health`
+- DB sanity check (requires Docker access): `./scripts/check-db.sh`
+- Compose API mounts `./api` but keeps `node_modules` isolated in the container to avoid host conflicts/permissions.
+
+### 6. Set Up Cloudinary
 
 1. Create a free account at [cloudinary.com](https://cloudinary.com)
 2. In your Cloudinary dashboard:
@@ -120,7 +154,7 @@ VITE_WEBAUTHN_RP_ID=localhost
    - Enable the preset and note its name
 3. Copy your cloud name and preset to `.env`
 
-### 6. Run the Development Server
+### 7. Run the Development Server
 
 ```bash
 pnpm dev
