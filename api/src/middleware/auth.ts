@@ -3,13 +3,24 @@ import { verifyToken } from '../utils/jwt'
 import type { AuthEnv, AuthUser } from '../types/auth'
 
 /**
- * Extract Bearer token from Authorization header
+ * Extract Bearer token from Authorization header (case-insensitive)
  */
 function extractBearerToken(authHeader: string | undefined): string | null {
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
     return null
   }
-  return authHeader.slice(7) // Remove 'Bearer ' prefix
+  return authHeader.slice(7).trim()
+}
+
+/**
+ * Log authentication failure for security monitoring
+ * Never logs the actual token to prevent credential leakage
+ */
+function logAuthFailure(error: unknown, path: string): void {
+  console.error('[AUTH] Token verification failed:', {
+    error: error instanceof Error ? error.message : 'Unknown error',
+    path,
+  })
 }
 
 /**
@@ -44,7 +55,8 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     const user = await authenticateToken(token)
     c.set('user', user)
     await next()
-  } catch {
+  } catch (error) {
+    logAuthFailure(error, c.req.path)
     return c.json(
       { error: 'Unauthorized', message: 'Invalid or expired token' },
       401
@@ -79,7 +91,8 @@ export const requireAdmin = createMiddleware<AuthEnv>(async (c, next) => {
 
     c.set('user', user)
     await next()
-  } catch {
+  } catch (error) {
+    logAuthFailure(error, c.req.path)
     return c.json(
       { error: 'Unauthorized', message: 'Invalid or expired token' },
       401
@@ -105,7 +118,8 @@ export const optionalAuth = createMiddleware<AuthEnv>(async (c, next) => {
     const user = await authenticateToken(token)
     c.set('user', user)
     await next()
-  } catch {
+  } catch (error) {
+    logAuthFailure(error, c.req.path)
     return c.json(
       { error: 'Unauthorized', message: 'Invalid or expired token' },
       401

@@ -1,6 +1,12 @@
 import bcrypt from 'bcrypt'
 
-const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10)
+const SALT_ROUNDS = (() => {
+  const rounds = parseInt(process.env.BCRYPT_SALT_ROUNDS || '14', 10)
+  if (rounds < 10 || rounds > 20) {
+    throw new Error('BCRYPT_SALT_ROUNDS must be between 10 and 20')
+  }
+  return rounds
+})()
 
 /**
  * Hash a password using bcrypt
