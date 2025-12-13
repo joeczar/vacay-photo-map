@@ -52,6 +52,7 @@ API available at `http://localhost:3000`
 | `FRONTEND_URL` | `http://localhost:5173` | CORS allowed origin |
 | `DATABASE_URL` | - | PostgreSQL connection string (required) |
 | `DATABASE_SSL` | `false` | Enable SSL for database connection |
+| `DATABASE_SSL_REJECT_UNAUTHORIZED` | `true` | Validate server certificate (set `false` only for self-signed certs in dev) |
 | `DATABASE_POOL_SIZE` | `10` | Connection pool size |
 | `DATABASE_IDLE_TIMEOUT_MS` | `10000` | Idle connection timeout |
 | `JWT_SECRET` | - | JWT signing secret (min 32 bytes, required) |

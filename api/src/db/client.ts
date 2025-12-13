@@ -10,9 +10,21 @@ const getDatabaseUrl = () => {
   return url
 }
 
-const shouldUseSSL = () => {
-  const value = process.env.DATABASE_SSL
-  return value === '1' || value?.toLowerCase() === 'true'
+const getSslConfig = () => {
+  const useSsl =
+    process.env.DATABASE_SSL === '1' ||
+    process.env.DATABASE_SSL?.toLowerCase() === 'true'
+
+  if (!useSsl) {
+    return false
+  }
+
+  // Defaults to true for security (validates server certificate)
+  // Set DATABASE_SSL_REJECT_UNAUTHORIZED=false only for local dev with self-signed certs
+  const rejectUnauthorized =
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED?.toLowerCase() !== 'false'
+
+  return { rejectUnauthorized }
 }
 
 const getPoolSize = () => {
@@ -32,7 +44,7 @@ let client: ReturnType<typeof postgres> | null = null
 export const getDbClient = () => {
   if (!client) {
     client = postgres(getDatabaseUrl(), {
-      ssl: shouldUseSSL() ? { rejectUnauthorized: false } : false,
+      ssl: getSslConfig(),
       max: getPoolSize(),
       idle_timeout: getIdleTimeout(),
     })

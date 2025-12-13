@@ -6,37 +6,28 @@ import { closeDbClient, getDbClient } from '../src/db/client'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const schemaPath = path.join(__dirname, '..', 'src', 'db', 'schema.sql')
 
-// Allowed DDL keywords for schema files (security validation)
-const ALLOWED_DDL_PATTERN =
-  /^(CREATE|ALTER|DROP|DO|GRANT|REVOKE|COMMENT|SET)\s/gim
-
 /**
- * Validate that schema SQL only contains expected DDL statements
- * Prevents accidental execution of DML (INSERT/UPDATE/DELETE) or dangerous commands
+ * Validate that schema SQL only contains DDL statements (no DML)
+ * Prevents accidental execution of INSERT/UPDATE/DELETE outside functions
+ *
+ * This is a safeguard, not a full SQL parser. It removes comments and
+ * PL/pgSQL blocks before checking for forbidden DML statements.
  */
 function validateSchemaSql(sql: string): void {
-  // Remove comments and empty lines for validation
-  const statements = sql
-    .split(';')
-    .map((s) => s.replace(/--.*$/gm, '').trim())
-    .filter((s) => s.length > 0)
+  const forbiddenDmlPattern = /\b(INSERT|UPDATE|DELETE)\b/gi
 
-  for (const stmt of statements) {
-    // Skip pure PL/pgSQL blocks (BEGIN...END)
-    if (/^\$\$/.test(stmt) || /^END/.test(stmt)) continue
+  // Remove comments and PL/pgSQL blocks to avoid false positives
+  const sanitizedSql = sql
+    .replace(/--.*$/gm, '') // remove single-line comments
+    .replace(/\/\*[\s\S]*?\*\//g, '') // remove multi-line comments
+    .replace(/\$\$[\s\S]*?\$\$/g, '') // remove PL/pgSQL blocks
 
-    // Check statement starts with allowed DDL keyword
-    if (!ALLOWED_DDL_PATTERN.test(stmt)) {
-      // Allow statements that are continuations of DO blocks
-      if (!/^(BEGIN|DECLARE|IF|THEN|ELSE|END|RETURN|NEW|SELECT\s+1)/.test(stmt)) {
-        throw new Error(
-          `Schema validation failed: unexpected statement type.\n` +
-            `Statement: ${stmt.slice(0, 100)}...`
-        )
-      }
-    }
-    // Reset regex lastIndex for next iteration
-    ALLOWED_DDL_PATTERN.lastIndex = 0
+  const matches = sanitizedSql.match(forbiddenDmlPattern)
+  if (matches) {
+    throw new Error(
+      `Schema validation failed: DML statement(s) (${matches.join(', ')}) ` +
+        `found outside a function or DO block.`
+    )
   }
 }
 
