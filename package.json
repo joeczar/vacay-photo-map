@@ -15,7 +15,9 @@
     "test": "pnpm --filter vacay-photo-map-app test",
     "test:api": "pnpm --filter vacay-photo-map-api test",
     "type-check": "pnpm --filter vacay-photo-map-app type-check",
-    "type-check:api": "pnpm --filter vacay-photo-map-api type-check"
+    "type-check:api": "pnpm --filter vacay-photo-map-api type-check",
+    "migrate:api": "pnpm --filter vacay-photo-map-api migrate",
+    "seed:api": "pnpm --filter vacay-photo-map-api seed"
   },
   "devDependencies": {},
   "engines": {
