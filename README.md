@@ -20,16 +20,16 @@ An interactive web application for viewing vacation photos on a map with timelin
 - **Styling**: TailwindCSS with CSS variables
 - **State Management**: Pinia
 - **Map**: Leaflet + vue3-leaflet
-- **Backend**: Supabase (PostgreSQL, Auth, Edge Functions)
+- **Backend**: Self-hosted Bun/Hono API or Supabase (PostgreSQL, Auth)
 - **Storage**: Cloudinary
-- **Hosting**: Netlify
-- **Authentication**: Supabase Auth (Email/Password)
+- **Hosting**: Netlify (frontend), Docker/VPS (API)
+- **Authentication**: JWT (self-hosted) or Supabase Auth
 
 ## Project Structure
 
 ```
 vacay-photo-map/
-├── app/                          # Vue application
+├── app/                          # Vue frontend application
 │   ├── src/
 │   │   ├── components/          # Vue components
 │   │   ├── views/               # Page views
@@ -41,6 +41,14 @@ vacay-photo-map/
 │   │   └── assets/              # Static assets & styles
 │   ├── public/                  # Public static files
 │   └── package.json
+├── api/                          # Self-hosted Bun/Hono API
+│   ├── src/
+│   │   ├── db/                  # Database client & schema
+│   │   ├── middleware/          # Auth middleware
+│   │   ├── routes/              # API routes
+│   │   └── utils/               # JWT, password helpers
+│   ├── scripts/                 # Migration & seed scripts
+│   └── README.md                # API documentation
 ├── netlify/
 │   └── functions/               # Netlify serverless functions
 ├── .github/
@@ -80,6 +88,7 @@ Copy the example environment file:
 
 ```bash
 cp app/.env.example app/.env
+cp api/.env.example api/.env
 ```
 
 Edit `app/.env` and fill in your credentials:
@@ -101,7 +110,9 @@ VITE_WEBAUTHN_RP_NAME="Vacay Photo Map"
 VITE_WEBAUTHN_RP_ID=localhost
 ```
 
-### 4. Set Up Supabase
+For the self-hosted API, see [api/README.md](./api/README.md) for all environment variables.
+
+### 4. Set Up Supabase (Optional - for hosted version)
 
 1. Create a new project at [supabase.com](https://supabase.com)
 2. Copy your project URL and anon key to `.env`
@@ -112,38 +123,20 @@ VITE_WEBAUTHN_RP_ID=localhost
    - Follow the detailed guide: [docs/SUPABASE_AUTH_SETUP.md](./docs/SUPABASE_AUTH_SETUP.md)
    - Enable email provider, configure templates, set redirect URLs
 
-### 5. Local Postgres via Docker Compose (optional)
+### 5. Self-Hosted API (Alternative to Supabase)
 
-The self-hosted migration uses a local Postgres instance. A ready-made Compose setup seeds one sample trip + photo.
-
-```bash
-# Start Postgres
-docker compose up -d postgres
-
-# Inspect containers
-docker compose ps
-```
-
-Connect with `DATABASE_URL=postgresql://vacay:vacay@localhost:5432/vacay`.
-
-Run the API against the Compose Postgres (pick one):
+For self-hosted deployments, see [api/README.md](./api/README.md) for complete setup:
 
 ```bash
-# Host machine (Bun)
-cd api
-bun install
-DATABASE_URL=postgresql://vacay:vacay@localhost:5432/vacay bun run src/index.ts
-
-# OR run API in Docker (includes bun install)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up api postgres
+# Quick start
+docker compose up -d postgres    # Start local Postgres
+cd api && bun install            # Install API dependencies
+bun run scripts/migrate.ts       # Apply schema
+bun run scripts/seed.ts          # Seed sample data
+bun run dev                      # Start API server
 ```
 
-Notes:
-- Seed data: a sample Amsterdam trip + photo is loaded on first start.
-- Data persists via the `postgres_data` volume. Reset with `docker compose down -v`.
-- Health check (when API is running): `curl http://localhost:3000/health`
-- DB sanity check (requires Docker access): `./scripts/check-db.sh`
-- Compose API mounts `./api` but keeps `node_modules` isolated in the container to avoid host conflicts/permissions.
+The API runs at `http://localhost:3000` with health checks at `/health` and `/health/ready`.
 
 ### 6. Set Up Cloudinary
 
@@ -223,25 +216,37 @@ Make sure to set these in your Netlify dashboard:
 
 ## Database Schema
 
-Current schema (see `supabase-schema.sql` and `supabase/migrations/`):
-
+**Self-hosted** (see [api/README.md](./api/README.md#schema)):
+- `user_profiles` - Users with email/password auth
 - `trips` - Trip metadata with optional access token protection
 - `photos` - Photo data with GPS coordinates and EXIF metadata
 
-Upcoming (Milestone 2+):
+**Supabase-hosted** (see `supabase-schema.sql`):
+- `trips` - Trip metadata with optional access token protection
+- `photos` - Photo data with GPS coordinates and EXIF metadata
+- Uses Supabase Auth for user management
 
-- `user_profiles` - Extended user profile data
+Upcoming:
 - `photo_comments` - Comments on photos
 - `invites` - Admin invite system
 
 ## Security
 
+**Self-hosted API:**
+- **JWT Auth**: HS256 signed tokens with configurable expiration
+- **Password Hashing**: bcrypt with configurable rounds (default: 14)
+- **Migration Validation**: DDL-only checks prevent SQL injection
+- **Error Sanitization**: Logs don't expose connection details
+
+**Supabase-hosted:**
 - **Supabase Auth**: User authentication via Supabase Auth with email/password
-- **Token Hashing**: Trip access tokens are bcrypt-hashed before storage
-- **RLS Policies**: Row-level security in Supabase prevents unauthorized data access
+- **RLS Policies**: Row-level security prevents unauthorized data access
 - **Edge Functions**: Backend validation logic runs in Supabase Edge Functions
+
+**Both:**
+- **Token Hashing**: Trip access tokens are bcrypt-hashed before storage
 - **Environment Variables**: Sensitive credentials stored in environment variables
-- **HTTPS**: All production traffic encrypted via Netlify
+- **HTTPS**: All production traffic encrypted
 
 ## Testing
 

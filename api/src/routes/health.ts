@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { pingDatabase } from '../db/client'
 
 const health = new Hono()
 
@@ -10,13 +11,30 @@ health.get('/', (c) => {
   })
 })
 
-health.get('/ready', (c) => {
-  return c.json({
-    status: 'ok',
-    checks: {
-      api: true,
+health.get('/ready', async (c) => {
+  let databaseHealthy = true
+
+  try {
+    await pingDatabase()
+  } catch (error) {
+    databaseHealthy = false
+    // Log only the error message to avoid exposing connection details
+    console.error(
+      '[HEALTH] Database check failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
+  }
+
+  return c.json(
+    {
+      status: databaseHealthy ? 'ok' : 'degraded',
+      checks: {
+        api: true,
+        database: databaseHealthy,
+      },
     },
-  })
+    databaseHealthy ? 200 : 503
+  )
 })
 
 export { health }

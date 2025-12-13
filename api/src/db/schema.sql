@@ -1,25 +1,41 @@
--- Vacay Photo Map local development schema (Postgres 15)
--- Safe to run multiple times; used by docker-compose init
+-- Vacay Photo Map self-hosted schema (Postgres 15+)
+-- Safe to run multiple times; used by docker-compose init and migration script
+--
+-- NOTE: This schema intentionally diverges from the Supabase-hosted version:
+-- - user_profiles includes email/password_hash for self-hosted JWT auth
+-- - Supabase version uses Supabase Auth service instead
+-- - See issue #55 for migration context
 
 -- Extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Trips table
+-- Users/Auth
+CREATE TABLE IF NOT EXISTS user_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  display_name TEXT,
+  is_admin BOOLEAN DEFAULT FALSE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Trips
 CREATE TABLE IF NOT EXISTS trips (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT UNIQUE NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
   cover_photo_url TEXT,
-  slug TEXT UNIQUE NOT NULL,
-  is_public BOOLEAN DEFAULT true,
+  is_public BOOLEAN DEFAULT TRUE,
   access_token_hash TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Photos table
+-- Photos
 CREATE TABLE IF NOT EXISTS photos (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
   cloudinary_public_id TEXT NOT NULL,
   url TEXT NOT NULL,
@@ -28,20 +44,46 @@ CREATE TABLE IF NOT EXISTS photos (
   longitude DECIMAL(11, 8),
   taken_at TIMESTAMPTZ NOT NULL,
   caption TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  album TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
 -- Indexes
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_id ON photos(trip_id);
 CREATE INDEX IF NOT EXISTS idx_photos_taken_at ON photos(taken_at);
+CREATE INDEX IF NOT EXISTS idx_photos_trip_taken ON photos(trip_id, taken_at);
 CREATE INDEX IF NOT EXISTS idx_trips_slug ON trips(slug);
+
+-- Update updated_at timestamps automatically
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_user_profiles_set_updated_at ON user_profiles;
+CREATE TRIGGER trg_user_profiles_set_updated_at
+  BEFORE UPDATE ON user_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_trips_set_updated_at ON trips;
+CREATE TRIGGER trg_trips_set_updated_at
+  BEFORE UPDATE ON trips
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
 
 -- Enable Row Level Security
 ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photos ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies (idempotent)
--- Note: permissive policies here are for local development only.
+-- WARNING: These INSERT policies are permissive for local development only.
+-- In production, replace with proper user-based policies that check auth.
+-- TODO: Create separate production RLS policies that verify JWT user claims.
 DO $$
 BEGIN
   IF NOT EXISTS (
