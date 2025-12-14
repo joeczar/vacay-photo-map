@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/supabase'
 import type { TablesInsert, TablesRow } from '@/lib/database.types'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/composables/useAuth'
@@ -120,20 +119,36 @@ export async function createTrip(trip: TripInsert): Promise<Trip> {
 
 /**
  * Insert multiple photos for a trip
- *
- * @deprecated Temporarily using Supabase client directly.
- * TODO: Migrate to API once POST /api/trips/:id/photos endpoint is implemented.
- * Note: Type assertion required due to Supabase-js v2.39 type inference limitations
  */
 export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
-  const { data, error } = await supabase
-    .from('photos')
-    .insert(photos as unknown as never)
-    .select()
+  if (photos.length === 0) return []
 
-  if (error) throw error
-  if (!data) throw new Error('No data returned from insert')
-  return data as Photo[]
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
+
+  api.setToken(token)
+
+  // All photos should have the same trip_id
+  const tripId = photos[0].trip_id
+
+  // Transform snake_case input to camelCase for API
+  const apiPhotos = photos.map((p) => ({
+    cloudinaryPublicId: p.cloudinary_public_id,
+    url: p.url,
+    thumbnailUrl: p.thumbnail_url,
+    latitude: p.latitude,
+    longitude: p.longitude,
+    takenAt: p.taken_at,
+    caption: p.caption,
+  }))
+
+  const response = await api.post<{ photos: ApiPhotoResponse[] }>(
+    `/api/trips/${tripId}/photos`,
+    { photos: apiPhotos }
+  )
+
+  return response.photos.map(transformApiPhoto)
 }
 
 /**
