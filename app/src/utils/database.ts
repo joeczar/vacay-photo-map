@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { TablesInsert, TablesRow, TablesUpdate } from '@/lib/database.types'
 import { api, ApiError } from '@/lib/api'
-// @ts-expect-error - Will be used in future commits
 import { useAuth } from '@/composables/useAuth'
 
 type Trip = TablesRow<'trips'>
@@ -99,18 +98,24 @@ function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): Trip & 
 
 /**
  * Create a new trip
- * Note: Type assertion required due to Supabase-js v2.39 type inference limitations
  */
 export async function createTrip(trip: TripInsert): Promise<Trip> {
-  const { data, error } = await supabase
-    .from('trips')
-    .insert([trip] as unknown as never)
-    .select()
-    .single()
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
 
-  if (error) throw error
-  if (!data) throw new Error('No data returned from insert')
-  return data as Trip
+  api.setToken(token)
+
+  const body = {
+    title: trip.title,
+    description: trip.description,
+    slug: trip.slug,
+    isPublic: trip.is_public,
+    coverPhotoUrl: trip.cover_photo_url,
+  }
+
+  const apiTrip = await api.post<ApiTripResponse>('/api/trips', body)
+  return transformApiTrip(apiTrip)
 }
 
 /**
