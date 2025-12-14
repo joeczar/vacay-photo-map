@@ -120,6 +120,9 @@ export async function createTrip(trip: TripInsert): Promise<Trip> {
 
 /**
  * Insert multiple photos for a trip
+ *
+ * @deprecated Temporarily using Supabase client directly.
+ * TODO: Migrate to API once POST /api/trips/:id/photos endpoint is implemented.
  * Note: Type assertion required due to Supabase-js v2.39 type inference limitations
  */
 export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
