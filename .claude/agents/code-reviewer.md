@@ -72,7 +72,30 @@ AI Comment: "Consider adding error handling"
 → Invalid if error handling already exists
 ```
 
-**Step 6: Common Sense Check**
+**Step 6: Correctness Verification (CRITICAL)**
+```
+For spec-based implementations (WebAuthn, OAuth, JWT, etc.):
+1. Fetch library docs with Context7 - don't rely on intuition
+2. Verify implementation matches spec requirements
+3. Check for non-obvious requirements (e.g., "userID must be stable per user")
+
+For any generated values:
+1. Is it ephemeral (request-scoped) or persistent (user-scoped)?
+2. If persistent: where is it stored? Is the schema updated?
+3. If it identifies something: must it remain stable across operations?
+
+User journey tracing:
+1. Trace multi-step flows: register → add device → login from device
+2. What state persists between steps? What could break?
+3. What happens with multiple instances (devices/sessions/passkeys)?
+
+Boundary conditions:
+- First-time vs returning user
+- Single item vs multiple items
+- Owner vs shared access
+```
+
+**Step 7: Common Sense Check**
 ```
 Ask:
 - Will this work in production?
@@ -81,7 +104,7 @@ Ask:
 - Will maintainer understand in 6 months?
 ```
 
-**Step 7: Report Findings**
+**Step 8: Report Findings**
 ```
 Format:
 [File:Line] {Issue category}
@@ -191,7 +214,7 @@ status: pass | fail | warn
 issues:
   - file: app/src/utils/helper.ts
     line: 42
-    category: naming | complexity | duplication | convention | error_handling
+    category: naming | complexity | duplication | convention | error_handling | correctness
     severity: high | medium | low
     problem: "Function name 'process' is not descriptive"
     impact: "Developers must read implementation"
@@ -205,6 +228,7 @@ summary:
   readability: pass | fail
   simplicity: pass | fail
   conventions: pass | fail
+  correctness: pass | fail
   common_sense: pass | fail
   ai_comments: "5 evaluated, 3 valid, 2 false positives"
 ```
@@ -215,6 +239,8 @@ summary:
 - Unreadable code (poor names, complex logic)
 - Production risks (no error handling, type unsafe)
 - Violates critical project patterns
+- Spec violations (WebAuthn, OAuth, JWT non-compliance)
+- Ephemeral data treated as persistent or vice versa
 
 **Medium (Should fix):**
 - Unnecessary complexity
