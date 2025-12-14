@@ -448,7 +448,7 @@ import { useRoute, useRouter } from 'vue-router'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { LMap, LTileLayer, LMarker, LIcon, LPopup, LPolyline } from '@vue-leaflet/vue-leaflet'
-import { getTripBySlug, deleteTrip, updateTripProtection } from '@/utils/database'
+import { getTripBySlug, deleteTrip, updateTripProtection, type ApiTrip } from '@/utils/database'
 import { generateTripToken } from '@/utils/tokenGenerator'
 import { useAuth } from '@/composables/useAuth'
 import { useToast } from '@/components/ui/toast/use-toast'
@@ -486,7 +486,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href
 })
 
-type Trip = Database['public']['Tables']['trips']['Row']
 type Photo = Database['public']['Tables']['photos']['Row']
 
 const route = useRoute()
@@ -499,7 +498,7 @@ const { isAuthenticated, getToken } = useAuth()
 const { toast } = useToast()
 
 // State
-const trip = ref<(Trip & { photos: Photo[] }) | null>(null)
+const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
 const loading = ref(true)
 const error = ref('')
 const selectedPhoto = ref<Photo | null>(null)

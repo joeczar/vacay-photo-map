@@ -46,6 +46,11 @@ interface TripResponse {
   isPublic: boolean
   createdAt: Date
   updatedAt: Date
+  photoCount: number
+  dateRange: {
+    start: string
+    end: string
+  }
 }
 
 interface TripWithPhotosResponse extends TripResponse {
@@ -113,7 +118,33 @@ function isUniqueViolation(error: unknown): boolean {
 // Transform Helpers
 // =============================================================================
 
-function toTripResponse(trip: DbTrip): TripResponse {
+interface PhotoStats {
+  photo_count: string // COUNT returns bigint as string
+  min_taken_at: Date | null
+  max_taken_at: Date | null
+}
+
+function getMetadataFromStats(
+  stats: PhotoStats | undefined,
+  fallbackDate: Date
+): { photoCount: number; dateRange: { start: string; end: string } } {
+  const photoCount = stats ? parseInt(stats.photo_count, 10) : 0
+  const dateRange = {
+    start: stats?.min_taken_at
+      ? stats.min_taken_at.toISOString()
+      : fallbackDate.toISOString(),
+    end: stats?.max_taken_at
+      ? stats.max_taken_at.toISOString()
+      : fallbackDate.toISOString(),
+  }
+  return { photoCount, dateRange }
+}
+
+function toTripResponse(
+  trip: DbTrip,
+  photoCount: number,
+  dateRange: { start: string; end: string }
+): TripResponse {
   return {
     id: trip.id,
     slug: trip.slug,
@@ -123,6 +154,8 @@ function toTripResponse(trip: DbTrip): TripResponse {
     isPublic: trip.is_public,
     createdAt: trip.created_at,
     updatedAt: trip.updated_at,
+    photoCount,
+    dateRange,
   }
 }
 
@@ -160,8 +193,39 @@ trips.get('/', async (c) => {
     ORDER BY created_at DESC
   `
 
+  // Get photo metadata for all trips in one query
+  const tripIds = tripList.map((t) => t.id)
+
+  interface PhotoStatsWithTripId extends PhotoStats {
+    trip_id: string
+  }
+
+  const photoStats =
+    tripIds.length > 0
+      ? await db<PhotoStatsWithTripId[]>`
+        SELECT
+          trip_id,
+          COUNT(*)::text as photo_count,
+          MIN(taken_at) as min_taken_at,
+          MAX(taken_at) as max_taken_at
+        FROM photos
+        WHERE trip_id = ANY(${tripIds})
+        GROUP BY trip_id
+      `
+      : []
+
+  // Create a map for quick lookup
+  const statsMap = new Map(photoStats.map((s) => [s.trip_id, s]))
+
+  // Combine trips with their photo metadata
+  const tripsWithMetadata = tripList.map((trip) => {
+    const stats = statsMap.get(trip.id)
+    const { photoCount, dateRange } = getMetadataFromStats(stats, trip.created_at)
+    return toTripResponse(trip, photoCount, dateRange)
+  })
+
   return c.json({
-    trips: tripList.map(toTripResponse),
+    trips: tripsWithMetadata,
   })
 })
 
@@ -219,8 +283,19 @@ trips.get('/:slug', optionalAuth, async (c) => {
     ORDER BY taken_at ASC
   `
 
+  // Compute photo metadata
+  const photoCount = photos.length
+  const dateRange = {
+    start: photos.length > 0
+      ? photos[0].taken_at.toISOString()
+      : trip.created_at.toISOString(),
+    end: photos.length > 0
+      ? photos[photos.length - 1].taken_at.toISOString()
+      : trip.created_at.toISOString(),
+  }
+
   const response: TripWithPhotosResponse = {
-    ...toTripResponse(trip),
+    ...toTripResponse(trip, photoCount, dateRange),
     photos: photos.map(toPhotoResponse),
   }
 
@@ -289,7 +364,14 @@ trips.post('/', requireAdmin, async (c) => {
       RETURNING id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
     `
 
-    return c.json(toTripResponse(trip), 201)
+    // New trip has no photos yet
+    const photoCount = 0
+    const dateRange = {
+      start: trip.created_at.toISOString(),
+      end: trip.created_at.toISOString(),
+    }
+
+    return c.json(toTripResponse(trip, photoCount, dateRange), 201)
   } catch (error) {
     if (isUniqueViolation(error)) {
       return c.json(
@@ -393,7 +475,18 @@ trips.patch('/:id', requireAdmin, async (c) => {
       RETURNING id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
     `
 
-    return c.json(toTripResponse(trip))
+    // Fetch photo metadata for this trip
+    const [stats] = await db<PhotoStats[]>`
+      SELECT
+        COUNT(*)::text as photo_count,
+        MIN(taken_at) as min_taken_at,
+        MAX(taken_at) as max_taken_at
+      FROM photos
+      WHERE trip_id = ${id}
+    `
+
+    const { photoCount, dateRange } = getMetadataFromStats(stats, trip.created_at)
+    return c.json(toTripResponse(trip, photoCount, dateRange))
   } catch (error) {
     if (isUniqueViolation(error)) {
       return c.json(
@@ -502,6 +595,107 @@ trips.patch('/:id/protection', requireAdmin, async (c) => {
   `
 
   return c.json({ success: true })
+})
+
+// =============================================================================
+// POST /api/trips/:id/photos - Add photos to trip (admin only)
+// =============================================================================
+trips.post('/:id/photos', requireAdmin, async (c) => {
+  const tripId = c.req.param('id')
+  const body = await c.req.json<{
+    photos: Array<{
+      cloudinaryPublicId: string
+      url: string
+      thumbnailUrl: string
+      latitude: number | null
+      longitude: number | null
+      takenAt: string
+      caption: string | null
+    }>
+  }>()
+
+  const { photos } = body
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(tripId)) {
+    return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
+  }
+
+  // Validate photos array
+  if (!Array.isArray(photos) || photos.length === 0) {
+    return c.json(
+      { error: 'Bad Request', message: 'Photos array is required and must not be empty.' },
+      400
+    )
+  }
+
+  // Validate individual photo objects
+  for (const photo of photos) {
+    if (
+      !photo.cloudinaryPublicId ||
+      !photo.url ||
+      !photo.thumbnailUrl ||
+      !photo.takenAt
+    ) {
+      return c.json(
+        {
+          error: 'Bad Request',
+          message:
+            'Each photo must include cloudinaryPublicId, url, thumbnailUrl, and takenAt.',
+        },
+        400
+      )
+    }
+
+    // Validate date format
+    if (isNaN(Date.parse(photo.takenAt))) {
+      return c.json(
+        {
+          error: 'Bad Request',
+          message: `Invalid date format for takenAt: ${photo.takenAt}`,
+        },
+        400
+      )
+    }
+
+    // Validate URLs
+    if (!isValidUrl(photo.url) || !isValidUrl(photo.thumbnailUrl)) {
+      return c.json(
+        { error: 'Bad Request', message: 'Invalid URL format for photo url or thumbnailUrl.' },
+        400
+      )
+    }
+  }
+
+  const db = getDbClient()
+
+  // Check if trip exists
+  const existing = await db<{ id: string }[]>`
+    SELECT id FROM trips WHERE id = ${tripId}
+  `
+
+  if (existing.length === 0) {
+    return c.json({ error: 'Not Found', message: 'Trip not found' }, 404)
+  }
+
+  // Insert all photos
+  const insertedPhotos = await db<DbPhoto[]>`
+    INSERT INTO photos ${db(
+      photos.map((p) => ({
+        trip_id: tripId,
+        cloudinary_public_id: p.cloudinaryPublicId,
+        url: p.url,
+        thumbnail_url: p.thumbnailUrl,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        taken_at: p.takenAt,
+        caption: p.caption,
+      }))
+    )}
+    RETURNING *
+  `
+
+  return c.json({ photos: insertedPhotos.map(toPhotoResponse) }, 201)
 })
 
 export { trips }

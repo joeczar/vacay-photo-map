@@ -93,19 +93,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getAllTrips } from '@/utils/database'
-import type { Database } from '@/lib/database.types'
+import { getAllTrips, type ApiTrip } from '@/utils/database'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
-type Trip = Database['public']['Tables']['trips']['Row']
-
-const trips = ref<(Trip & { photo_count: number; date_range: { start: string; end: string } })[]>(
-  []
-)
+const trips = ref<
+  (ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]
+>([])
 const loading = ref(true)
 const error = ref('')
 
