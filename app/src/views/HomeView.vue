@@ -77,8 +77,11 @@
                       clip-rule="evenodd"
                     />
                   </svg>
+                  {{ trip.photo_count }} photos
                 </Badge>
-                <!-- Date range removed - will be added back via API enhancement -->
+                <span v-if="trip.date_range" class="text-muted-foreground text-xs">
+                  {{ formatDateRange(trip.date_range) }}
+                </span>
               </div>
             </CardContent>
           </router-link>
@@ -100,7 +103,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 type Trip = Database['public']['Tables']['trips']['Row']
 
-const trips = ref<Trip[]>([])
+const trips = ref<(Trip & { photo_count: number; date_range: { start: string; end: string } })[]>([])
 const loading = ref(true)
 const error = ref('')
 
@@ -114,4 +117,24 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+function formatDateRange(dateRange: { start: string; end: string }): string {
+  const start = new Date(dateRange.start)
+  const end = new Date(dateRange.end)
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  if (start.toDateString() === end.toDateString()) {
+    return formatDate(start)
+  }
+
+  // Same year
+  if (start.getFullYear() === end.getFullYear()) {
+    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${formatDate(end)}`
+  }
+
+  return `${formatDate(start)} - ${formatDate(end)}`
+}
 </script>

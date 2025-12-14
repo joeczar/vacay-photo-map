@@ -9,6 +9,15 @@ type TripInsert = TablesInsert<'trips'>
 type Photo = TablesRow<'photos'>
 type PhotoInsert = TablesInsert<'photos'>
 
+// Trip with metadata (used for list views)
+type TripWithMetadata = Trip & {
+  photo_count: number
+  date_range: {
+    start: string
+    end: string
+  }
+}
+
 // API Response Types (camelCase from backend)
 interface ApiTripResponse {
   id: string
@@ -20,6 +29,11 @@ interface ApiTripResponse {
   accessTokenHash: string | null
   createdAt: string
   updatedAt: string
+  photoCount: number
+  dateRange: {
+    start: string
+    end: string
+  }
 }
 
 interface ApiPhotoResponse {
@@ -41,7 +55,7 @@ interface ApiTripWithPhotosResponse extends ApiTripResponse {
 }
 
 // Transform API responses (camelCase) to database types (snake_case)
-function transformApiTrip(apiTrip: ApiTripResponse): Trip {
+function transformApiTrip(apiTrip: ApiTripResponse): TripWithMetadata {
   return {
     id: apiTrip.id,
     slug: apiTrip.slug,
@@ -52,6 +66,11 @@ function transformApiTrip(apiTrip: ApiTripResponse): Trip {
     access_token_hash: apiTrip.accessTokenHash,
     created_at: apiTrip.createdAt,
     updated_at: apiTrip.updatedAt,
+    photo_count: apiTrip.photoCount,
+    date_range: {
+      start: apiTrip.dateRange.start,
+      end: apiTrip.dateRange.end,
+    },
   }
 }
 
@@ -180,10 +199,9 @@ export async function getTripBySlug(
 }
 
 /**
- * Get all public trips
- * Note: Photo count and date range removed - will be added back via API enhancement
+ * Get all public trips with metadata (photo count and date range)
  */
-export async function getAllTrips(): Promise<Trip[]> {
+export async function getAllTrips(): Promise<TripWithMetadata[]> {
   const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips')
   return trips.map(transformApiTrip)
 }
