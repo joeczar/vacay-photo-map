@@ -50,7 +50,7 @@ Save to: `/docs/implementation-plan-issue-{number}.md`
 **Issue:** #{number}
 **Branch:** `feature/issue-{number}-{slug}`
 **Complexity:** Simple | Medium | Complex
-**Estimated Steps:** {N}
+**Total Commits:** {N}
 
 ## Overview
 {2-3 sentence summary of what will be built}
@@ -68,41 +68,59 @@ Save to: `/docs/implementation-plan-issue-{number}.md`
 User Action → Component → API → Database → Response
 ```
 
-## Implementation Steps
+## Atomic Commits
 
-### Phase 1: {Phase Name}
+Each commit is a reviewable unit. Implementer completes one commit, returns diff for review, then proceeds to next.
 
-#### Step 1.1: {Action}
-**File:** `path/to/file.ts`
-**Action:** Create | Modify | Delete
-**Details:**
+### Commit 1: {Commit Message}
+**Type:** feat | fix | refactor | test | docs
+**Scope:** {component/area}
+**Files:**
+- `path/to/file.ts` - Create | Modify | Delete
+
+**Changes:**
 - {Specific change 1}
 - {Specific change 2}
 
-**Test:** {What to test after this step}
+**Acceptance Criteria:**
+- [ ] {What must be true for this commit to be complete}
+- [ ] Tests pass: `pnpm test`
+- [ ] Types pass: `pnpm type-check`
 
-#### Step 1.2: {Action}
-...
+---
 
-### Phase 2: {Phase Name}
+### Commit 2: {Commit Message}
+**Type:** feat | fix | refactor | test | docs
+**Scope:** {component/area}
+**Files:**
+- `path/to/file.ts` - Create | Modify | Delete
+
+**Changes:**
+- {Specific change 1}
+- {Specific change 2}
+
+**Acceptance Criteria:**
+- [ ] {What must be true for this commit to be complete}
+- [ ] Tests pass: `pnpm test`
+- [ ] Types pass: `pnpm type-check`
+
+---
+
+### Commit N: {Commit Message}
 ...
 
 ## Testing Strategy
 
-### Unit Tests
-- [ ] `test/path/file.test.ts` - {what it tests}
-
-### Integration Tests
-- [ ] `test/path/integration.test.ts` - {what it tests}
-
-### E2E Tests (Playwright)
-- [ ] `e2e/feature.spec.ts` - {user journey tested}
+Tests should be included in relevant commits (TDD approach):
+- Unit tests with the code they test
+- Integration tests after core functionality
+- E2E tests as final commit(s)
 
 ## Verification Checklist
 
-Before marking complete:
-- [ ] All implementation steps done
-- [ ] Tests written and passing
+Before PR creation:
+- [ ] All commits completed and reviewed
+- [ ] Full test suite passes
 - [ ] Type check passes (`pnpm type-check`)
 - [ ] Lint passes (`pnpm lint`)
 - [ ] Manual verification in browser
@@ -117,6 +135,27 @@ Before marking complete:
 
 - {Any unresolved decisions - ask user before implementing}
 ```
+
+## Atomic Commit Guidelines
+
+When breaking work into commits:
+
+1. **Each commit should be independently reviewable** - Makes sense on its own
+2. **Each commit should leave the codebase working** - Tests pass, types check
+3. **Order by dependency** - Foundation first, then features that depend on it
+4. **Group related changes** - Don't split a function across commits
+5. **Separate concerns** - Types in one commit, implementation in another, tests with their code
+
+**Good atomic commits for a CRUD feature:**
+1. `feat(api): add types and validation helpers`
+2. `feat(api): implement GET /items endpoint`
+3. `feat(api): implement POST /items endpoint`
+4. `feat(api): implement PATCH /items/:id endpoint`
+5. `feat(api): implement DELETE /items/:id endpoint`
+6. `test(api): add integration tests for items endpoints`
+
+**Bad commits (too big):**
+1. `feat(api): implement full CRUD for items` ← Can't review incrementally
 
 ## Correctness Verification
 

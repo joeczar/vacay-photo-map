@@ -75,21 +75,45 @@ Required in `app/.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_CLO
 
 Uses orchestrator-worker pattern based on [Anthropic's multi-agent system](https://www.anthropic.com/engineering/multi-agent-research-system).
 
-### Workflow Agents (Issue → PR lifecycle)
+### Roles
+
+- **You (Human)**: Final approval on all commits
+- **Claude (Senior Dev)**: Reviews diffs, catches issues, coordinates agents
+- **Agents**: Execute specialized tasks (research, plan, implement, test)
+
+### Workflow: Atomic Commits
+
+Implementation happens **one commit at a time** with review gates:
+
+```
+Planner → outputs atomic commits (not steps)
+     ↓
+For each commit:
+  1. Implementer → makes changes (does NOT commit)
+  2. Claude → reviews diff
+  3. If issues → feedback to implementer
+  4. If good → commit (you approve)
+  5. Next commit
+     ↓
+All commits done → Test → Review → PR
+```
+
+**Why atomic commits?**
+- Catch issues early before they compound
+- Easier to review smaller changes
+- Natural checkpoints for course correction
+- Can revert single bad commit vs. untangling massive PR
+
+### Workflow Agents
 
 | Agent | Purpose | Trigger |
 |-------|---------|---------|
 | `workflow-orchestrator` | Coordinates full workflow | "Work on issue #X" |
 | `researcher` | Gathers context, fetches docs | Before planning |
-| `planner` | Creates implementation plans | After research |
-| `implementer` | Builds features | After planning |
-| `tester` | Writes and runs tests | After implementation |
+| `planner` | Creates atomic commit plan | After research |
+| `implementer` | Implements ONE commit at a time | Per commit |
+| `tester` | Writes and runs tests | After all commits |
 | `reviewer` | Validates code quality | Before PR |
-
-### Execution Modes
-
-- **AUTO**: Continuous flow for simple issues ("Work on issue #X")
-- **STEP**: Pause between phases for approval ("Step through issue #X")
 
 ### Utility Agents
 

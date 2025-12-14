@@ -1,13 +1,22 @@
 # Agent Architecture
 
-This project uses an orchestrator-worker pattern based on Anthropic's multi-agent research system design.
+This project uses an orchestrator-worker pattern based on Anthropic's multi-agent research system design, with **atomic commits** and **senior dev review gates**.
+
+## Roles
+
+- **Human**: Final approval on all commits
+- **Claude (Senior Dev)**: Reviews diffs, catches issues, coordinates agents
+- **Agents**: Execute specialized tasks (research, plan, implement, test)
 
 ## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    workflow-orchestrator                         │
-│         (coordinates full Issue → PR lifecycle)                  │
+│                         Human (You)                              │
+│                    (approves each commit)                        │
+├─────────────────────────────────────────────────────────────────┤
+│                     Claude (Senior Dev)                          │
+│              (reviews diffs, coordinates agents)                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │   ┌──────────┐   ┌─────────┐   ┌────────────┐   ┌────────┐     │
@@ -15,7 +24,13 @@ This project uses an orchestrator-worker pattern based on Anthropic's multi-agen
 │   └──────────┘   └─────────┘   └────────────┘   └────────┘     │
 │        │              │              │               │          │
 │        ▼              ▼              ▼               ▼          │
-│   [findings]     [plan.md]       [code]          [tests]       │
+│   [findings]   [atomic commits]  [one commit    [tests]        │
+│                    plan          at a time]                     │
+│                                      │                          │
+│                              ┌───────┴───────┐                  │
+│                              │ Review Gate   │                  │
+│                              │ (per commit)  │                  │
+│                              └───────────────┘                  │
 │                                                                  │
 │                         ┌──────────┐                            │
 │                         │ reviewer │                            │
@@ -54,21 +69,29 @@ Utility Agents (called by implementer when needed):
 - Produces structured findings for planner
 
 ### planner
-**Purpose:** Creates detailed implementation plans.
+**Purpose:** Creates atomic commit plans (not just steps).
 
 **Outputs:**
 - Implementation plan in `/docs/implementation-plan-issue-{N}.md`
-- Step-by-step instructions
+- **Atomic commits** - each with: message, files, acceptance criteria
 - Testing strategy
 - Risk assessment
 
+**Key principle:** Each commit is independently reviewable and leaves codebase working.
+
 ### implementer
-**Purpose:** Builds features by executing plans.
+**Purpose:** Builds features ONE COMMIT AT A TIME.
+
+**Critical behavior:**
+- Works on ONE atomic commit at a time
+- **Does NOT commit directly** - returns diff for review
+- Waits for senior dev approval before next commit
 
 **Activities:**
-- Follows plan steps in order
+- Implements single commit's scope
 - Writes code following project patterns
 - Uses TDD approach
+- Returns diff to senior dev for review
 - Delegates to utility agents when appropriate
 
 ### tester
@@ -104,37 +127,41 @@ Utility Agents (called by implementer when needed):
 
 ## Execution Modes
 
-### AUTO Mode (Default for simple issues)
+### Atomic Commit Flow (Default)
 ```
-Issue → Research → Plan → Implement → Test → Review → PR
-         ↓          ↓          ↓          ↓         ↓
-      (continuous, no pauses between phases)
+Issue → Research → Plan (atomic commits) → Implement → Test → Review → PR
+                          ↓
+                   For each commit:
+                   ┌─────────────────────────────────┐
+                   │ 1. Implementer makes changes    │
+                   │ 2. Senior dev reviews diff      │
+                   │ 3. Commit if approved           │
+                   │ 4. Next commit                  │
+                   └─────────────────────────────────┘
 ```
 
-### STEP Mode (Default for complex issues)
-```
-Issue → Research → [PAUSE] → Plan → [PAUSE] → Implement → [PAUSE] → ...
-                      ↑              ↑                        ↑
-                 (user approval required to continue)
-```
+### Why Atomic Commits?
+- **Catch issues early** - Before they compound
+- **Easier review** - Smaller changes are easier to understand
+- **Natural checkpoints** - Course correct at any point
+- **Clean git history** - Each commit is meaningful and revertable
 
 ## Usage Examples
 
-### Full Workflow (AUTO)
+### Full Workflow
 ```
 User: "Work on issue #42"
-→ Orchestrator fetches issue, assesses complexity
-→ Research → Plan → Implement → Test → Review → PR
-→ Returns PR URL
-```
 
-### Full Workflow (STEP)
-```
-User: "Step through issue #15"
-→ Orchestrator fetches issue
-→ Research → [pause for approval]
-→ Plan → [pause for approval]
-→ ... → PR
+→ Orchestrator fetches issue, assesses complexity
+→ Research phase
+→ Plan phase (outputs atomic commits)
+→ Implement phase:
+    Commit 1: Implementer → diff → Senior dev reviews → commit
+    Commit 2: Implementer → diff → Senior dev reviews → commit
+    ... (repeat for each commit)
+→ Test phase
+→ Review phase
+→ PR created
 ```
 
 ### Direct Agent Use

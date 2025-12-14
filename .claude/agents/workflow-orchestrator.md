@@ -51,13 +51,25 @@ Output: Implementation plan in /docs/implementation-plan-issue-{N}.md
 Handoff: Plan summary for implementer
 ```
 
-### Phase 3: Implement
+### Phase 3: Implement (Commit-by-Commit)
 ```
-Spawn: implementer agent
-Input: Implementation plan, research context
-Output: Working code changes
-Handoff: List of files changed for tester
+For each atomic commit in the plan:
+  1. Spawn: implementer agent with commit number
+  2. Input: Plan + "Implement commit N of M"
+  3. Output: Diff ready for review (NOT committed)
+  4. Return to senior dev (main Claude) for review
+  5. Senior dev reviews diff, approves or requests changes
+  6. If approved: commit is made (user approves)
+  7. Repeat for next commit
+
+Handoff after all commits: List of files changed for tester
 ```
+
+**Why commit-by-commit?**
+- Catches issues early before they compound
+- Easier to review smaller changes
+- Natural checkpoints for course correction
+- Aligns with good git practices
 
 ### Phase 4: Test
 ```
