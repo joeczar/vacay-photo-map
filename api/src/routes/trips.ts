@@ -46,6 +46,11 @@ interface TripResponse {
   isPublic: boolean
   createdAt: Date
   updatedAt: Date
+  photoCount: number
+  dateRange: {
+    start: string
+    end: string
+  }
 }
 
 interface TripWithPhotosResponse extends TripResponse {
@@ -113,7 +118,11 @@ function isUniqueViolation(error: unknown): boolean {
 // Transform Helpers
 // =============================================================================
 
-function toTripResponse(trip: DbTrip): TripResponse {
+function toTripResponse(
+  trip: DbTrip,
+  photoCount: number,
+  dateRange: { start: string; end: string }
+): TripResponse {
   return {
     id: trip.id,
     slug: trip.slug,
@@ -123,6 +132,8 @@ function toTripResponse(trip: DbTrip): TripResponse {
     isPublic: trip.is_public,
     createdAt: trip.created_at,
     updatedAt: trip.updated_at,
+    photoCount,
+    dateRange,
   }
 }
 
@@ -160,8 +171,54 @@ trips.get('/', async (c) => {
     ORDER BY created_at DESC
   `
 
+  // Get photo metadata for all trips in one query
+  const tripIds = tripList.map((t) => t.id)
+
+  interface PhotoStats {
+    trip_id: string
+    photo_count: string // COUNT returns bigint as string
+    min_taken_at: Date | null
+    max_taken_at: Date | null
+  }
+
+  const photoStats = tripIds.length > 0
+    ? await db<PhotoStats[]>`
+        SELECT
+          trip_id,
+          COUNT(*)::text as photo_count,
+          MIN(taken_at) as min_taken_at,
+          MAX(taken_at) as max_taken_at
+        FROM photos
+        WHERE trip_id = ANY(${tripIds})
+        GROUP BY trip_id
+      `
+    : []
+
+  // Create a map for quick lookup
+  const statsMap = new Map(
+    photoStats.map((s) => [s.trip_id, s])
+  )
+
+  // Combine trips with their photo metadata
+  const tripsWithMetadata = tripList.map((trip) => {
+    const stats = statsMap.get(trip.id)
+    const photoCount = stats ? parseInt(stats.photo_count, 10) : 0
+
+    // Use photo dates if available, otherwise fall back to trip creation date
+    const dateRange = {
+      start: stats?.min_taken_at
+        ? stats.min_taken_at.toISOString()
+        : trip.created_at.toISOString(),
+      end: stats?.max_taken_at
+        ? stats.max_taken_at.toISOString()
+        : trip.created_at.toISOString(),
+    }
+
+    return toTripResponse(trip, photoCount, dateRange)
+  })
+
   return c.json({
-    trips: tripList.map(toTripResponse),
+    trips: tripsWithMetadata,
   })
 })
 
@@ -219,8 +276,19 @@ trips.get('/:slug', optionalAuth, async (c) => {
     ORDER BY taken_at ASC
   `
 
+  // Compute photo metadata
+  const photoCount = photos.length
+  const dateRange = {
+    start: photos.length > 0
+      ? photos[0].taken_at.toISOString()
+      : trip.created_at.toISOString(),
+    end: photos.length > 0
+      ? photos[photos.length - 1].taken_at.toISOString()
+      : trip.created_at.toISOString(),
+  }
+
   const response: TripWithPhotosResponse = {
-    ...toTripResponse(trip),
+    ...toTripResponse(trip, photoCount, dateRange),
     photos: photos.map(toPhotoResponse),
   }
 
@@ -289,7 +357,14 @@ trips.post('/', requireAdmin, async (c) => {
       RETURNING id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
     `
 
-    return c.json(toTripResponse(trip), 201)
+    // New trip has no photos yet
+    const photoCount = 0
+    const dateRange = {
+      start: trip.created_at.toISOString(),
+      end: trip.created_at.toISOString(),
+    }
+
+    return c.json(toTripResponse(trip, photoCount, dateRange), 201)
   } catch (error) {
     if (isUniqueViolation(error)) {
       return c.json(
@@ -393,7 +468,33 @@ trips.patch('/:id', requireAdmin, async (c) => {
       RETURNING id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
     `
 
-    return c.json(toTripResponse(trip))
+    // Fetch photo metadata for this trip
+    interface PhotoStats {
+      photo_count: string
+      min_taken_at: Date | null
+      max_taken_at: Date | null
+    }
+
+    const [stats] = await db<PhotoStats[]>`
+      SELECT
+        COUNT(*)::text as photo_count,
+        MIN(taken_at) as min_taken_at,
+        MAX(taken_at) as max_taken_at
+      FROM photos
+      WHERE trip_id = ${id}
+    `
+
+    const photoCount = stats ? parseInt(stats.photo_count, 10) : 0
+    const dateRange = {
+      start: stats?.min_taken_at
+        ? stats.min_taken_at.toISOString()
+        : trip.created_at.toISOString(),
+      end: stats?.max_taken_at
+        ? stats.max_taken_at.toISOString()
+        : trip.created_at.toISOString(),
+    }
+
+    return c.json(toTripResponse(trip, photoCount, dateRange))
   } catch (error) {
     if (isUniqueViolation(error)) {
       return c.json(

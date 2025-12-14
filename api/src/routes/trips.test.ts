@@ -27,6 +27,11 @@ interface TripResponse {
   isPublic: boolean
   createdAt: string
   updatedAt: string
+  photoCount: number
+  dateRange: {
+    start: string
+    end: string
+  }
 }
 
 interface TripListResponse {
