@@ -110,3 +110,12 @@ export function useAuth() {
     checkAuth
   }
 }
+
+/**
+ * Initialize auth state on app startup
+ * Call this before mounting the app to ensure router guards have valid state
+ */
+export async function initializeAuth(): Promise<void> {
+  const { checkAuth } = useAuth()
+  await checkAuth()
+}
