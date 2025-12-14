@@ -74,6 +74,12 @@ export function useAuth() {
    * Logout current user
    */
   async function logout(): Promise<void> {
+    try {
+      await api.post('/api/auth/logout', {})
+    } catch (error) {
+      // Log error but don't block client-side logout
+      console.error('[useAuth] Server logout failed:', error)
+    }
     clearStoredToken()
     api.setToken(null)
     user.value = null
