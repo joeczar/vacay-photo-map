@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { TablesInsert, TablesRow, TablesUpdate } from '@/lib/database.types'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 // @ts-expect-error - Will be used in future commits
 import { useAuth } from '@/composables/useAuth'
 
@@ -90,7 +90,6 @@ function transformApiPhoto(apiPhoto: ApiPhotoResponse): Photo {
   }
 }
 
-// @ts-expect-error - Will be used in future commits
 function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): Trip & { photos: Photo[] } {
   return {
     ...transformApiTrip(apiTrip),
@@ -130,71 +129,21 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
 }
 
 /**
- * Get a trip by slug with all photos via Edge Function
- * Handles access control for public and protected trips
- * @param slug - Trip slug identifier
- * @param token - Optional access token for protected trips
- * @returns Trip with photos if found, or null if not found
- * @throws Error with status code (401 for unauthorized, others for HTTP errors)
+ * Get a trip by slug (public or with access token for private trips)
  */
 export async function getTripBySlug(
   slug: string,
   token?: string
 ): Promise<(Trip & { photos: Photo[] }) | null> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-
-  if (!supabaseUrl) {
-    throw new Error('Missing VITE_SUPABASE_URL environment variable')
-  }
-
-  // Build URL with query parameters
-  const url = new URL(`${supabaseUrl}/functions/v1/get-trip`)
-  url.searchParams.set('slug', slug)
-  if (token) {
-    url.searchParams.set('token', token)
-  }
-
   try {
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-        // No Authorization header needed - using query params for token
-      }
-    })
-
-    // Handle unauthorized access (missing/invalid token)
-    if (response.status === 401) {
-      const error = new Error('Unauthorized') as Error & { status: number }
-      error.status = 401
-      throw error
-    }
-
-    // Handle not found
-    if (response.status === 404) {
+    const path = token ? `/api/trips/${slug}?token=${token}` : `/api/trips/${slug}`
+    const trip = await api.get<ApiTripWithPhotosResponse>(path)
+    return transformApiTripWithPhotos(trip)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
       return null
     }
-
-    // Handle other errors
-    if (!response.ok) {
-      const error = new Error(`HTTP error ${response.status}`) as Error & { status: number }
-      error.status = response.status
-      throw error
-    }
-
-    const trip = await response.json()
-    return trip as Trip & { photos: Photo[] }
-  } catch (error) {
-    // Re-throw errors with status codes for proper handling in TripView
-    if (error instanceof Error && 'status' in error) {
-      throw error
-    }
-
-    // Network or other errors (e.g., fetch failed, JSON parse error)
-    console.error('Error fetching trip:', error)
-    const genericError = new Error('Network or parsing error') as Error & { status: number }
-    genericError.status = 0
-    throw genericError
+    throw error
   }
 }
 
