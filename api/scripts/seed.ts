@@ -1,55 +1,26 @@
-import bcrypt from 'bcrypt'
 import { closeDbClient, getDbClient } from '../src/db/client'
 
-const MIN_PASSWORD_LENGTH = 8
-
 const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com'
-const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'admin123'
 const adminName = process.env.SEED_ADMIN_NAME || 'Admin User'
 
-/**
- * Validate seed configuration before running
- */
-function validateConfig(): void {
-  if (adminPassword.length < MIN_PASSWORD_LENGTH) {
-    throw new Error(
-      `SEED_ADMIN_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters ` +
-        `(got ${adminPassword.length}). Set a stronger password in your environment.`
-    )
-  }
-
-  // Warn if using default credentials
-  if (
-    adminEmail === 'admin@example.com' &&
-    adminPassword === 'admin123' &&
-    process.env.NODE_ENV === 'production'
-  ) {
-    throw new Error(
-      'Cannot use default credentials in production. ' +
-        'Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD environment variables.'
-    )
-  }
-}
-
-const parseSaltRounds = (): number => {
-  const value = process.env.BCRYPT_SALT_ROUNDS
-  const parsed = value ? Number.parseInt(value, 10) : 14
-  if (parsed < 10 || parsed > 20) {
-    throw new Error('BCRYPT_SALT_ROUNDS must be between 10 and 20')
-  }
-  return parsed
+// Generate a random WebAuthn user ID (base64url encoded)
+function generateWebAuthnUserId(): string {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Buffer.from(bytes).toString('base64url')
 }
 
 const seed = async () => {
-  validateConfig()
   const db = getDbClient()
 
   console.info('Seeding database with admin user and sample data...')
-  const passwordHash = await bcrypt.hash(adminPassword, parseSaltRounds())
+  console.info('Note: Admin user has no passkey yet - register one via the UI')
+
+  const webauthnUserId = generateWebAuthnUserId()
 
   const [user] =
-    await db`INSERT INTO user_profiles (email, password_hash, display_name, is_admin)
-             VALUES (${adminEmail}, ${passwordHash}, ${adminName}, TRUE)
+    await db`INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
+             VALUES (${adminEmail}, ${webauthnUserId}, ${adminName}, TRUE)
              ON CONFLICT (email) DO UPDATE
              SET display_name = EXCLUDED.display_name,
                  is_admin = EXCLUDED.is_admin
@@ -99,7 +70,6 @@ const seed = async () => {
 
 seed()
   .catch((error) => {
-    // Log only error message to avoid exposing connection details or sensitive data
     console.error(
       'Seed failed:',
       error instanceof Error ? error.message : 'Unknown error'

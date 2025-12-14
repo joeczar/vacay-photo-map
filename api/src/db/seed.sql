@@ -1,13 +1,12 @@
 -- Seed data for local development
 -- Inserts one admin user, a sample trip, and a photo if they do not already exist
--- NOTE: Prefer using `bun run scripts/seed.ts` which generates fresh password hashes
--- and reads credentials from environment variables (see .env.example)
+-- NOTE: Admin user is created without a passkey - register one via the UI
 
 WITH admin_user AS (
-  INSERT INTO user_profiles (email, password_hash, display_name, is_admin)
+  INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
   VALUES (
     'admin@example.com',
-    '$2b$14$PLACEHOLDER_HASH_USE_SEED_TS_SCRIPT_INSTEAD',
+    encode(gen_random_bytes(32), 'base64'),
     'Admin User',
     TRUE
   )

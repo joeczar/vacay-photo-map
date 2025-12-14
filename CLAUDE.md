@@ -70,3 +70,41 @@ Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn au
 ## Environment Variables
 
 Required in `app/.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`
+
+## Agent Architecture
+
+Uses orchestrator-worker pattern based on [Anthropic's multi-agent system](https://www.anthropic.com/engineering/multi-agent-research-system).
+
+### Workflow Agents (Issue → PR lifecycle)
+
+| Agent | Purpose | Trigger |
+|-------|---------|---------|
+| `workflow-orchestrator` | Coordinates full workflow | "Work on issue #X" |
+| `researcher` | Gathers context, fetches docs | Before planning |
+| `planner` | Creates implementation plans | After research |
+| `implementer` | Builds features | After planning |
+| `tester` | Writes and runs tests | After implementation |
+| `reviewer` | Validates code quality | Before PR |
+
+### Execution Modes
+
+- **AUTO**: Continuous flow for simple issues ("Work on issue #X")
+- **STEP**: Pause between phases for approval ("Step through issue #X")
+
+### Utility Agents
+
+| Agent | Purpose | Use When |
+|-------|---------|----------|
+| `doc-writer` | Technical documentation | Need deployment/API docs |
+| `ui-polisher` | UI polish | Need responsive/animations |
+
+### Direct Agent Use
+
+```
+"Research how auth works"     → researcher
+"Write tests for uploads"     → tester
+"Review my changes"           → reviewer
+"Polish the mobile UI"        → ui-polisher
+```
+
+See `.claude/agents/README.md` for full documentation.

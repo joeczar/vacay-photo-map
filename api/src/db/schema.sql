@@ -2,7 +2,7 @@
 -- Safe to run multiple times; used by docker-compose init and migration script
 --
 -- NOTE: This schema intentionally diverges from the Supabase-hosted version:
--- - user_profiles includes email/password_hash for self-hosted JWT auth
+-- - Uses WebAuthn/passkeys for authentication (no passwords)
 -- - Supabase version uses Supabase Auth service instead
 -- - See issue #55 for migration context
 
@@ -13,11 +13,22 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS user_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
+  webauthn_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
   is_admin BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- WebAuthn authenticators (passkeys)
+CREATE TABLE IF NOT EXISTS authenticators (
+  credential_id TEXT PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  public_key TEXT NOT NULL,
+  counter BIGINT DEFAULT 0 NOT NULL,
+  transports TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  last_used_at TIMESTAMPTZ
 );
 
 -- Trips
@@ -50,6 +61,7 @@ CREATE TABLE IF NOT EXISTS photos (
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
+CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_id ON photos(trip_id);
 CREATE INDEX IF NOT EXISTS idx_photos_taken_at ON photos(taken_at);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_taken ON photos(trip_id, taken_at);
