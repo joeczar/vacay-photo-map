@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { TablesInsert, TablesRow, TablesUpdate } from '@/lib/database.types'
-// @ts-expect-error - Will be used in future commits
-import { api, ApiError } from '@/lib/api'
+import { api } from '@/lib/api'
 // @ts-expect-error - Will be used in future commits
 import { useAuth } from '@/composables/useAuth'
 
@@ -181,57 +180,12 @@ export async function getTripBySlug(
 }
 
 /**
- * Get all public trips with photo count
- * Note: Type assertion required due to Supabase-js v2.39 type inference limitations
+ * Get all public trips
+ * Note: Photo count and date range removed - will be added back via API enhancement
  */
-export async function getAllTrips(): Promise<
-  (Trip & { photo_count: number; date_range: { start: string; end: string } })[]
-> {
-  const result = (await supabase
-    .from('trips')
-    .select('*')
-    .eq('is_public', true)
-    .order('created_at', { ascending: false })) as {
-    data: Trip[] | null
-    error: unknown
-  }
-
-  if (result.error) throw result.error
-  if (!result.data) return []
-
-  const trips = result.data
-
-  // Get photo counts and date ranges for each trip
-  const tripsWithMetadata = await Promise.all(
-    trips.map(async trip => {
-      const photosResult = (await supabase
-        .from('photos')
-        .select('taken_at')
-        .eq('trip_id', trip.id)
-        .order('taken_at', { ascending: true })) as {
-        data: { taken_at: string }[] | null
-        error: unknown
-      }
-
-      const photos = photosResult.data || []
-      const photoCount = photos.length
-      const dateRange =
-        photos.length > 0
-          ? {
-              start: photos[0].taken_at,
-              end: photos[photos.length - 1].taken_at
-            }
-          : { start: trip.created_at, end: trip.created_at }
-
-      return {
-        ...trip,
-        photo_count: photoCount,
-        date_range: dateRange
-      }
-    })
-  )
-
-  return tripsWithMetadata
+export async function getAllTrips(): Promise<Trip[]> {
+  const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips')
+  return trips.map(transformApiTrip)
 }
 
 /**
