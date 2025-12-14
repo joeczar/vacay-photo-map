@@ -70,6 +70,7 @@ interface PhotoResponse {
 // =============================================================================
 
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_TITLE_LENGTH = 200
 const MAX_DESCRIPTION_LENGTH = 2000
 const MAX_SLUG_LENGTH = 100
@@ -316,9 +317,7 @@ trips.patch('/:id', requireAdmin, async (c) => {
   const { slug, title, description, coverPhotoUrl, isPublic } = body
 
   // Validate UUID format
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (!uuidRegex.test(id)) {
+  if (!UUID_REGEX.test(id)) {
     return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
   }
 
@@ -387,33 +386,9 @@ trips.patch('/:id', requireAdmin, async (c) => {
   }
 
   try {
-    // Use individual update queries based on what fields are provided
-    // This is less elegant but safer and type-compatible with postgres.js
-    // Each query updates only the specified fields using parameterized queries
-    const updateFields = {
-      slug: updates.slug as string | undefined,
-      title: updates.title as string | undefined,
-      description: updates.description as string | null | undefined,
-      cover_photo_url: updates.cover_photo_url as string | null | undefined,
-      is_public: updates.is_public as boolean | undefined,
-    }
-
-    // Update all fields at once using a single query with all possible columns
-    // Only the provided values will change; others stay the same via COALESCE-like logic
     const [trip] = await db<DbTrip[]>`
       UPDATE trips
-      SET
-        slug = COALESCE(${updateFields.slug ?? null}::text, slug),
-        title = COALESCE(${updateFields.title ?? null}::text, title),
-        description = CASE
-          WHEN ${updateFields.description !== undefined} THEN ${updateFields.description ?? null}::text
-          ELSE description
-        END,
-        cover_photo_url = CASE
-          WHEN ${updateFields.cover_photo_url !== undefined} THEN ${updateFields.cover_photo_url ?? null}::text
-          ELSE cover_photo_url
-        END,
-        is_public = COALESCE(${updateFields.is_public ?? null}::boolean, is_public)
+      SET ${db(updates)}
       WHERE id = ${id}
       RETURNING id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
     `
@@ -437,9 +412,7 @@ trips.delete('/:id', requireAdmin, async (c) => {
   const id = c.req.param('id')
 
   // Validate UUID format
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (!uuidRegex.test(id)) {
+  if (!UUID_REGEX.test(id)) {
     return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
   }
 
@@ -472,9 +445,7 @@ trips.patch('/:id/protection', requireAdmin, async (c) => {
   const { isPublic, token } = body
 
   // Validate UUID format
-  const uuidRegex =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (!uuidRegex.test(id)) {
+  if (!UUID_REGEX.test(id)) {
     return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
   }
 
@@ -510,37 +481,25 @@ trips.patch('/:id/protection', requireAdmin, async (c) => {
   }
 
   // Hash token if provided and making private
-  let accessTokenHash: string | null = null
-  if (!isPublic && token) {
-    accessTokenHash = await Bun.password.hash(token, {
-      algorithm: 'bcrypt',
-      cost: 14, // Matches BCRYPT_SALT_ROUNDS default
-    })
-  }
+  const accessTokenHash = !isPublic && token
+    ? await Bun.password.hash(token, { algorithm: 'bcrypt', cost: 14 })
+    : null
 
-  // Update trip protection settings
-  // If making public, clear the token hash
-  // If making private with token, set new hash
-  // If making private without token, keep existing hash (if any)
-  if (isPublic) {
-    await db`
-      UPDATE trips
-      SET is_public = true, access_token_hash = NULL
-      WHERE id = ${id}
-    `
-  } else if (token) {
-    await db`
-      UPDATE trips
-      SET is_public = false, access_token_hash = ${accessTokenHash}
-      WHERE id = ${id}
-    `
-  } else {
-    await db`
-      UPDATE trips
-      SET is_public = false
-      WHERE id = ${id}
-    `
-  }
+  // Update trip protection settings in a single query:
+  // - If making public: clear the token hash
+  // - If making private with token: set new hash
+  // - If making private without token: keep existing hash
+  await db`
+    UPDATE trips
+    SET
+      is_public = ${isPublic},
+      access_token_hash = CASE
+        WHEN ${isPublic} THEN NULL
+        WHEN ${token !== undefined} THEN ${accessTokenHash}
+        ELSE access_token_hash
+      END
+    WHERE id = ${id}
+  `
 
   return c.json({ success: true })
 })
