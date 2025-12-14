@@ -54,6 +54,30 @@ interface ApiTripWithPhotosResponse extends ApiTripResponse {
   photos: ApiPhotoResponse[]
 }
 
+// API input type for creating photos (camelCase for API)
+interface ApiPhotoInsert {
+  cloudinaryPublicId: string
+  url: string
+  thumbnailUrl: string
+  latitude: number | null
+  longitude: number | null
+  takenAt: string
+  caption: string | null
+}
+
+// Transform database types (snake_case) to API format (camelCase)
+function transformPhotoToApi(photo: PhotoInsert): ApiPhotoInsert {
+  return {
+    cloudinaryPublicId: photo.cloudinary_public_id,
+    url: photo.url,
+    thumbnailUrl: photo.thumbnail_url,
+    latitude: photo.latitude ?? null,
+    longitude: photo.longitude ?? null,
+    takenAt: photo.taken_at,
+    caption: photo.caption ?? null
+  }
+}
+
 // Transform API responses (camelCase) to database types (snake_case)
 function transformApiTrip(apiTrip: ApiTripResponse): TripWithMetadata {
   return {
@@ -136,15 +160,7 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
   const tripId = photos[0].trip_id
 
   // Transform snake_case input to camelCase for API
-  const apiPhotos = photos.map(p => ({
-    cloudinaryPublicId: p.cloudinary_public_id,
-    url: p.url,
-    thumbnailUrl: p.thumbnail_url,
-    latitude: p.latitude,
-    longitude: p.longitude,
-    takenAt: p.taken_at,
-    caption: p.caption
-  }))
+  const apiPhotos = photos.map(transformPhotoToApi)
 
   const response = await api.post<{ photos: ApiPhotoResponse[] }>(`/api/trips/${tripId}/photos`, {
     photos: apiPhotos

@@ -118,6 +118,28 @@ function isUniqueViolation(error: unknown): boolean {
 // Transform Helpers
 // =============================================================================
 
+interface PhotoStats {
+  photo_count: string // COUNT returns bigint as string
+  min_taken_at: Date | null
+  max_taken_at: Date | null
+}
+
+function getMetadataFromStats(
+  stats: PhotoStats | undefined,
+  fallbackDate: Date
+): { photoCount: number; dateRange: { start: string; end: string } } {
+  const photoCount = stats ? parseInt(stats.photo_count, 10) : 0
+  const dateRange = {
+    start: stats?.min_taken_at
+      ? stats.min_taken_at.toISOString()
+      : fallbackDate.toISOString(),
+    end: stats?.max_taken_at
+      ? stats.max_taken_at.toISOString()
+      : fallbackDate.toISOString(),
+  }
+  return { photoCount, dateRange }
+}
+
 function toTripResponse(
   trip: DbTrip,
   photoCount: number,
@@ -174,15 +196,13 @@ trips.get('/', async (c) => {
   // Get photo metadata for all trips in one query
   const tripIds = tripList.map((t) => t.id)
 
-  interface PhotoStats {
+  interface PhotoStatsWithTripId extends PhotoStats {
     trip_id: string
-    photo_count: string // COUNT returns bigint as string
-    min_taken_at: Date | null
-    max_taken_at: Date | null
   }
 
-  const photoStats = tripIds.length > 0
-    ? await db<PhotoStats[]>`
+  const photoStats =
+    tripIds.length > 0
+      ? await db<PhotoStatsWithTripId[]>`
         SELECT
           trip_id,
           COUNT(*)::text as photo_count,
@@ -192,28 +212,15 @@ trips.get('/', async (c) => {
         WHERE trip_id = ANY(${tripIds})
         GROUP BY trip_id
       `
-    : []
+      : []
 
   // Create a map for quick lookup
-  const statsMap = new Map(
-    photoStats.map((s) => [s.trip_id, s])
-  )
+  const statsMap = new Map(photoStats.map((s) => [s.trip_id, s]))
 
   // Combine trips with their photo metadata
   const tripsWithMetadata = tripList.map((trip) => {
     const stats = statsMap.get(trip.id)
-    const photoCount = stats ? parseInt(stats.photo_count, 10) : 0
-
-    // Use photo dates if available, otherwise fall back to trip creation date
-    const dateRange = {
-      start: stats?.min_taken_at
-        ? stats.min_taken_at.toISOString()
-        : trip.created_at.toISOString(),
-      end: stats?.max_taken_at
-        ? stats.max_taken_at.toISOString()
-        : trip.created_at.toISOString(),
-    }
-
+    const { photoCount, dateRange } = getMetadataFromStats(stats, trip.created_at)
     return toTripResponse(trip, photoCount, dateRange)
   })
 
@@ -469,12 +476,6 @@ trips.patch('/:id', requireAdmin, async (c) => {
     `
 
     // Fetch photo metadata for this trip
-    interface PhotoStats {
-      photo_count: string
-      min_taken_at: Date | null
-      max_taken_at: Date | null
-    }
-
     const [stats] = await db<PhotoStats[]>`
       SELECT
         COUNT(*)::text as photo_count,
@@ -484,16 +485,7 @@ trips.patch('/:id', requireAdmin, async (c) => {
       WHERE trip_id = ${id}
     `
 
-    const photoCount = stats ? parseInt(stats.photo_count, 10) : 0
-    const dateRange = {
-      start: stats?.min_taken_at
-        ? stats.min_taken_at.toISOString()
-        : trip.created_at.toISOString(),
-      end: stats?.max_taken_at
-        ? stats.max_taken_at.toISOString()
-        : trip.created_at.toISOString(),
-    }
-
+    const { photoCount, dateRange } = getMetadataFromStats(stats, trip.created_at)
     return c.json(toTripResponse(trip, photoCount, dateRange))
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -635,6 +627,44 @@ trips.post('/:id/photos', requireAdmin, async (c) => {
       { error: 'Bad Request', message: 'Photos array is required and must not be empty.' },
       400
     )
+  }
+
+  // Validate individual photo objects
+  for (const photo of photos) {
+    if (
+      !photo.cloudinaryPublicId ||
+      !photo.url ||
+      !photo.thumbnailUrl ||
+      !photo.takenAt
+    ) {
+      return c.json(
+        {
+          error: 'Bad Request',
+          message:
+            'Each photo must include cloudinaryPublicId, url, thumbnailUrl, and takenAt.',
+        },
+        400
+      )
+    }
+
+    // Validate date format
+    if (isNaN(Date.parse(photo.takenAt))) {
+      return c.json(
+        {
+          error: 'Bad Request',
+          message: `Invalid date format for takenAt: ${photo.takenAt}`,
+        },
+        400
+      )
+    }
+
+    // Validate URLs
+    if (!isValidUrl(photo.url) || !isValidUrl(photo.thumbnailUrl)) {
+      return c.json(
+        { error: 'Bad Request', message: 'Invalid URL format for photo url or thumbnailUrl.' },
+        400
+      )
+    }
   }
 
   const db = getDbClient()
