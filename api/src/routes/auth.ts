@@ -286,6 +286,9 @@ auth.post('/register/verify', async (c) => {
     )
   }
 
+  // Store in local variable to help TypeScript narrow the type
+  const webauthnUserId = entry.webauthnUserId
+
   const config = getConfig()
 
   try {
@@ -316,7 +319,7 @@ auth.post('/register/verify', async (c) => {
       // Create user with stable WebAuthn user ID
       const [user] = await tx<DbUser[]>`
         INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
-        VALUES (${email.toLowerCase()}, ${entry.webauthnUserId}, ${sanitizedDisplayName}, FALSE)
+        VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, FALSE)
         RETURNING id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
       `
 
