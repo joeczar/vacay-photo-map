@@ -2,11 +2,23 @@ import { ref, computed } from 'vue'
 import type { Ref, ComputedRef } from 'vue'
 import { api } from '@/lib/api'
 
-interface User {
+/**
+ * Authenticated user data returned from API
+ * Matches the response from GET /api/auth/me
+ */
+export interface User {
+  /** User UUID from database */
   id: string
+  /** User's email address */
   email: string
+  /** Optional display name shown in UI */
   displayName: string | null
+  /** Whether user has admin privileges */
   isAdmin: boolean
+  /** ISO 8601 timestamp when user was created */
+  createdAt: string
+  /** ISO 8601 timestamp when user was last updated */
+  updatedAt: string
 }
 
 // Token storage helpers

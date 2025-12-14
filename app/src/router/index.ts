@@ -31,7 +31,14 @@ const router = createRouter({
 
 // Auth guard - redirect to login if not authenticated, check admin status
 router.beforeEach((to, _from, next) => {
-  const { isAuthenticated, isAdmin } = useAuth()
+  const { isAuthenticated, isAdmin, loading } = useAuth()
+
+  // Wait for auth to initialize before making decisions
+  if (loading.value) {
+    // Auth still initializing - allow navigation, initializeAuth() will complete first
+    // This is a safety check for edge cases like hot reload
+    return next()
+  }
 
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     return next({ name: 'login', query: { redirect: to.fullPath } })
