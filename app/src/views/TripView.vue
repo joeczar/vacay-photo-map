@@ -495,7 +495,7 @@ const slug = route.params.slug as string
 const token = route.query.token as string | undefined
 
 // Auth
-const { isAuthenticated, session } = useAuth()
+const { isAuthenticated, getToken } = useAuth()
 const { toast } = useToast()
 
 // State
@@ -658,7 +658,7 @@ function formatDate(dateString: string): string {
 
 // Share methods
 async function handlePublicToggle(checked: boolean) {
-  if (!trip.value || !session.value?.access_token) return
+  if (!trip.value || !getToken()) return
 
   protectionError.value = ''
   isUpdatingProtection.value = true
@@ -666,7 +666,7 @@ async function handlePublicToggle(checked: boolean) {
   try {
     if (checked) {
       // Making public - clear token
-      await updateTripProtection(trip.value.id, true, undefined, session.value.access_token)
+      await updateTripProtection(trip.value.id, true, undefined, getToken()!)
       trip.value.is_public = true
       shareLink.value = ''
       toast({
@@ -676,7 +676,7 @@ async function handlePublicToggle(checked: boolean) {
     } else {
       // Making private - generate token immediately
       const newToken = generateTripToken()
-      await updateTripProtection(trip.value.id, false, newToken, session.value.access_token)
+      await updateTripProtection(trip.value.id, false, newToken, getToken()!)
       trip.value.is_public = false
       shareLink.value = buildShareLink(newToken)
       toast({
@@ -694,14 +694,14 @@ async function handlePublicToggle(checked: boolean) {
 }
 
 async function generateShareLink() {
-  if (!trip.value || !session.value?.access_token) return
+  if (!trip.value || !getToken()) return
 
   protectionError.value = ''
   isUpdatingProtection.value = true
 
   try {
     const newToken = generateTripToken()
-    await updateTripProtection(trip.value.id, false, newToken, session.value.access_token)
+    await updateTripProtection(trip.value.id, false, newToken, getToken()!)
     trip.value.is_public = false
     localIsPublic.value = false
     shareLink.value = buildShareLink(newToken)
