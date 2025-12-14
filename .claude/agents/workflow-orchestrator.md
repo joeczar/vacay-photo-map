@@ -28,18 +28,22 @@ Issue → [GATE] → Research → Plan → [GATE] → Implement → Test → Rev
 The workflow has **mandatory review gates** where you MUST pause and return to the senior dev:
 
 ### Gate 1: Issue Review
-After fetching the issue, **STOP and return the issue details**:
+After fetching the issue, **STOP and return the issue details VERBATIM**.
+
+Do NOT summarize or paraphrase. Output the EXACT issue content:
 ```
 ## Issue #{number}: {title}
 
 **Milestone:** {milestone}
 **Labels:** {labels}
 
-### Description
-{full issue body}
+---
+
+{VERBATIM issue body - copy/paste exactly as written, including all code blocks}
 
 ---
-Ready to begin research phase?
+
+Ready to proceed with research and planning?
 ```
 
 ### Gate 2: Plan Review
