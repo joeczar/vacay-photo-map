@@ -605,4 +605,67 @@ trips.patch('/:id/protection', requireAdmin, async (c) => {
   return c.json({ success: true })
 })
 
+// =============================================================================
+// POST /api/trips/:id/photos - Add photos to trip (admin only)
+// =============================================================================
+trips.post('/:id/photos', requireAdmin, async (c) => {
+  const tripId = c.req.param('id')
+  const body = await c.req.json<{
+    photos: Array<{
+      cloudinaryPublicId: string
+      url: string
+      thumbnailUrl: string
+      latitude: number | null
+      longitude: number | null
+      takenAt: string
+      caption: string | null
+    }>
+  }>()
+
+  const { photos } = body
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(tripId)) {
+    return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
+  }
+
+  // Validate photos array
+  if (!Array.isArray(photos) || photos.length === 0) {
+    return c.json(
+      { error: 'Bad Request', message: 'Photos array is required and must not be empty.' },
+      400
+    )
+  }
+
+  const db = getDbClient()
+
+  // Check if trip exists
+  const existing = await db<{ id: string }[]>`
+    SELECT id FROM trips WHERE id = ${tripId}
+  `
+
+  if (existing.length === 0) {
+    return c.json({ error: 'Not Found', message: 'Trip not found' }, 404)
+  }
+
+  // Insert all photos
+  const insertedPhotos = await db<DbPhoto[]>`
+    INSERT INTO photos ${db(
+      photos.map((p) => ({
+        trip_id: tripId,
+        cloudinary_public_id: p.cloudinaryPublicId,
+        url: p.url,
+        thumbnail_url: p.thumbnailUrl,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        taken_at: p.takenAt,
+        caption: p.caption,
+      }))
+    )}
+    RETURNING *
+  `
+
+  return c.json({ photos: insertedPhotos.map(toPhotoResponse) }, 201)
+})
+
 export { trips }
