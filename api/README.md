@@ -203,24 +203,68 @@ curl http://localhost:3000/health
 curl http://localhost:3000/health/ready
 ```
 
-### Auth (Coming - Issue #56)
+### Auth
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/auth/register` | POST | Register new user |
-| `/auth/login` | POST | Login, returns JWT |
-| `/auth/logout` | POST | Logout (client-side) |
-| `/auth/me` | GET | Get current user |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/auth/register/options` | POST | - | Start WebAuthn registration |
+| `/api/auth/register/verify` | POST | - | Complete registration |
+| `/api/auth/login/options` | POST | - | Start WebAuthn login |
+| `/api/auth/login/verify` | POST | - | Complete login, returns JWT |
+| `/api/auth/logout` | POST | - | Logout (client-side) |
+| `/api/auth/me` | GET | JWT | Get current user |
+| `/api/auth/passkeys` | GET | JWT | List user's passkeys |
+| `/api/auth/passkeys/options` | POST | JWT | Start adding new passkey |
+| `/api/auth/passkeys/verify` | POST | JWT | Complete adding passkey |
+| `/api/auth/passkeys/:id` | DELETE | JWT | Remove a passkey |
 
-### Trips (Coming - Issue #57)
+### Trips
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/trips` | GET | List public trips |
-| `/trips/:slug` | GET | Get trip by slug |
-| `/trips` | POST | Create trip (auth required) |
-| `/trips/:id` | PUT | Update trip (auth required) |
-| `/trips/:id` | DELETE | Delete trip (admin only) |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/trips` | GET | - | List public trips |
+| `/api/trips/:slug` | GET | Optional | Get trip by slug (token for private) |
+| `/api/trips` | POST | Admin | Create trip |
+| `/api/trips/:id` | PATCH | Admin | Update trip |
+| `/api/trips/:id` | DELETE | Admin | Delete trip (cascade deletes photos) |
+| `/api/trips/:id/protection` | PATCH | Admin | Update protection settings |
+
+#### Access Control for Private Trips
+
+When fetching a trip by slug (`GET /api/trips/:slug`):
+1. **Public trips**: Returned to anyone
+2. **Private trips**: Require one of:
+   - Admin JWT in Authorization header
+   - Valid `?token=xxx` query parameter
+
+```bash
+# Public trip - no auth needed
+curl http://localhost:3000/api/trips/amsterdam-2024
+
+# Private trip with token
+curl "http://localhost:3000/api/trips/secret-trip?token=mytoken"
+
+# Private trip with admin JWT
+curl -H "Authorization: Bearer $JWT" http://localhost:3000/api/trips/secret-trip
+```
+
+#### Protection Endpoint
+
+Update a trip's privacy settings:
+
+```bash
+# Make trip private with token
+curl -X PATCH http://localhost:3000/api/trips/:id/protection \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"isPublic": false, "token": "secrettoken123"}'
+
+# Make trip public (clears token)
+curl -X PATCH http://localhost:3000/api/trips/:id/protection \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"isPublic": true}'
+```
 
 ## Project Structure
 
