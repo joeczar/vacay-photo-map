@@ -16,7 +16,7 @@
             <router-link to="/admin">Upload</router-link>
           </Button>
           <template v-if="isAuthenticated">
-            <Button variant="ghost" @click="handleLogout" :disabled="isLoading"> Logout </Button>
+            <Button variant="ghost" @click="handleLogout" :disabled="loading"> Logout </Button>
           </template>
           <template v-else>
             <Button variant="ghost" as-child>
@@ -40,14 +40,14 @@ import { Button } from '@/components/ui/button'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const router = useRouter()
-const { isAuthenticated, isLoading, logout } = useAuth()
+const { isAuthenticated, loading, logout } = useAuth()
 
 async function handleLogout() {
-  const { error } = await logout()
-  if (error) {
+  try {
+    await logout()
+    router.push('/')
+  } catch (error) {
     console.error('Logout failed:', error)
-    return
   }
-  router.push('/')
 }
 </script>

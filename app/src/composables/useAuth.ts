@@ -1,234 +1,139 @@
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import type { User, Session, AuthError, Subscription } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import type { TablesRow } from '@/lib/database.types'
+import { ref, computed } from 'vue'
+import type { Ref, ComputedRef } from 'vue'
+import { api } from '@/lib/api'
 
-type UserProfile = TablesRow<'user_profiles'>
+/**
+ * Authenticated user data returned from API
+ * Matches the response from GET /api/auth/me
+ */
+export interface User {
+  /** User UUID from database */
+  id: string
+  /** User's email address */
+  email: string
+  /** Optional display name shown in UI */
+  displayName: string | null
+  /** Whether user has admin privileges */
+  isAdmin: boolean
+  /** ISO 8601 timestamp when user was created */
+  createdAt: string
+  /** ISO 8601 timestamp when user was last updated */
+  updatedAt: string
+}
+
+// Token storage helpers
+const TOKEN_KEY = 'auth_token'
+
+function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+function setStoredToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+function clearStoredToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
+}
 
 // Shared state across all component instances
 const user = ref<User | null>(null)
-const session = ref<Session | null>(null)
-const profile = ref<UserProfile | null>(null)
-const isLoading = ref(true)
-const isInitialized = ref(false)
-
-// Store subscription for cleanup
-let authSubscription: Subscription | null = null
-
-// Flag to prevent race condition during initialization
-let isInitializing = false
-
-/**
- * Reset auth state (for testing)
- * @internal
- */
-export function _resetAuthState() {
-  user.value = null
-  session.value = null
-  profile.value = null
-  isLoading.value = true
-  isInitialized.value = false
-  isInitializing = false
-  if (authSubscription) {
-    authSubscription.unsubscribe()
-    authSubscription = null
-  }
-}
+const loading = ref(true)
 
 /**
  * Composable for managing authentication state
  *
  * Features:
- * - Tracks current user and session
- * - Fetches user profile with admin status
+ * - Tracks current user
  * - Provides login/logout methods
+ * - JWT token management
  * - Shares state across all component instances
  */
 export function useAuth() {
   // Computed properties
   const isAuthenticated = computed(() => !!user.value)
-  const isAdmin = computed(() => profile.value?.is_admin ?? false)
+  const isAdmin = computed(() => user.value?.isAdmin ?? false)
 
   /**
-   * Fetch user profile from database
+   * Get the current auth token from localStorage
    */
-  async function fetchProfile(userId: string): Promise<UserProfile | null> {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      console.error('Error fetching user profile:', error)
-      return null
-    }
-
-    return data
+  function getToken(): string | null {
+    return getStoredToken()
   }
 
   /**
-   * Login with email and password
+   * Set auth state with token and user data
    */
-  async function login(email: string, password: string): Promise<{ error: AuthError | null }> {
-    isLoading.value = true
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (error) {
-        return { error }
-      }
-
-      if (data.user) {
-        const userProfile = await fetchProfile(data.user.id)
-        if (userProfile) {
-          user.value = data.user
-          session.value = data.session
-          profile.value = userProfile
-        } else {
-          // Profile fetch failed - sign out to prevent inconsistent state
-          await supabase.auth.signOut()
-          return {
-            error: {
-              name: 'ProfileFetchError',
-              message: 'Failed to retrieve user profile after login.'
-            } as AuthError
-          }
-        }
-      }
-
-      return { error: null }
-    } finally {
-      isLoading.value = false
-    }
+  function setAuthState(token: string, userData: User): void {
+    setStoredToken(token)
+    api.setToken(token)
+    user.value = userData
   }
 
   /**
    * Logout current user
    */
-  async function logout(): Promise<{ error: AuthError | null }> {
-    isLoading.value = true
-
+  async function logout(): Promise<void> {
     try {
-      const { error } = await supabase.auth.signOut()
-
-      if (error) {
-        return { error }
-      }
-
-      user.value = null
-      session.value = null
-      profile.value = null
-
-      return { error: null }
-    } finally {
-      isLoading.value = false
+      await api.post('/api/auth/logout', {})
+    } catch (error) {
+      // Log error but don't block client-side logout
+      console.error('[useAuth] Server logout failed:', error)
     }
+    clearStoredToken()
+    api.setToken(null)
+    user.value = null
   }
 
   /**
-   * Initialize auth state from existing session
-   * @internal - Called automatically on mount, not intended for external use
+   * Check authentication status and fetch user data
    */
-  async function initialize() {
-    if (isInitialized.value || isInitializing) return
+  async function checkAuth(): Promise<void> {
+    const token = getStoredToken()
 
-    isInitializing = true
-    isLoading.value = true
+    if (!token) {
+      loading.value = false
+      return
+    }
+
+    api.setToken(token)
 
     try {
-      // Get current session
-      const {
-        data: { session: currentSession }
-      } = await supabase.auth.getSession()
-
-      if (currentSession) {
-        const userProfile = await fetchProfile(currentSession.user.id)
-        if (userProfile) {
-          session.value = currentSession
-          user.value = currentSession.user
-          profile.value = userProfile
-        } else {
-          // Profile fetch failed - sign out to prevent inconsistent state
-          console.error('Failed to fetch profile during initialization. Signing out.')
-          await supabase.auth.signOut()
-        }
-      }
-
-      isInitialized.value = true
-
-      // Listen for auth state changes
-      // Only process changes after initialization is complete to avoid race conditions
-      const { data } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-        // Skip if we're still initializing to avoid duplicate profile fetches
-        if (isInitializing && !isInitialized.value) return
-
-        if (newSession?.user) {
-          // Only fetch profile if user changed
-          if (newSession.user.id !== user.value?.id) {
-            const newProfile = await fetchProfile(newSession.user.id)
-            if (newProfile) {
-              session.value = newSession
-              user.value = newSession.user
-              profile.value = newProfile
-            } else {
-              // Profile fetch failed - sign out to prevent inconsistent state
-              console.error('Failed to fetch profile on auth state change. Signing out.')
-              await supabase.auth.signOut()
-            }
-          } else {
-            // Same user, just update session (token refresh)
-            session.value = newSession
-          }
-        } else {
-          session.value = null
-          user.value = null
-          profile.value = null
-        }
-      })
-
-      authSubscription = data.subscription
+      const userData = await api.get<User>('/api/auth/me')
+      user.value = userData
+    } catch (error) {
+      // Token invalid or expired - clear state
+      console.error('[useAuth] Auth check failed:', error)
+      clearStoredToken()
+      api.setToken(null)
+      user.value = null
     } finally {
-      isLoading.value = false
-      isInitializing = false
+      loading.value = false
     }
   }
-
-  // Cleanup subscription on unmount
-  function cleanup() {
-    if (authSubscription) {
-      authSubscription.unsubscribe()
-      authSubscription = null
-    }
-  }
-
-  // Initialize on mount
-  onMounted(() => {
-    if (!isInitialized.value) {
-      initialize()
-    }
-  })
-
-  // Cleanup on unmount
-  onBeforeUnmount(cleanup)
 
   return {
     // State
-    user,
-    session,
-    profile,
-    isLoading,
+    user: user as Ref<User | null>,
+    loading: loading as Ref<boolean>,
 
     // Computed
-    isAuthenticated,
-    isAdmin,
+    isAuthenticated: isAuthenticated as ComputedRef<boolean>,
+    isAdmin: isAdmin as ComputedRef<boolean>,
 
     // Methods
-    login,
-    logout
+    getToken,
+    setAuthState,
+    logout,
+    checkAuth
   }
+}
+
+/**
+ * Initialize auth state on app startup
+ * Call this before mounting the app to ensure router guards have valid state
+ */
+export async function initializeAuth(): Promise<void> {
+  const { checkAuth } = useAuth()
+  await checkAuth()
 }

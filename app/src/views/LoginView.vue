@@ -1,3 +1,8 @@
+<!--
+  TODO: Implement WebAuthn login in a future issue
+  This is a stub until WebAuthn authentication is implemented.
+  See implementation plan for auth milestone.
+-->
 <template>
   <div class="min-h-screen bg-background flex flex-col">
     <header class="border-b border-border bg-card">
@@ -20,43 +25,16 @@
       <Card class="w-full max-w-md">
         <CardHeader class="text-center">
           <CardTitle class="text-2xl">Admin Login</CardTitle>
-          <CardDescription> Sign in to access the admin dashboard </CardDescription>
+          <CardDescription>WebAuthn authentication coming soon</CardDescription>
         </CardHeader>
 
-        <CardContent>
-          <form @submit.prevent="handleSubmit" class="space-y-4">
-            <div class="space-y-2">
-              <Label for="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                v-model="email"
-                placeholder="admin@example.com"
-                required
-                :disabled="isLoading"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                v-model="password"
-                placeholder="Enter your password"
-                required
-                :disabled="isLoading"
-              />
-            </div>
-
-            <Alert v-if="errorMessage" variant="destructive">
-              <AlertDescription>{{ errorMessage }}</AlertDescription>
-            </Alert>
-
-            <Button type="submit" class="w-full" :disabled="isLoading || !email || !password">
-              {{ isLoading ? 'Signing in...' : 'Sign In' }}
-            </Button>
-          </form>
+        <CardContent class="text-center space-y-4">
+          <p class="text-muted-foreground">
+            Login functionality will be available once WebAuthn authentication is implemented.
+          </p>
+          <Button variant="outline" as-child>
+            <router-link to="/">Return Home</router-link>
+          </Button>
         </CardContent>
       </Card>
     </main>
@@ -64,55 +42,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const router = useRouter()
-const route = useRoute()
-const { login, isAuthenticated } = useAuth()
-
-const email = ref('')
-const password = ref('')
-const errorMessage = ref('')
-const isLoading = ref(false)
+const { isAuthenticated } = useAuth()
 
 // Redirect if already authenticated
 if (isAuthenticated.value) {
   router.replace('/admin')
-}
-
-async function handleSubmit() {
-  if (!email.value || !password.value) return
-
-  isLoading.value = true
-  errorMessage.value = ''
-
-  try {
-    const { error } = await login(email.value, password.value)
-
-    if (error) {
-      errorMessage.value = error.message || 'Invalid email or password'
-      return
-    }
-
-    // Successful login - redirect to intended page or admin
-    // Validate redirect path to prevent open redirect vulnerabilities
-    const redirectPath = route.query.redirect
-    const redirectTo =
-      typeof redirectPath === 'string' && redirectPath.startsWith('/') ? redirectPath : '/admin'
-    router.push(redirectTo)
-  } catch (err) {
-    errorMessage.value = 'An unexpected error occurred. Please try again.'
-    console.error('Login error:', err)
-  } finally {
-    isLoading.value = false
-  }
 }
 </script>

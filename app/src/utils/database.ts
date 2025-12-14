@@ -207,7 +207,7 @@ export async function deleteTrip(tripId: string): Promise<void> {
  * @param tripId - Trip UUID
  * @param isPublic - Whether the trip should be public
  * @param token - Plaintext token to hash (required when isPublic is false)
- * @param authToken - User's auth token for authorization
+ * @param authToken - JWT from API login endpoint (/api/auth/login) for authorization
  */
 export async function updateTripProtection(
   tripId: string,
