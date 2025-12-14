@@ -1,10 +1,84 @@
 import { supabase } from '@/lib/supabase'
 import type { TablesInsert, TablesRow, TablesUpdate } from '@/lib/database.types'
+// @ts-expect-error - Will be used in future commits
+import { api, ApiError } from '@/lib/api'
+// @ts-expect-error - Will be used in future commits
+import { useAuth } from '@/composables/useAuth'
 
 type Trip = TablesRow<'trips'>
 type TripInsert = TablesInsert<'trips'>
 type Photo = TablesRow<'photos'>
 type PhotoInsert = TablesInsert<'photos'>
+
+// API Response Types (camelCase from backend)
+interface ApiTripResponse {
+  id: string
+  slug: string
+  title: string
+  description: string | null
+  coverPhotoUrl: string | null
+  isPublic: boolean
+  accessTokenHash: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface ApiPhotoResponse {
+  id: string
+  tripId: string
+  cloudinaryPublicId: string
+  url: string
+  thumbnailUrl: string
+  latitude: number | null
+  longitude: number | null
+  takenAt: string
+  caption: string | null
+  album: string | null
+  createdAt: string
+}
+
+interface ApiTripWithPhotosResponse extends ApiTripResponse {
+  photos: ApiPhotoResponse[]
+}
+
+// Transform API responses (camelCase) to database types (snake_case)
+function transformApiTrip(apiTrip: ApiTripResponse): Trip {
+  return {
+    id: apiTrip.id,
+    slug: apiTrip.slug,
+    title: apiTrip.title,
+    description: apiTrip.description,
+    cover_photo_url: apiTrip.coverPhotoUrl,
+    is_public: apiTrip.isPublic,
+    access_token_hash: apiTrip.accessTokenHash,
+    created_at: apiTrip.createdAt,
+    updated_at: apiTrip.updatedAt,
+  }
+}
+
+function transformApiPhoto(apiPhoto: ApiPhotoResponse): Photo {
+  return {
+    id: apiPhoto.id,
+    trip_id: apiPhoto.tripId,
+    cloudinary_public_id: apiPhoto.cloudinaryPublicId,
+    url: apiPhoto.url,
+    thumbnail_url: apiPhoto.thumbnailUrl,
+    latitude: apiPhoto.latitude,
+    longitude: apiPhoto.longitude,
+    taken_at: apiPhoto.takenAt,
+    caption: apiPhoto.caption,
+    album: apiPhoto.album,
+    created_at: apiPhoto.createdAt,
+  }
+}
+
+// @ts-expect-error - Will be used in future commits
+function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): Trip & { photos: Photo[] } {
+  return {
+    ...transformApiTrip(apiTrip),
+    photos: apiTrip.photos.map(transformApiPhoto),
+  }
+}
 
 /**
  * Create a new trip
