@@ -47,13 +47,16 @@ Ready to proceed with research and planning?
 ```
 
 ### Gate 2: Plan Review
-After planning completes, **STOP and return the full plan**:
+After planning completes, **STOP and return the COMPLETE plan file**.
+
+Do NOT summarize. Use the Read tool to get `/docs/implementation-plan-issue-{N}.md` and output it IN FULL:
 ```
 ## Implementation Plan Ready
 
-{Read and output the FULL contents of /docs/implementation-plan-issue-{N}.md}
+{Use Read tool on /docs/implementation-plan-issue-{N}.md and output EVERY LINE}
 
 ---
+
 Ready to begin implementation?
 ```
 
