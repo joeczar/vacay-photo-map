@@ -7,8 +7,11 @@ type TripInsert = TablesInsert<'trips'>
 type Photo = TablesRow<'photos'>
 type PhotoInsert = TablesInsert<'photos'>
 
+// API trip type - backend excludes access_token_hash for security (never sent to clients)
+export type ApiTrip = Omit<Trip, 'access_token_hash'>
+
 // Trip with metadata (used for list views)
-type TripWithMetadata = Trip & {
+type TripWithMetadata = ApiTrip & {
   photo_count: number
   date_range: {
     start: string
@@ -24,7 +27,6 @@ interface ApiTripResponse {
   description: string | null
   coverPhotoUrl: string | null
   isPublic: boolean
-  accessTokenHash: string | null
   createdAt: string
   updatedAt: string
   photoCount: number
@@ -61,7 +63,6 @@ function transformApiTrip(apiTrip: ApiTripResponse): TripWithMetadata {
     description: apiTrip.description,
     cover_photo_url: apiTrip.coverPhotoUrl,
     is_public: apiTrip.isPublic,
-    access_token_hash: apiTrip.accessTokenHash,
     created_at: apiTrip.createdAt,
     updated_at: apiTrip.updatedAt,
     photo_count: apiTrip.photoCount,
@@ -88,7 +89,7 @@ function transformApiPhoto(apiPhoto: ApiPhotoResponse): Photo {
   }
 }
 
-function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): Trip & { photos: Photo[] } {
+function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): ApiTrip & { photos: Photo[] } {
   return {
     ...transformApiTrip(apiTrip),
     photos: apiTrip.photos.map(transformApiPhoto),
@@ -98,7 +99,7 @@ function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): Trip & 
 /**
  * Create a new trip
  */
-export async function createTrip(trip: TripInsert): Promise<Trip> {
+export async function createTrip(trip: TripInsert): Promise<ApiTrip> {
   const { getToken } = useAuth()
   const token = getToken()
   if (!token) throw new Error('Authentication required')
@@ -157,7 +158,7 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
 export async function getTripBySlug(
   slug: string,
   token?: string
-): Promise<(Trip & { photos: Photo[] }) | null> {
+): Promise<(ApiTrip & { photos: Photo[] }) | null> {
   try {
     const path = token ? `/api/trips/${slug}?token=${token}` : `/api/trips/${slug}`
     const trip = await api.get<ApiTripWithPhotosResponse>(path)
