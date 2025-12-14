@@ -71,52 +71,63 @@ Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn au
 
 Required in `app/.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`
 
-## Agent Architecture
+## Agent Workflow
 
-Uses orchestrator-worker pattern based on [Anthropic's multi-agent system](https://www.anthropic.com/engineering/multi-agent-research-system).
+**I (Claude) am the orchestrator.** Worker agents handle focused tasks and return to me.
 
-### Roles
+Use `/work-on-issue {number}` to start the workflow.
 
-- **You (Human)**: Final approval on all commits
-- **Claude (Senior Dev)**: Reviews diffs, catches issues, coordinates agents
-- **Agents**: Execute specialized tasks (research, plan, implement, test)
-
-### Workflow: Review Gates
-
-The workflow has **3 mandatory gates** where the orchestrator pauses for review:
+### The Gated Workflow
 
 ```
-1. Fetch issue
-2. ══ GATE 1 ══ Show issue details → Wait for approval
-3. Research & Plan phases
-4. ══ GATE 2 ══ Show FULL plan → Wait for approval
-5. For each atomic commit:
-   ══ GATE 3 ══ Show diff → Wait for approval → Commit
-6. Test → Review → PR
+USER: /work-on-issue 60
+
+GATE 1 ─────────────────────────────────────────
+│ I fetch the issue with `gh issue view`
+│ I show you the FULL issue (verbatim)
+│ You review and say "proceed" or give feedback
+└───────────────────────────────────────────────
+
+RESEARCH & PLANNING ────────────────────────────
+│ I spawn `researcher` agent → returns findings
+│ I spawn `planner` agent → writes plan to /docs/
+└───────────────────────────────────────────────
+
+GATE 2 ─────────────────────────────────────────
+│ I read the plan file
+│ I show you the COMPLETE plan (every line)
+│ You review and say "proceed" or give feedback
+└───────────────────────────────────────────────
+
+IMPLEMENTATION (per commit) ────────────────────
+│ For each atomic commit in the plan:
+│   I spawn `implementer` agent → returns diff
+│
+│   GATE 3 ─────────────────────────────────────
+│   │ I show you the diff
+│   │ You review and approve or request changes
+│   │ I commit (you approve the commit)
+│   └───────────────────────────────────────────
+└───────────────────────────────────────────────
+
+FINALIZATION ───────────────────────────────────
+│ I spawn `tester` agent → writes/runs tests
+│ I spawn `reviewer` agent → validates quality
+│ I create PR with `gh pr create`
+└───────────────────────────────────────────────
 ```
 
-**Why gates?**
-- **Gate 1**: See issue before work begins
-- **Gate 2**: Review full plan before implementation
-- **Gate 3**: Review each commit before it's made
+### Worker Agents
 
-### Workflow Agents
-
-| Agent | Purpose | Trigger |
-|-------|---------|---------|
-| `workflow-orchestrator` | Coordinates full workflow | "Work on issue #X" |
-| `researcher` | Gathers context, fetches docs | Before planning |
-| `planner` | Creates atomic commit plan | After research |
-| `implementer` | Implements ONE commit at a time | Per commit |
-| `tester` | Writes and runs tests | After all commits |
-| `reviewer` | Validates code quality | Before PR |
-
-### Utility Agents
-
-| Agent | Purpose | Use When |
-|-------|---------|----------|
-| `doc-writer` | Technical documentation | Need deployment/API docs |
-| `ui-polisher` | UI polish | Need responsive/animations |
+| Agent | Purpose |
+|-------|---------|
+| `researcher` | Gathers codebase context, fetches library docs |
+| `planner` | Creates atomic commit plan in `/docs/` |
+| `implementer` | Implements ONE commit, returns diff |
+| `tester` | Writes and runs tests |
+| `reviewer` | Validates code quality before PR |
+| `doc-writer` | Technical documentation (utility) |
+| `ui-polisher` | UI polish work (utility) |
 
 ### Direct Agent Use
 
@@ -124,7 +135,6 @@ The workflow has **3 mandatory gates** where the orchestrator pauses for review:
 "Research how auth works"     → researcher
 "Write tests for uploads"     → tester
 "Review my changes"           → reviewer
-"Polish the mobile UI"        → ui-polisher
 ```
 
 See `.claude/agents/README.md` for full documentation.

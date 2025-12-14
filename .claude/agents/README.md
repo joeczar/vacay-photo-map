@@ -1,38 +1,45 @@
 # Agent Architecture
 
-This project uses an orchestrator-worker pattern based on Anthropic's multi-agent research system design, with **atomic commits** and **senior dev review gates**.
+This project uses an orchestrator-worker pattern. **Claude (main) is the orchestrator**, worker agents handle focused tasks.
+
+## Key Insight
+
+Subagents cannot stop mid-task and wait for approval. They complete their task and return.
+
+Therefore: **Claude (main) handles the gates**, worker agents do focused work.
 
 ## Roles
 
-- **Human**: Final approval on all commits
-- **Claude (Senior Dev)**: Reviews diffs, catches issues, coordinates agents
-- **Agents**: Execute specialized tasks (research, plan, implement, test)
+- **Human**: Approves at each gate
+- **Claude (Main)**: Orchestrates workflow, handles gates, spawns workers
+- **Worker Agents**: Execute focused tasks (research, plan, implement, test)
 
-## Architecture Overview
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Human (You)                              │
 │                    (approves at each gate)                       │
 ├─────────────────────────────────────────────────────────────────┤
-│                     Claude (Senior Dev)                          │
-│         (reviews at gates, coordinates agents)                   │
+│                     Claude (Main)                                │
+│              THE ORCHESTRATOR - handles gates                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   ┌────────────────┐                                            │
-│   │ Fetch Issue    │                                            │
-│   └───────┬────────┘                                            │
+│   /work-on-issue 60                                             │
+│           │                                                      │
 │           ▼                                                      │
 │   ╔═══════════════════╗                                         │
-│   ║  GATE 1: Issue    ║  ← Senior dev reviews issue             │
+│   ║  GATE 1: Issue    ║  ← Claude shows full issue              │
+│   ║  (you review)     ║                                         │
 │   ╚═════════╤═════════╝                                         │
 │             ▼                                                    │
 │   ┌──────────┐   ┌─────────┐                                    │
-│   │researcher│ → │ planner │                                    │
+│   │researcher│ → │ planner │  (worker agents)                   │
 │   └──────────┘   └────┬────┘                                    │
 │                       ▼                                          │
 │   ╔═══════════════════╗                                         │
-│   ║  GATE 2: Plan     ║  ← Senior dev reviews full plan         │
+│   ║  GATE 2: Plan     ║  ← Claude shows full plan               │
+│   ║  (you review)     ║                                         │
 │   ╚═════════╤═════════╝                                         │
 │             ▼                                                    │
 │   ┌────────────────────────────────────────┐                    │
@@ -42,7 +49,7 @@ This project uses an orchestrator-worker pattern based on Anthropic's multi-agen
 │   │    └────────────┘                      │                    │
 │   │           ▼                            │                    │
 │   │   ╔═══════════════════╗                │                    │
-│   │   ║  GATE 3: Commit   ║ ← Review diff  │                    │
+│   │   ║  GATE 3: Commit   ║ ← You review   │                    │
 │   │   ╚═══════════════════╝                │                    │
 │   └────────────────────────────────────────┘                    │
 │             ▼                                                    │
@@ -50,201 +57,100 @@ This project uses an orchestrator-worker pattern based on Anthropic's multi-agen
 │   │ tester │ → │ reviewer │ → PR                                │
 │   └────────┘   └──────────┘                                     │
 └─────────────────────────────────────────────────────────────────┘
-
-Utility Agents (called by implementer when needed):
-├── doc-writer     → Technical documentation
-└── ui-polisher    → UI polish and refinement
 ```
 
-## Core Workflow Agents
+## Triggering the Workflow
 
-### workflow-orchestrator
-**Purpose:** Coordinates the full development lifecycle from issue to PR.
+Use the slash command:
 
-**Review Gates:**
-- **Gate 1** - Shows issue details, waits for approval
-- **Gate 2** - Shows full plan, waits for approval
-- **Gate 3** - Per-commit diff review (handled by implementer)
+```
+/work-on-issue 60
+```
 
-**Trigger:** "Work on issue #X"
+This expands to a prompt that guides Claude through the gated workflow.
+
+## Worker Agents
+
+These are subagents that do focused work and return results:
 
 ### researcher
 **Purpose:** Gathers context before planning.
-
-**Activities:**
 - Analyzes codebase for relevant patterns
 - Fetches library docs with Context7
 - Identifies constraints and dependencies
-- Produces structured findings for planner
+- Returns structured findings
 
 ### planner
-**Purpose:** Creates atomic commit plans (not just steps).
-
-**Outputs:**
-- Implementation plan in `/docs/implementation-plan-issue-{N}.md`
-- **Atomic commits** - each with: message, files, acceptance criteria
-- Testing strategy
-- Risk assessment
-
-**Key principle:** Each commit is independently reviewable and leaves codebase working.
+**Purpose:** Creates atomic commit plans.
+- Writes plan to `/docs/implementation-plan-issue-{N}.md`
+- Each commit: message, files, acceptance criteria
+- Returns when plan file is written
 
 ### implementer
-**Purpose:** Builds features ONE COMMIT AT A TIME.
-
-**Critical behavior:**
-- Works on ONE atomic commit at a time
-- **Does NOT commit directly** - returns diff for review
-- Waits for senior dev approval before next commit
-
-**Activities:**
-- Implements single commit's scope
-- Writes code following project patterns
-- Uses TDD approach
-- Returns diff to senior dev for review
-- Delegates to utility agents when appropriate
+**Purpose:** Implements ONE commit.
+- Works on single atomic commit
+- Does NOT commit - returns diff
+- Follows TDD approach
 
 ### tester
-**Purpose:** Writes and verifies tests.
-
-**Activities:**
-- Creates unit, integration, and E2E tests
+**Purpose:** Writes and runs tests.
+- Creates unit, integration, E2E tests
 - Runs full test suite
-- Verifies coverage
-- Fixes failing tests
+- Returns test results
 
 ### reviewer
-**Purpose:** Validates code is production-ready.
-
-**Checks (run in parallel):**
-- Code quality and readability
-- Schema alignment (types match DB)
+**Purpose:** Validates code quality.
+- Code quality checks
+- Schema alignment
 - Unused code detection
-- Documentation sync
-- Correctness verification (spec compliance, data lifecycle)
+- Returns findings
 
-**Behavior:** Auto-fixes Critical/High issues, reports Medium/Low.
+### doc-writer (utility)
+**Purpose:** Technical documentation.
+Use for deployment guides, API docs, architecture docs.
 
-## Utility Agents
+### ui-polisher (utility)
+**Purpose:** UI polish work.
+Use for responsive fixes, animations, loading states.
 
-### doc-writer
-**Purpose:** Creates technical documentation.
-**Use when:** Need deployment guides, API docs, architecture docs.
+## Direct Agent Use
 
-### ui-polisher
-**Purpose:** Handles UI polish tasks.
-**Use when:** Need responsive fixes, animations, loading states.
-
-## Review Gate Workflow
+You can use worker agents directly for focused tasks:
 
 ```
-User: "Work on issue #42"
-
-1. Fetch issue #42
-2. ════ GATE 1 ════════════════════════════════════
-   │ Output: Full issue details
-   │ Wait for: "proceed" / feedback
-   └──────────────────────────────────────────────
-3. Research phase
-4. Plan phase (creates atomic commits plan)
-5. ════ GATE 2 ════════════════════════════════════
-   │ Output: FULL implementation plan
-   │ Wait for: "proceed" / feedback
-   └──────────────────────────────────────────────
-6. For each atomic commit:
-   ════ GATE 3 ════════════════════════════════════
-   │ Implementer makes changes
-   │ Output: Diff summary
-   │ Wait for: approval to commit
-   └──────────────────────────────────────────────
-7. Test phase
-8. Review phase
-9. Create PR
+"Research how auth works"     → researcher
+"Write tests for uploads"     → tester
+"Review my changes"           → reviewer
+"Polish the mobile UI"        → ui-polisher
 ```
 
-### Why Review Gates?
-- **See before you commit** - Review issue, plan, and each change
-- **Catch issues early** - Before they compound
-- **Course correct** - Provide feedback at any gate
-- **Visibility** - Know exactly what's happening
+## Why This Architecture?
 
-### Direct Agent Use
-```
-User: "Research how auth works in this codebase"
-→ Use researcher agent directly
+Based on [Anthropic's research](https://www.anthropic.com/engineering/claude-code-best-practices):
 
-User: "Write tests for the photo upload feature"
-→ Use tester agent directly
-
-User: "Review my recent changes"
-→ Use reviewer agent directly
-```
-
-## Design Principles
-
-Based on [Anthropic's multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system):
-
-### 1. Orchestrator-Worker Pattern
-Lead agent coordinates while specialized workers handle subtasks.
-
-### 2. Synchronous Execution
-Each phase completes before the next begins, with clear handoffs.
-
-### 3. Context Management
-Each agent gets relevant context via summaries, not full history.
-
-### 4. Effort Scaling
-Simple issues: minimal research, quick implementation.
-Complex issues: deep research, detailed planning, comprehensive testing.
-
-### 5. Explicit Task Decomposition
-Each phase has clear: objectives, inputs, outputs, and handoff format.
+1. **Subagents can't pause** - They complete tasks and return
+2. **Gates need the main agent** - Only Claude (main) can show output and wait
+3. **Workers should be focused** - One clear goal, input, output
+4. **Context is preserved** - Main Claude sees everything, workers get summaries
 
 ## Agent Files
 
 ```
 .claude/agents/
 ├── README.md              # This file
-├── workflow-orchestrator.md  # Main coordinator
 ├── researcher.md          # Context gathering
-├── planner.md            # Implementation planning
-├── implementer.md        # Feature building
-├── tester.md             # Test writing & verification
-├── reviewer.md           # Code review & validation
-├── doc-writer.md         # Documentation utility
-└── ui-polisher.md        # UI polish utility
+├── planner.md             # Implementation planning
+├── implementer.md         # Feature building (one commit)
+├── tester.md              # Test writing & verification
+├── reviewer.md            # Code review & validation
+├── doc-writer.md          # Documentation utility
+└── ui-polisher.md         # UI polish utility
+
+.claude/commands/
+└── work-on-issue.md       # Slash command for gated workflow
 ```
-
-## Performance Characteristics
-
-| Agent | Typical Duration | Token Usage | When to Use |
-|-------|------------------|-------------|-------------|
-| workflow-orchestrator | 10-30 min | High | Full issue lifecycle |
-| researcher | 2-5 min | Medium | Before planning |
-| planner | 3-7 min | Medium | After research |
-| implementer | 5-15 min | High | After planning |
-| tester | 3-8 min | Medium | After implementation |
-| reviewer | 2-5 min | Medium | Before PR |
-| doc-writer | 3-6 min | Medium | Documentation needs |
-| ui-polisher | 4-8 min | Medium | UI polish needs |
-
-## Migration from Previous Architecture
-
-Previous agents merged into new structure:
-
-| Old Agent | New Location |
-|-----------|--------------|
-| feature-planner | researcher + planner |
-| feature-implementer | implementer |
-| test-writer | tester |
-| test-verifier | tester |
-| pr-manager | workflow-orchestrator |
-| schema-validator | reviewer |
-| unused-code-detector | reviewer |
-| doc-syncer | reviewer |
-| code-reviewer | reviewer |
 
 ---
 
-**Version:** 2.0
+**Version:** 3.0
 **Last Updated:** December 2025
-**Based on:** [Anthropic's Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)
