@@ -41,6 +41,7 @@ interface ChallengeEntry {
   challenge: string
   expires: number
   userId?: string // For adding passkeys to existing users
+  webauthnUserId?: string // Stable WebAuthn user ID (base64url encoded)
 }
 
 const challenges = new Map<string, ChallengeEntry>()
@@ -58,12 +59,13 @@ setInterval(() => {
 function storeChallenge(
   email: string,
   challenge: string,
-  userId?: string
+  options?: { userId?: string; webauthnUserId?: string }
 ): void {
   challenges.set(email.toLowerCase(), {
     challenge,
     expires: Date.now() + CHALLENGE_TTL_MS,
-    userId,
+    userId: options?.userId,
+    webauthnUserId: options?.webauthnUserId,
   })
 }
 
@@ -122,6 +124,7 @@ function generateWebAuthnUserId(): Uint8Array<ArrayBuffer> {
 interface DbUser {
   id: string
   email: string
+  webauthn_user_id: string
   display_name: string | null
   is_admin: boolean
   created_at: Date
@@ -228,11 +231,17 @@ auth.post('/register/options', async (c) => {
 
   const sanitizedDisplayName = sanitizeDisplayName(displayName)
 
-  // Generate registration options with proper userID
+  // Generate a stable WebAuthn user ID for this user
+  const webauthnUserIdBytes = generateWebAuthnUserId()
+  const webauthnUserIdBase64 = Buffer.from(webauthnUserIdBytes).toString(
+    'base64url'
+  )
+
+  // Generate registration options with the stable userID
   const options = await generateRegistrationOptions({
     rpName: config.rpName,
     rpID: config.rpID,
-    userID: generateWebAuthnUserId(),
+    userID: webauthnUserIdBytes,
     userName: email,
     userDisplayName: sanitizedDisplayName || email,
     attestationType: 'none',
@@ -242,8 +251,10 @@ auth.post('/register/options', async (c) => {
     },
   })
 
-  // Store challenge
-  storeChallenge(email, options.challenge)
+  // Store challenge with webauthn user ID for later persistence
+  storeChallenge(email, options.challenge, {
+    webauthnUserId: webauthnUserIdBase64,
+  })
 
   return c.json({ options })
 })
@@ -268,7 +279,7 @@ auth.post('/register/verify', async (c) => {
   }
 
   const entry = getStoredChallenge(email)
-  if (!entry) {
+  if (!entry || !entry.webauthnUserId) {
     return c.json(
       { error: 'Bad Request', message: 'Challenge expired or not found' },
       400
@@ -302,11 +313,11 @@ auth.post('/register/verify', async (c) => {
 
     // Use transaction to ensure atomicity
     const result = await db.begin(async (tx) => {
-      // Create user
+      // Create user with stable WebAuthn user ID
       const [user] = await tx<DbUser[]>`
-        INSERT INTO user_profiles (email, display_name, is_admin)
-        VALUES (${email.toLowerCase()}, ${sanitizedDisplayName}, FALSE)
-        RETURNING id, email, display_name, is_admin, created_at, updated_at
+        INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
+        VALUES (${email.toLowerCase()}, ${entry.webauthnUserId}, ${sanitizedDisplayName}, FALSE)
+        RETURNING id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
       `
 
       // Store authenticator
@@ -371,17 +382,33 @@ auth.post('/passkeys/options', requireAuth, async (c) => {
   const config = getConfig()
   const db = getDbClient()
 
-  // Get user's existing authenticators to exclude them
+  // Fetch user's stable WebAuthn user ID and existing authenticators
+  const [user] = await db<{ webauthn_user_id: string }[]>`
+    SELECT webauthn_user_id FROM user_profiles WHERE id = ${currentUser.id}
+  `
+
+  if (!user?.webauthn_user_id) {
+    return c.json(
+      { error: 'Internal Error', message: 'User WebAuthn ID not found' },
+      500
+    )
+  }
+
   const existingAuthenticators = await db<DbAuthenticator[]>`
     SELECT credential_id, transports
     FROM authenticators
     WHERE user_id = ${currentUser.id}
   `
 
+  // Convert stored base64url back to Uint8Array for WebAuthn
+  const webauthnUserIdBytes = new Uint8Array(
+    Buffer.from(user.webauthn_user_id, 'base64url')
+  )
+
   const options = await generateRegistrationOptions({
     rpName: config.rpName,
     rpID: config.rpID,
-    userID: generateWebAuthnUserId(),
+    userID: webauthnUserIdBytes,
     userName: currentUser.email,
     userDisplayName: currentUser.email,
     attestationType: 'none',
@@ -396,7 +423,7 @@ auth.post('/passkeys/options', requireAuth, async (c) => {
   })
 
   // Store challenge with user ID for verification
-  storeChallenge(currentUser.email, options.challenge, currentUser.id)
+  storeChallenge(currentUser.email, options.challenge, { userId: currentUser.id })
 
   return c.json({ options })
 })

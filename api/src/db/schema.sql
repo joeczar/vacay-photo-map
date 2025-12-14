@@ -13,6 +13,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS user_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
+  webauthn_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
   is_admin BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,

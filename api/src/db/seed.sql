@@ -3,9 +3,10 @@
 -- NOTE: Admin user is created without a passkey - register one via the UI
 
 WITH admin_user AS (
-  INSERT INTO user_profiles (email, display_name, is_admin)
+  INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
   VALUES (
     'admin@example.com',
+    encode(gen_random_bytes(32), 'base64'),
     'Admin User',
     TRUE
   )
