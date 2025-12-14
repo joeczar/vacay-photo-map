@@ -68,8 +68,8 @@ function transformApiTrip(apiTrip: ApiTripResponse): TripWithMetadata {
     photo_count: apiTrip.photoCount,
     date_range: {
       start: apiTrip.dateRange.start,
-      end: apiTrip.dateRange.end,
-    },
+      end: apiTrip.dateRange.end
+    }
   }
 }
 
@@ -85,14 +85,16 @@ function transformApiPhoto(apiPhoto: ApiPhotoResponse): Photo {
     taken_at: apiPhoto.takenAt,
     caption: apiPhoto.caption,
     album: apiPhoto.album,
-    created_at: apiPhoto.createdAt,
+    created_at: apiPhoto.createdAt
   }
 }
 
-function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): ApiTrip & { photos: Photo[] } {
+function transformApiTripWithPhotos(
+  apiTrip: ApiTripWithPhotosResponse
+): ApiTrip & { photos: Photo[] } {
   return {
     ...transformApiTrip(apiTrip),
-    photos: apiTrip.photos.map(transformApiPhoto),
+    photos: apiTrip.photos.map(transformApiPhoto)
   }
 }
 
@@ -111,7 +113,7 @@ export async function createTrip(trip: TripInsert): Promise<ApiTrip> {
     description: trip.description,
     slug: trip.slug,
     isPublic: trip.is_public,
-    coverPhotoUrl: trip.cover_photo_url,
+    coverPhotoUrl: trip.cover_photo_url
   }
 
   const apiTrip = await api.post<ApiTripResponse>('/api/trips', body)
@@ -134,20 +136,19 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
   const tripId = photos[0].trip_id
 
   // Transform snake_case input to camelCase for API
-  const apiPhotos = photos.map((p) => ({
+  const apiPhotos = photos.map(p => ({
     cloudinaryPublicId: p.cloudinary_public_id,
     url: p.url,
     thumbnailUrl: p.thumbnail_url,
     latitude: p.latitude,
     longitude: p.longitude,
     takenAt: p.taken_at,
-    caption: p.caption,
+    caption: p.caption
   }))
 
-  const response = await api.post<{ photos: ApiPhotoResponse[] }>(
-    `/api/trips/${tripId}/photos`,
-    { photos: apiPhotos }
-  )
+  const response = await api.post<{ photos: ApiPhotoResponse[] }>(`/api/trips/${tripId}/photos`, {
+    photos: apiPhotos
+  })
 
   return response.photos.map(transformApiPhoto)
 }

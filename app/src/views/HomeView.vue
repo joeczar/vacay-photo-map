@@ -100,7 +100,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const trips = ref<(ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]>([])
+const trips = ref<
+  (ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]
+>([])
 const loading = ref(true)
 const error = ref('')
 
