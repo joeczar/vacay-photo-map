@@ -81,28 +81,24 @@ Uses orchestrator-worker pattern based on [Anthropic's multi-agent system](https
 - **Claude (Senior Dev)**: Reviews diffs, catches issues, coordinates agents
 - **Agents**: Execute specialized tasks (research, plan, implement, test)
 
-### Workflow: Atomic Commits
+### Workflow: Review Gates
 
-Implementation happens **one commit at a time** with review gates:
+The workflow has **3 mandatory gates** where the orchestrator pauses for review:
 
 ```
-Planner → outputs atomic commits (not steps)
-     ↓
-For each commit:
-  1. Implementer → makes changes (does NOT commit)
-  2. Claude → reviews diff
-  3. If issues → feedback to implementer
-  4. If good → commit (you approve)
-  5. Next commit
-     ↓
-All commits done → Test → Review → PR
+1. Fetch issue
+2. ══ GATE 1 ══ Show issue details → Wait for approval
+3. Research & Plan phases
+4. ══ GATE 2 ══ Show FULL plan → Wait for approval
+5. For each atomic commit:
+   ══ GATE 3 ══ Show diff → Wait for approval → Commit
+6. Test → Review → PR
 ```
 
-**Why atomic commits?**
-- Catch issues early before they compound
-- Easier to review smaller changes
-- Natural checkpoints for course correction
-- Can revert single bad commit vs. untangling massive PR
+**Why gates?**
+- **Gate 1**: See issue before work begins
+- **Gate 2**: Review full plan before implementation
+- **Gate 3**: Review each commit before it's made
 
 ### Workflow Agents
 

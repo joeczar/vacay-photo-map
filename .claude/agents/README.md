@@ -13,31 +13,42 @@ This project uses an orchestrator-worker pattern based on Anthropic's multi-agen
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Human (You)                              │
-│                    (approves each commit)                        │
+│                    (approves at each gate)                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                     Claude (Senior Dev)                          │
-│              (reviews diffs, coordinates agents)                 │
+│         (reviews at gates, coordinates agents)                   │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│   ┌──────────┐   ┌─────────┐   ┌────────────┐   ┌────────┐     │
-│   │researcher│ → │ planner │ → │implementer │ → │ tester │     │
-│   └──────────┘   └─────────┘   └────────────┘   └────────┘     │
-│        │              │              │               │          │
-│        ▼              ▼              ▼               ▼          │
-│   [findings]   [atomic commits]  [one commit    [tests]        │
-│                    plan          at a time]                     │
-│                                      │                          │
-│                              ┌───────┴───────┐                  │
-│                              │ Review Gate   │                  │
-│                              │ (per commit)  │                  │
-│                              └───────────────┘                  │
-│                                                                  │
-│                         ┌──────────┐                            │
-│                         │ reviewer │                            │
-│                         └──────────┘                            │
-│                              │                                   │
-│                              ▼                                   │
-│                         [PR ready]                              │
+│   ┌────────────────┐                                            │
+│   │ Fetch Issue    │                                            │
+│   └───────┬────────┘                                            │
+│           ▼                                                      │
+│   ╔═══════════════════╗                                         │
+│   ║  GATE 1: Issue    ║  ← Senior dev reviews issue             │
+│   ╚═════════╤═════════╝                                         │
+│             ▼                                                    │
+│   ┌──────────┐   ┌─────────┐                                    │
+│   │researcher│ → │ planner │                                    │
+│   └──────────┘   └────┬────┘                                    │
+│                       ▼                                          │
+│   ╔═══════════════════╗                                         │
+│   ║  GATE 2: Plan     ║  ← Senior dev reviews full plan         │
+│   ╚═════════╤═════════╝                                         │
+│             ▼                                                    │
+│   ┌────────────────────────────────────────┐                    │
+│   │  For each atomic commit:               │                    │
+│   │    ┌────────────┐                      │                    │
+│   │    │implementer │ → diff               │                    │
+│   │    └────────────┘                      │                    │
+│   │           ▼                            │                    │
+│   │   ╔═══════════════════╗                │                    │
+│   │   ║  GATE 3: Commit   ║ ← Review diff  │                    │
+│   │   ╚═══════════════════╝                │                    │
+│   └────────────────────────────────────────┘                    │
+│             ▼                                                    │
+│   ┌────────┐   ┌──────────┐                                     │
+│   │ tester │ → │ reviewer │ → PR                                │
+│   └────────┘   └──────────┘                                     │
 └─────────────────────────────────────────────────────────────────┘
 
 Utility Agents (called by implementer when needed):
@@ -50,14 +61,12 @@ Utility Agents (called by implementer when needed):
 ### workflow-orchestrator
 **Purpose:** Coordinates the full development lifecycle from issue to PR.
 
-**Modes:**
-- **AUTO** - Runs all phases continuously (simple issues)
-- **STEP** - Pauses between phases for user approval (complex issues)
+**Review Gates:**
+- **Gate 1** - Shows issue details, waits for approval
+- **Gate 2** - Shows full plan, waits for approval
+- **Gate 3** - Per-commit diff review (handled by implementer)
 
-**Triggers:**
-- "Work on issue #X"
-- "Implement feature Y"
-- "Step through issue #Z"
+**Trigger:** "Work on issue #X"
 
 ### researcher
 **Purpose:** Gathers context before planning.
@@ -125,44 +134,38 @@ Utility Agents (called by implementer when needed):
 **Purpose:** Handles UI polish tasks.
 **Use when:** Need responsive fixes, animations, loading states.
 
-## Execution Modes
+## Review Gate Workflow
 
-### Atomic Commit Flow (Default)
-```
-Issue → Research → Plan (atomic commits) → Implement → Test → Review → PR
-                          ↓
-                   For each commit:
-                   ┌─────────────────────────────────┐
-                   │ 1. Implementer makes changes    │
-                   │ 2. Senior dev reviews diff      │
-                   │ 3. Commit if approved           │
-                   │ 4. Next commit                  │
-                   └─────────────────────────────────┘
-```
-
-### Why Atomic Commits?
-- **Catch issues early** - Before they compound
-- **Easier review** - Smaller changes are easier to understand
-- **Natural checkpoints** - Course correct at any point
-- **Clean git history** - Each commit is meaningful and revertable
-
-## Usage Examples
-
-### Full Workflow
 ```
 User: "Work on issue #42"
 
-→ Orchestrator fetches issue, assesses complexity
-→ Research phase
-→ Plan phase (outputs atomic commits)
-→ Implement phase:
-    Commit 1: Implementer → diff → Senior dev reviews → commit
-    Commit 2: Implementer → diff → Senior dev reviews → commit
-    ... (repeat for each commit)
-→ Test phase
-→ Review phase
-→ PR created
+1. Fetch issue #42
+2. ════ GATE 1 ════════════════════════════════════
+   │ Output: Full issue details
+   │ Wait for: "proceed" / feedback
+   └──────────────────────────────────────────────
+3. Research phase
+4. Plan phase (creates atomic commits plan)
+5. ════ GATE 2 ════════════════════════════════════
+   │ Output: FULL implementation plan
+   │ Wait for: "proceed" / feedback
+   └──────────────────────────────────────────────
+6. For each atomic commit:
+   ════ GATE 3 ════════════════════════════════════
+   │ Implementer makes changes
+   │ Output: Diff summary
+   │ Wait for: approval to commit
+   └──────────────────────────────────────────────
+7. Test phase
+8. Review phase
+9. Create PR
 ```
+
+### Why Review Gates?
+- **See before you commit** - Review issue, plan, and each change
+- **Catch issues early** - Before they compound
+- **Course correct** - Provide feedback at any gate
+- **Visibility** - Know exactly what's happening
 
 ### Direct Agent Use
 ```
