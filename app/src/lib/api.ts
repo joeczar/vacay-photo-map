@@ -19,7 +19,7 @@ class ApiClient {
 
   private async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     }
 
     if (this.token) {
@@ -33,18 +33,27 @@ class ApiClient {
 
     const response = await fetch(`${API_URL}${path}`, {
       ...options,
-      headers,
+      headers
     })
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}))
-      throw new ApiError(
-        response.status,
-        error.message || 'Request failed'
-      )
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return undefined as T
     }
 
-    return response.json()
+    const responseText = await response.text()
+
+    if (!response.ok) {
+      let message = responseText
+      try {
+        message = JSON.parse(responseText).message || responseText
+      } catch {
+        // Not JSON, use raw text
+      }
+      throw new ApiError(response.status, message || 'Request failed')
+    }
+
+    return responseText ? JSON.parse(responseText) : undefined
   }
 
   get<T>(path: string) {
@@ -54,14 +63,14 @@ class ApiClient {
   post<T>(path: string, body: unknown) {
     return this.fetch<T>(path, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: JSON.stringify(body)
     })
   }
 
   patch<T>(path: string, body: unknown) {
     return this.fetch<T>(path, {
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body: JSON.stringify(body)
     })
   }
 
