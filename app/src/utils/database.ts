@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import type { TablesInsert, TablesRow, TablesUpdate } from '@/lib/database.types'
+import type { TablesInsert, TablesRow } from '@/lib/database.types'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/composables/useAuth'
 
@@ -162,52 +162,39 @@ export async function getAllTrips(): Promise<TripWithMetadata[]> {
 
 /**
  * Update trip cover photo
- * Note: Type assertion required due to Supabase-js v2.39 type inference limitations
  */
 export async function updateTripCoverPhoto(tripId: string, coverPhotoUrl: string): Promise<void> {
-  const updateData: TablesUpdate<'trips'> = { cover_photo_url: coverPhotoUrl }
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
 
-  const { error } = await supabase
-    .from('trips')
-    .update(updateData as unknown as never)
-    .eq('id', tripId)
-
-  if (error) throw error
+  api.setToken(token)
+  await api.patch(`/api/trips/${tripId}`, { coverPhotoUrl })
 }
 
 /**
  * Delete a trip and all associated photos
- * This will cascade delete all photos in the trip due to foreign key constraints
+ * Backend handles cascade deletion
  */
 export async function deleteTrip(tripId: string): Promise<void> {
   console.log(`🗑️  Deleting trip ${tripId} and all associated photos...`)
 
-  // First, delete all photos for this trip
-  const { error: photosError } = await supabase.from('photos').delete().eq('trip_id', tripId)
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
 
-  if (photosError) {
-    console.error('Failed to delete photos:', photosError)
-    throw photosError
-  }
-
-  // Then delete the trip itself
-  const { error: tripError } = await supabase.from('trips').delete().eq('id', tripId)
-
-  if (tripError) {
-    console.error('Failed to delete trip:', tripError)
-    throw tripError
-  }
+  api.setToken(token)
+  await api.delete(`/api/trips/${tripId}`)
 
   console.log(`✅ Trip ${tripId} and all photos deleted successfully`)
 }
 
 /**
- * Update trip protection settings via Edge Function
- * Handles token hashing server-side for security
+ * Update trip protection settings
  * @param tripId - Trip UUID
  * @param isPublic - Whether the trip should be public
  * @param token - Plaintext token to hash (required when isPublic is false)
- * @param authToken - JWT from API login endpoint (/api/auth/login) for authorization
+ * @param authToken - JWT for authorization
  */
 export async function updateTripProtection(
   tripId: string,
@@ -215,37 +202,6 @@ export async function updateTripProtection(
   token: string | undefined,
   authToken: string
 ): Promise<void> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-
-  if (!supabaseUrl) {
-    throw new Error('Missing VITE_SUPABASE_URL environment variable')
-  }
-
-  const url = `${supabaseUrl}/functions/v1/update-trip-protection`
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${authToken}`
-    },
-    body: JSON.stringify({
-      tripId,
-      isPublic,
-      token
-    })
-  })
-
-  if (response.status === 401) {
-    throw new Error('Unauthorized: Please log in again')
-  }
-
-  if (response.status === 403) {
-    throw new Error('Forbidden: Admin access required')
-  }
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}))
-    throw new Error(data.error || `Failed to update trip protection (${response.status})`)
-  }
+  api.setToken(authToken)
+  await api.patch(`/api/trips/${tripId}/protection`, { isPublic, token })
 }
