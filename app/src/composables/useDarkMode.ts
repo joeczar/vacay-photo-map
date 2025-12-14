@@ -100,8 +100,8 @@ export function useDarkMode() {
       // Use stored preference if exists
       isDark.value = stored
     } else {
-      // Fall back to system preference
-      isDark.value = getSystemPreference()
+      // Fall back to Dark Mode (Dark Friendly default)
+      isDark.value = true
     }
 
     applyTheme(isDark.value)
