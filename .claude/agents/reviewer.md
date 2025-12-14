@@ -86,6 +86,41 @@ For each doc file:
    - Concurrent operations?
 ```
 
+#### Check 6: Authorization & Security Logic
+```
+For router guards and auth-related code:
+1. Route meta verification
+   - If guard checks `to.meta.requiresX`, verify routes have that meta field
+   - List all routes and their meta fields
+   - Flag any guard logic that checks non-existent meta
+
+2. Authorization flow completeness
+   - Does the guard handle all cases? (auth, admin, etc.)
+   - Are there routes that should be protected but aren't?
+
+3. End-to-end auth verification
+   - Login → sets correct state?
+   - Logout → clears ALL state (client AND server)?
+   - Session persistence → works across reload?
+```
+
+#### Check 7: API Integration Verification
+```
+For client code that interacts with backend:
+1. Check available API endpoints
+   - Read api/src/routes/*.ts to see what endpoints exist
+   - Verify client calls appropriate endpoints
+
+2. Auth operations specifically
+   - Login: client calls correct login endpoint?
+   - Logout: client calls /api/auth/logout if it exists?
+   - Token refresh: handled if endpoint exists?
+
+3. Request/response alignment
+   - Client types match API response shapes?
+   - Error handling matches API error format?
+```
+
 ### Step 3: Report Findings
 
 Group by severity:
@@ -133,6 +168,8 @@ Checks Performed:
 - Unused code: PASS | FAIL
 - Documentation: PASS | FAIL
 - Correctness: PASS | FAIL
+- Authorization & security: PASS | FAIL
+- API integration: PASS | FAIL
 
 Issues Found: {N}
 Issues Fixed: {N}
@@ -158,10 +195,12 @@ checks:
   unused_code: pass | fail
   documentation: pass | fail
   correctness: pass | fail
+  authorization_security: pass | fail
+  api_integration: pass | fail
 issues:
   - file: path/to/file.ts
     line: 42
-    category: quality | schema | unused | docs | correctness
+    category: quality | schema | unused | docs | correctness | auth | api
     severity: critical | high | medium | low
     problem: "Description of issue"
     fix: "How to fix" | "FIXED"
@@ -205,6 +244,19 @@ summary:
 - [ ] Persistent data stored correctly
 - [ ] User journeys work end-to-end
 - [ ] Multi-instance scenarios handled
+
+### Authorization & Security Checklist
+- [ ] Route meta fields exist for all guard checks
+- [ ] All admin routes have `requiresAdmin: true`
+- [ ] All protected routes have `requiresAuth: true`
+- [ ] Guard handles all authorization cases
+- [ ] Logout clears both client AND server state
+
+### API Integration Checklist
+- [ ] Client calls correct API endpoints
+- [ ] Backend logout endpoint called (if exists)
+- [ ] Client types match API response shapes
+- [ ] Error handling matches API error format
 
 ## Critical Rules
 
