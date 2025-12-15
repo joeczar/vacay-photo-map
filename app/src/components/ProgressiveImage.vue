@@ -24,7 +24,7 @@ import { ref } from 'vue'
 
 defineOptions({ inheritAttrs: false })
 
-const props = defineProps<{
+defineProps<{
   src: string
   srcset?: string
   sizes?: string
@@ -32,7 +32,6 @@ const props = defineProps<{
   wrapperClass?: string
 }>()
 
-const { src, srcset, sizes, alt, wrapperClass } = props
 const loaded = ref(false)
 const imgEl = ref<HTMLImageElement | null>(null)
 

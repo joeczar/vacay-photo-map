@@ -64,6 +64,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ApiTrip } from '@/utils/database'
 import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
@@ -73,8 +74,12 @@ const props = defineProps<{
   featured?: boolean
 }>()
 
-const coverSrcset = props.trip.cover_photo_url ? buildSrcSet(props.trip.cover_photo_url, [320, 480, 640, 768, 960, 1200, 1600]) : ''
-const coverFallback = props.trip.cover_photo_url ? cloudinaryUrlForWidth(props.trip.cover_photo_url, props.featured ? 1600 : 960) : ''
+const coverSrcset = computed(() =>
+  props.trip.cover_photo_url ? buildSrcSet(props.trip.cover_photo_url, [320, 480, 640, 768, 960, 1200, 1600]) : ''
+)
+const coverFallback = computed(() =>
+  props.trip.cover_photo_url ? cloudinaryUrlForWidth(props.trip.cover_photo_url, props.featured ? 1600 : 960) : ''
+)
 
 function formatDateRange(dateRange: { start: string; end: string }): string {
   if (!dateRange || !dateRange.start) return ''

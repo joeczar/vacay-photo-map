@@ -25,8 +25,8 @@ export function useAccentColor() {
       const s2 = clamp(s * 1.2, 0.25, 0.75)
       const l2 = clamp(l * 0.95, 0.25, 0.7)
       setAccentHsl(`${Math.round(h)} ${Math.round(s2 * 100)}% ${Math.round(l2 * 100)}%`)
-    } catch {
-      /* no-op on failure */
+    } catch (error) {
+      console.warn('Failed to set accent color from image:', error)
     }
   }
 
