@@ -6,7 +6,11 @@
       <div class="aspect-video relative bg-muted overflow-hidden">
         <img
              v-if="trip.cover_photo_url"
-             :src="trip.cover_photo_url"
+             :src="coverFallback"
+             :srcset="coverSrcset"
+             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+             loading="lazy"
+             decoding="async"
              :alt="trip.title"
              class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         <div
@@ -58,10 +62,14 @@
 
 <script setup lang="ts">
 import type { ApiTrip } from '@/utils/database'
+import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
 
-defineProps<{
+const props = defineProps<{
   trip: ApiTrip & { photo_count: number; date_range: { start: string; end: string } }
 }>()
+
+const coverSrcset = props.trip.cover_photo_url ? buildSrcSet(props.trip.cover_photo_url, [320, 480, 640, 768, 960, 1200]) : ''
+const coverFallback = props.trip.cover_photo_url ? cloudinaryUrlForWidth(props.trip.cover_photo_url, 960) : ''
 
 function formatDateRange(dateRange: { start: string; end: string }): string {
   if (!dateRange || !dateRange.start) return ''

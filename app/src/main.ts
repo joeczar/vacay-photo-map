@@ -14,4 +14,13 @@ app.use(router)
 ;(async () => {
   await initializeAuth()
   app.mount('#app')
+  // Try to register PWA service worker if plugin is available
+  try {
+    const mod = await import(/* @vite-ignore */ 'virtual:pwa-register')
+    if (mod && typeof mod.registerSW === 'function') {
+      mod.registerSW({ immediate: true })
+    }
+  } catch {
+    // PWA plugin not available in this environment; ignore
+  }
 })()

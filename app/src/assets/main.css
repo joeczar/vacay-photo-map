@@ -103,4 +103,19 @@
   .text-gradient-ember {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-200;
   }
+
+  /* Safe area helper for bottom-fixed UI */
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);
+  }
+}
+
+/* Respect reduced motion for hover/zoom transitions */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

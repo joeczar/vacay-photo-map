@@ -8,7 +8,7 @@
         >
           Vacay Photo Map
         </router-link>
-        <nav class="flex items-center gap-4">
+        <nav class="hidden md:flex items-center gap-4">
           <Button variant="ghost" as-child>
             <router-link to="/">Home</router-link>
           </Button>
@@ -23,13 +23,16 @@
               <router-link to="/login">Login</router-link>
             </Button>
           </template>
-          <ThemeToggle />
+          <div class="hidden md:block">
+            <ThemeToggle />
+          </div>
         </nav>
       </div>
     </header>
-    <main class="container py-8 px-4">
+    <main class="container py-8 px-4 pb-24 md:pb-8">
       <slot />
     </main>
+    <BottomNav />
   </div>
 </template>
 
@@ -38,6 +41,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import BottomNav from '@/components/BottomNav.vue'
 
 const router = useRouter()
 const { isAuthenticated, loading, logout } = useAuth()

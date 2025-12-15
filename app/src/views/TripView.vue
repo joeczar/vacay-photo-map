@@ -67,10 +67,34 @@
         </div>
       </div>
 
+      <!-- Map/Photos Controls (mobile) -->
+      <div class="container px-4 pt-4 md:hidden">
+        <div role="tablist" aria-label="View switch" class="inline-flex rounded-lg border border-border p-1 bg-card">
+          <button
+            role="tab"
+            :aria-selected="viewMode === 'map'"
+            class="px-4 py-2 text-sm rounded-md transition-colors"
+            :class="viewMode === 'map' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'map'"
+          >
+            Map
+          </button>
+          <button
+            role="tab"
+            :aria-selected="viewMode === 'photos'"
+            class="px-4 py-2 text-sm rounded-md transition-colors"
+            :class="viewMode === 'photos' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            @click="viewMode = 'photos'"
+          >
+            Photos
+          </button>
+        </div>
+      </div>
+
       <!-- Map Section -->
       <div class="container py-8 px-4">
         <Card class="overflow-hidden">
-          <div style="height: 600px" class="relative z-0">
+          <div class="relative z-0 h-[50vh] sm:h-[60vh] md:h-[600px]" :class="viewMode === 'photos' ? 'hidden md:block' : ''">
             <l-map ref="map" v-model:zoom="zoom" :center="mapCenter as [number, number]"
                    :options="{ scrollWheelZoom: true }" @ready="onMapReady">
               <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttribution" />
@@ -91,8 +115,14 @@
 
                 <l-popup :options="{ maxWidth: 300 }">
                   <div class="p-2">
-                    <img :src="photo.url" :alt="photo.caption || 'Photo'"
-                         class="w-full h-48 object-cover rounded mb-2" />
+                <img
+                     :src="popupFallback(photo)"
+                     :srcset="popupSrcset(photo)"
+                     sizes="300px"
+                     loading="lazy"
+                     decoding="async"
+                     :alt="photo.caption || 'Photo'"
+                     class="w-full h-48 object-cover rounded mb-2" />
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatDate(photo.taken_at) }}</p>
                   </div>
@@ -108,13 +138,21 @@
 
           <!-- Photo Grid Below Map -->
           <Separator />
-          <CardContent class="p-6">
+          <CardContent class="p-6" :class="viewMode === 'map' ? 'hidden md:block' : ''">
             <h3 class="text-lg font-semibold mb-4">All Photos</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <Card v-for="photo in trip.photos" :key="photo.id"
                     class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
                     :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''" @click="selectPhoto(photo)">
-                <img :src="photo.thumbnail_url" :alt="photo.caption || 'Photo'" class="w-full h-full object-cover" />
+                <img
+                  :src="gridFallback(photo)"
+                  :srcset="gridSrcset(photo)"
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                  loading="lazy"
+                  decoding="async"
+                  :alt="photo.caption || 'Photo'"
+                  class="w-full h-full object-cover"
+                />
                 <div v-if="!photo.latitude || !photo.longitude"
                      class="absolute top-1 right-1 bg-yellow-500 rounded-full p-1" title="No location data">
                   <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -192,7 +230,8 @@
               <div v-if="shareLink" class="space-y-3">
                 <div class="flex items-center gap-2">
                   <Input :value="shareLink" readonly class="font-mono text-xs" />
-                  <Button variant="outline" size="icon" @click="copyShareLink" :disabled="isCopying">
+                  <Button variant="outline" size="icon" @click="copyShareLink" :disabled="isCopying"
+                          aria-label="Copy share link">
                     <svg v-if="copySuccess" class="w-4 h-4 text-green-500" fill="none" stroke="currentColor"
                          viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -201,6 +240,13 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
+                  </Button>
+                  <Button variant="outline" size="sm" class="ml-1" @click="shareViaNative" aria-label="Share link">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 8a3 3 0 10-6 0v8a3 3 0 106 0V8z" />
+                    </svg>
+                    Share
                   </Button>
                 </div>
 
@@ -269,8 +315,31 @@
             </svg>
           </Button>
 
-          <img :src="selectedPhoto.url" :alt="selectedPhoto.caption || 'Photo'"
-               class="w-full h-auto rounded-lg shadow-2xl" />
+          <!-- Lightbox image with touch gestures -->
+          <div
+            ref="lightboxContainer"
+            class="w-full h-auto rounded-lg shadow-2xl overflow-hidden touch-pan-y select-none"
+            :style="{
+              transform: `translate(${dragX}px, ${dragY}px) scale(${scale})`,
+              transition: dragging ? 'none' : 'transform 200ms ease-out'
+            }"
+            @touchstart.passive="onTouchStart"
+            @touchmove.prevent="onTouchMove"
+            @touchend="onTouchEnd"
+            @pointerdown.prevent="onPointerStart"
+            @pointermove.prevent="onPointerMove"
+            @pointerup="onPointerEnd"
+          >
+            <img
+              :src="lightboxFallback(selectedPhoto)"
+              :srcset="lightboxSrcset(selectedPhoto)"
+              sizes="100vw"
+              decoding="async"
+              :alt="selectedPhoto.caption || 'Photo'"
+              class="w-full h-auto block"
+              draggable="false"
+            />
+          </div>
 
           <div class="mt-4 text-white">
             <p v-if="selectedPhoto.caption" class="text-lg font-medium mb-2">
@@ -309,6 +378,7 @@ import { generateTripToken } from '@/utils/tokenGenerator'
 import { useAuth } from '@/composables/useAuth'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useShare } from '@/composables/useShare'
 import type { Database } from '@/lib/database.types'
 import TripLayout from '@/layouts/TripLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -334,6 +404,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
 
 // Fix Leaflet default icon issue with bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -354,6 +425,7 @@ const token = route.query.token as string | undefined
 const { isAuthenticated, getToken } = useAuth()
 const { isDark } = useDarkMode()
 const { toast } = useToast()
+const { share } = useShare()
 
 // State
 const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
@@ -374,6 +446,129 @@ const protectionError = ref('')
 const regenerateDialogOpen = ref(false)
 const isCopying = ref(false)
 const copySuccess = ref(false)
+
+// Mobile view mode: map or photos
+const viewMode = ref<'map' | 'photos'>('map')
+
+// Lightbox gesture state
+const lightboxContainer = ref<HTMLElement | null>(null)
+const startX = ref(0)
+const startY = ref(0)
+const dragX = ref(0)
+const dragY = ref(0)
+const dragging = ref(false)
+const scale = ref(1)
+let lastTapTime = 0
+
+function onTouchStart(e: TouchEvent) {
+  if (e.touches.length !== 1) return
+  const t = e.touches[0]
+  const now = Date.now()
+  const timeSince = now - lastTapTime
+  startX.value = t.clientX
+  startY.value = t.clientY
+  dragX.value = 0
+  dragY.value = 0
+  dragging.value = true
+
+  // Double-tap to toggle zoom
+  if (timeSince < 300) {
+    scale.value = scale.value > 1 ? 1 : 2
+  }
+  lastTapTime = now
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!dragging.value || e.touches.length !== 1) return
+  const t = e.touches[0]
+  const dx = t.clientX - startX.value
+  const dy = t.clientY - startY.value
+
+  // When not zoomed, allow dragging for gesture detection
+  if (scale.value === 1) {
+    dragX.value = dx
+    dragY.value = dy
+  }
+}
+
+function onTouchEnd(_e: TouchEvent) {
+  if (!dragging.value) return
+  dragging.value = false
+
+  const thresholdX = 60
+  const thresholdY = 120
+  const dx = dragX.value
+  const dy = dragY.value
+
+  // Vertical swipe down to close (when not zoomed)
+  if (scale.value === 1 && Math.abs(dy) > thresholdY && Math.abs(dx) < 50) {
+    dragX.value = 0
+    dragY.value = 0
+    closePhoto()
+    return
+  }
+
+  // Horizontal swipe to navigate (when not zoomed)
+  if (scale.value === 1) {
+    if (dx > thresholdX) {
+      previousPhoto()
+    } else if (dx < -thresholdX) {
+      nextPhoto()
+    }
+  }
+
+  // Reset transform after gesture
+  dragX.value = 0
+  dragY.value = 0
+}
+
+// Pointer event fallback (for non-touch testing and broader support)
+function onPointerStart(e: PointerEvent) {
+  if (e.pointerType === 'mouse') return
+  startX.value = e.clientX
+  startY.value = e.clientY
+  dragX.value = 0
+  dragY.value = 0
+  dragging.value = true
+
+  const now = Date.now()
+  const timeSince = now - lastTapTime
+  if (timeSince < 300) {
+    scale.value = scale.value > 1 ? 1 : 2
+  }
+  lastTapTime = now
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (e.pointerType === 'mouse' || !dragging.value) return
+  const dx = e.clientX - startX.value
+  const dy = e.clientY - startY.value
+  if (scale.value === 1) {
+    dragX.value = dx
+    dragY.value = dy
+  }
+}
+
+function onPointerEnd(e: PointerEvent) {
+  if (e.pointerType === 'mouse' || !dragging.value) return
+  dragging.value = false
+  const thresholdX = 60
+  const thresholdY = 120
+  const dx = dragX.value
+  const dy = dragY.value
+  if (scale.value === 1 && Math.abs(dy) > thresholdY && Math.abs(dx) < 50) {
+    dragX.value = 0
+    dragY.value = 0
+    closePhoto()
+    return
+  }
+  if (scale.value === 1) {
+    if (dx > thresholdX) previousPhoto()
+    else if (dx < -thresholdX) nextPhoto()
+  }
+  dragX.value = 0
+  dragY.value = 0
+}
 
 // Sync localIsPublic with trip data when sheet opens
 watch(shareSheetOpen, open => {
@@ -472,6 +667,42 @@ function onMapReady() {
     const bounds = photosWithCoordinates.value.map(p => [p.latitude!, p.longitude!])
       ; (map.value as any).leafletObject.fitBounds(bounds, { padding: [50, 50] })
   }
+}
+
+// Share via native share sheet or clipboard fallback
+async function shareViaNative() {
+  // Prefer generated share link when available; otherwise, fall back to public URL
+  const url = shareLink.value
+    ? shareLink.value
+    : `${window.location.origin}/trip/${slug}${token ? `?token=${token}` : ''}`
+
+  await share({
+    title: trip.value?.title || 'Trip',
+    text: trip.value?.description || 'Check out my trip',
+    url
+  })
+}
+
+// Responsive image helpers
+function gridSrcset(p: Photo) {
+  return buildSrcSet(p.url, [320, 480, 640, 768])
+}
+function gridFallback(p: Photo) {
+  return cloudinaryUrlForWidth(p.url, 640)
+}
+function popupSrcset(p: Photo) {
+  return buildSrcSet(p.url, [320, 480, 600])
+}
+function popupFallback(p: Photo) {
+  return cloudinaryUrlForWidth(p.url, 600)
+}
+function lightboxSrcset(p: Photo | null) {
+  if (!p) return ''
+  return buildSrcSet(p.url, [640, 960, 1280, 1600, 1920])
+}
+function lightboxFallback(p: Photo | null) {
+  if (!p) return ''
+  return cloudinaryUrlForWidth(p.url, 1280)
 }
 
 function selectPhoto(photo: Photo) {

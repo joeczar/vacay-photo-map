@@ -53,6 +53,21 @@
 - Make map height responsive in `TripView.vue`.
 - Add Web Share API fallback (composable) and wire into share sheet.
 
+## Progress
+- Map height made responsive in `TripView.vue` (h-[50vh] sm:h-[60vh] md:h-[600px]).
+- Web Share composable added (`useShare`) and Share button wired in Trip share sheet.
+- Responsive images implemented:
+  - `TripCard.vue` cover image now uses `srcset/sizes` with lazy/async.
+  - `TripView.vue` grid, popup, and lightbox images use `srcset/sizes` and optimized fallbacks.
+- Verified changes in the browser using Playwright MCP (Home, Trip grid, lightbox, and popup images report proper `srcset/sizes`).
+- Bottom navigation added (mobile-only) with safe-area padding and Theme toggle.
+- Theme toggle bug fixed: immediate class apply in `useDarkMode`; header Theme toggle hidden on mobile to avoid duplicate toggles.
+- TripView segmented control (mobile): Map/Photos tabs to switch views, with both visible on md+.
+- Mobile nav duplication resolved: header nav hidden under `md` (`hidden md:flex`) and BottomNav handles primary actions on mobile.
+
+## Notes / Open Decisions
+- Mobile nav is no longer doubled: header nav is hidden under `md`; BottomNav is the primary mobile nav.
+
 ## Concrete File-Level Changes
 - `src/views/TripView.vue`
   - Replace map container inline height with Tailwind responsive classes.
@@ -79,9 +94,5 @@
 - Verify: ≥44px tap targets, readable lines, smooth Map/Photos switch, native sharing on mobile, crisp images without overserving.
 
 ## Next Steps
-1) Implement quick wins (map height, Web Share).
-2) Add responsive images for TripCard/TripView.
-3) Scaffold bottom nav and safe-area utilities.
-4) Lightbox gestures.
-5) PWA manifest and caching.
-
+1) Lightbox gestures (swipe/drag/zoom) for better mobile UX.
+2) PWA manifest and caching via `vite-plugin-pwa`.

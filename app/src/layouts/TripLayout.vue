@@ -52,9 +52,10 @@
       </SheetContent>
     </Sheet>
 
-    <main>
+    <main class="pb-24 md:pb-0">
       <slot />
     </main>
+    <BottomNav />
   </div>
 </template>
 
@@ -65,6 +66,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Separator } from '@/components/ui/separator'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useDarkMode } from '@/composables/useDarkMode'
+import BottomNav from '@/components/BottomNav.vue'
 
 // Initialize dark mode on mount
 useDarkMode()
