@@ -38,14 +38,6 @@ export function _resetDarkModeState() {
  */
 export function useDarkMode() {
   /**
-   * Get system color scheme preference
-   */
-  function getSystemPreference(): boolean {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-  }
-
-  /**
    * Get stored user preference from localStorage
    */
   function getStoredPreference(): boolean | null {

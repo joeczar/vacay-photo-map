@@ -1,23 +1,17 @@
 <template>
   <MainLayout>
     <!-- Hero Section -->
-    <!-- Hero Section: Personal & Styled -->
-    <div
-         class="relative overflow-hidden rounded-3xl bg-secondary/30 border border-white/5 px-6 py-12 shadow-2xl sm:px-12 sm:py-16 mb-12">
-      <!-- Gradient Glow -->
-      <div class="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-primary/20 blur-3xl pointer-events-none"></div>
-
-      <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="rounded-2xl bg-card border border-border/50 px-6 py-8 sm:px-10 sm:py-10 mb-10">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl mb-2">
-            Welcome back.
+          <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl mb-1">
+            Hey there.
           </h1>
-          <p class="text-muted-foreground text-lg">
-            Where to next?
+          <p class="text-muted-foreground">
+            Ready to explore?
           </p>
         </div>
-        <Button v-if="trips.length > 0" variant="outline" as-child
-                class="bg-background/50 backdrop-blur-sm border-white/10 hover:bg-background/80">
+        <Button v-if="trips.length > 0" variant="outline" as-child size="sm">
           <router-link to="/admin">Manage Trips</router-link>
         </Button>
       </div>
@@ -35,29 +29,29 @@
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="text-center py-12">
-      <div
-           class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-destructive/10 text-destructive mb-4">
-        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    <div v-else-if="error" class="text-center py-16">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-4">
+        <svg class="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M12 9v2m0 4h.01M3 15a4 4 0 014-4h1a4 4 0 010 8H7a4 4 0 01-4-4zm18 0a4 4 0 00-4-4h-1a4 4 0 000 8h1a4 4 0 004-4z" />
         </svg>
       </div>
-      <p class="text-destructive font-medium">{{ error }}</p>
+      <p class="text-muted-foreground mb-4">Couldn't load trips right now</p>
+      <Button variant="outline" size="sm" @click="loadTrips">Try again</Button>
     </div>
 
     <!-- Empty State -->
     <div v-else-if="trips.length === 0"
-         class="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-3xl bg-card/50">
-      <div class="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-6 text-primary">
-        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+         class="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-2xl bg-card/50">
+      <div class="h-14 w-14 bg-muted rounded-full flex items-center justify-center mb-5 text-muted-foreground">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
         </svg>
       </div>
-      <h2 class="text-2xl font-semibold text-foreground mb-2">No hTrips Yet</h2>
-      <p class="text-muted-foreground mb-8">Start by uploading your first vacation photos!</p>
-      <Button as-child>
-        <router-link to="/admin">Upload Your First Trip</router-link>
+      <h2 class="text-xl font-semibold text-foreground mb-2">No trips yet</h2>
+      <p class="text-muted-foreground mb-6">Upload your first vacation photos to get started</p>
+      <Button as-child size="sm">
+        <router-link to="/admin">Add your first trip</router-link>
       </Button>
     </div>
 
@@ -93,7 +87,9 @@ const trips = ref<
 const loading = ref(true)
 const error = ref('')
 
-onMounted(async () => {
+async function loadTrips() {
+  loading.value = true
+  error.value = ''
   try {
     trips.value = await getAllTrips()
   } catch (err) {
@@ -102,5 +98,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadTrips)
 </script>
