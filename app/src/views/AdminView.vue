@@ -65,7 +65,7 @@
                 Select Photos *
               </label>
               <div class="flex items-center gap-3">
-                <Button type="button" variant="outline" @click="() => fileInput?.click()">
+                <Button type="button" class="h-11 px-5" @click="() => fileInput?.click()" aria-label="Choose photos" :aria-controls="fileInputId">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
@@ -82,7 +82,7 @@
                     <polyline points="17 8 12 3 7 8"></polyline>
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                   </svg>
-                  Choose Files
+                  Choose Photos
                 </Button>
                 <span class="text-sm text-muted-foreground">
                   {{
@@ -95,6 +95,7 @@
               </div>
               <input
                 ref="fileInput"
+                :id="fileInputId"
                 type="file"
                 multiple
                 accept="image/*"
@@ -106,17 +107,32 @@
 
             <div v-if="selectedFiles.length > 0" class="mt-4">
               <p class="text-sm mb-2">{{ selectedFiles.length }} photos selected</p>
-              <div class="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto">
+              <div class="flex md:grid md:grid-cols-4 gap-2 overflow-x-auto md:overflow-visible pb-2 snap-x">
                 <div
                   v-for="(file, index) in selectedFiles"
                   :key="index"
-                  class="relative aspect-square"
+                  class="relative aspect-square w-28 h-28 md:w-auto md:h-auto shrink-0 snap-start"
                 >
                   <img
                     :src="getFilePreview(file)"
                     :alt="file.name"
                     class="w-full h-full object-cover rounded border"
+                    loading="lazy"
+                    decoding="async"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    class="absolute top-1 right-1 bg-white/80 dark:bg-slate-800/80 hover:bg-white text-foreground h-7 w-7 rounded-full"
+                    :aria-label="`Remove ${file.name}`"
+                    title="Remove photo"
+                    @click.stop="removeFile(index)"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -150,6 +166,21 @@
           <Alert v-if="error" variant="destructive">
             <AlertDescription>{{ error }}</AlertDescription>
           </Alert>
+
+          <!-- Per-file progress list -->
+          <div v-if="selectedFiles.length > 0" class="mt-2 space-y-3">
+            <div
+              v-for="(file, i) in selectedFiles"
+              :key="file.name + i"
+              class="space-y-1"
+            >
+              <div class="flex justify-between text-xs text-muted-foreground">
+                <span class="truncate max-w-[60%]">{{ file.name }}</span>
+                <span>{{ perFileProgress[i] || 0 }}%</span>
+              </div>
+              <Progress :model-value="perFileProgress[i] || 0" />
+            </div>
+          </div>
         </CardContent>
       </div>
     </Card>
@@ -162,6 +193,7 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 import { extractExifBatch } from '@/utils/exif'
+import { resizeFiles } from '@/utils/resize'
 import { uploadMultipleFiles } from '@/lib/cloudinary'
 import { createTrip, createPhotos, updateTripCoverPhoto } from '@/utils/database'
 import { generateUniqueSlug } from '@/utils/slug'
@@ -202,11 +234,14 @@ const {
 const currentStep = ref(1)
 const selectedFiles = ref<File[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
+const fileInputId = 'photo-input'
+const previews = ref(new Map<File, string>())
 
 // Upload state
 const isUploading = ref(false)
 const uploadStatus = ref('')
 const uploadProgress = ref(0)
+const perFileProgress = ref<number[]>([])
 const error = ref('')
 const uploadComplete = ref(false)
 const tripSlug = ref('')
@@ -215,12 +250,36 @@ const tripSlug = ref('')
 function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.files) {
+    // Revoke any existing previews and reset
+    previews.value.forEach(url => URL.revokeObjectURL(url))
+    previews.value.clear()
     selectedFiles.value = Array.from(target.files)
+    // Build new previews
+    selectedFiles.value.forEach(f => previews.value.set(f, URL.createObjectURL(f)))
+    perFileProgress.value = new Array(selectedFiles.value.length).fill(0)
   }
 }
 
 function getFilePreview(file: File): string {
-  return URL.createObjectURL(file)
+  const cached = previews.value.get(file)
+  if (cached) return cached
+  const url = URL.createObjectURL(file)
+  previews.value.set(file, url)
+  return url
+}
+
+function removeFile(index: number) {
+  const file = selectedFiles.value[index]
+  if (!file) return
+  const url = previews.value.get(file)
+  if (url) {
+    URL.revokeObjectURL(url)
+    previews.value.delete(file)
+  }
+  selectedFiles.value.splice(index, 1)
+  if (selectedFiles.value.length === 0 && fileInput.value) {
+    fileInput.value.value = ''
+  }
 }
 
 // Upload process - wrapped with validation
@@ -235,20 +294,28 @@ const onSubmit = handleSubmit(async formValues => {
     uploadProgress.value = 10
     const exifData = await extractExifBatch(selectedFiles.value)
 
-    // Step 2: Upload to Cloudinary
-    uploadStatus.value = 'Uploading photos to cloud storage...'
+    // Step 2: Resize/optimize images client-side
+    uploadStatus.value = 'Optimizing photos for upload...'
     uploadProgress.value = 20
+    const optimizedFiles = await resizeFiles(selectedFiles.value, { maxSize: 1600, quality: 0.85 })
 
-    const uploadResults = await uploadMultipleFiles(selectedFiles.value, (fileIndex, progress) => {
+    // Step 3: Upload to Cloudinary
+    uploadStatus.value = 'Uploading photos to cloud storage...'
+    uploadProgress.value = 30
+
+    // Initialize per-file progress
+    perFileProgress.value = new Array(optimizedFiles.length).fill(0)
+    const uploadResults = await uploadMultipleFiles(optimizedFiles, (fileIndex, progress) => {
       const baseProgress = 20
       const uploadWeight = 50
-      const fileProgress = (fileIndex / selectedFiles.value.length) * uploadWeight
+      const fileProgress = (fileIndex / optimizedFiles.length) * uploadWeight
       const currentFileProgress =
-        (progress.percentage / 100) * (uploadWeight / selectedFiles.value.length)
+        (progress.percentage / 100) * (uploadWeight / optimizedFiles.length)
       uploadProgress.value = Math.round(baseProgress + fileProgress + currentFileProgress)
+      perFileProgress.value[fileIndex] = Math.max(0, Math.min(100, Math.round(progress.percentage)))
     })
 
-    // Step 3: Create trip in database
+    // Step 4: Create trip in database
     uploadStatus.value = 'Creating trip...'
     uploadProgress.value = 75
 
@@ -261,7 +328,7 @@ const onSubmit = handleSubmit(async formValues => {
       cover_photo_url: null
     })
 
-    // Step 4: Save photos to database
+    // Step 5: Save photos to database
     uploadStatus.value = 'Saving photos...'
     uploadProgress.value = 85
 
@@ -283,7 +350,7 @@ const onSubmit = handleSubmit(async formValues => {
 
     await createPhotos(photoInserts)
 
-    // Step 5: Set cover photo (first photo with location, or just first photo)
+    // Step 6: Set cover photo (first photo with location, or just first photo)
     const coverPhoto = photoInserts.find(p => p.latitude && p.longitude) || photoInserts[0]
     if (coverPhoto) {
       await updateTripCoverPhoto(trip.id, coverPhoto.thumbnail_url)
@@ -306,6 +373,8 @@ function resetForm() {
   currentStep.value = 1
   resetVeeForm()
   selectedFiles.value = []
+  previews.value.forEach(url => URL.revokeObjectURL(url))
+  previews.value.clear()
   uploadComplete.value = false
   uploadProgress.value = 0
   uploadStatus.value = ''

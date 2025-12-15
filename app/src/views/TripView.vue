@@ -76,6 +76,7 @@
             class="px-4 py-2 text-sm rounded-md transition-colors"
             :class="viewMode === 'map' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
             @click="viewMode = 'map'"
+            @keydown.right.prevent="viewMode = 'photos'"
           >
             Map
           </button>
@@ -85,6 +86,7 @@
             class="px-4 py-2 text-sm rounded-md transition-colors"
             :class="viewMode === 'photos' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
             @click="viewMode = 'photos'"
+            @keydown.left.prevent="viewMode = 'map'"
           >
             Photos
           </button>
@@ -94,7 +96,7 @@
       <!-- Map Section -->
       <div class="container py-8 px-4">
         <Card class="overflow-hidden">
-          <div class="relative z-0 h-[50vh] sm:h-[60vh] md:h-[600px]" :class="viewMode === 'photos' ? 'hidden md:block' : ''">
+          <div v-if="isDesktop || viewMode === 'map'" class="relative z-0 h-[50vh] sm:h-[60vh] md:h-[600px]">
             <l-map ref="map" v-model:zoom="zoom" :center="mapCenter as [number, number]"
                    :options="{ scrollWheelZoom: true }" @ready="onMapReady">
               <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttribution" />
@@ -138,7 +140,7 @@
 
           <!-- Photo Grid Below Map -->
           <Separator />
-          <CardContent class="p-6" :class="viewMode === 'map' ? 'hidden md:block' : ''">
+          <CardContent class="p-6 content-auto" :class="viewMode === 'map' && !isDesktop ? 'hidden' : ''">
             <h3 class="text-lg font-semibold mb-4">All Photos</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <Card v-for="photo in trip.photos" :key="photo.id"
@@ -308,7 +310,7 @@
       <div v-if="selectedPhoto" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
            @click="closePhoto">
         <div class="relative max-w-6xl w-full" @click.stop>
-          <Button variant="ghost" size="icon" @click="closePhoto"
+          <Button variant="ghost" size="icon" @click="closePhoto" aria-label="Close lightbox"
                   class="absolute -top-12 right-0 text-white hover:text-white/80">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -318,7 +320,7 @@
           <!-- Lightbox image with touch gestures -->
           <div
             ref="lightboxContainer"
-            class="w-full h-auto rounded-lg shadow-2xl overflow-hidden touch-pan-y select-none"
+            class="w-full h-auto rounded-lg shadow-2xl overflow-hidden touch-none select-none"
             :style="{
               transform: `translate(${dragX}px, ${dragY}px) scale(${scale})`,
               transition: dragging ? 'none' : 'transform 200ms ease-out'
@@ -349,13 +351,13 @@
           </div>
 
           <!-- Navigation -->
-          <Button v-if="currentPhotoIndex > 0" variant="ghost" size="icon" @click.stop="previousPhoto"
+          <Button v-if="currentPhotoIndex > 0" variant="ghost" size="icon" @click.stop="previousPhoto" aria-label="Previous photo"
                   class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
           </Button>
-          <Button v-if="currentPhotoIndex < trip.photos.length - 1" variant="ghost" size="icon" @click.stop="nextPhoto"
+          <Button v-if="currentPhotoIndex < trip.photos.length - 1" variant="ghost" size="icon" @click.stop="nextPhoto" aria-label="Next photo"
                   class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -449,6 +451,7 @@ const copySuccess = ref(false)
 
 // Mobile view mode: map or photos
 const viewMode = ref<'map' | 'photos'>('map')
+const isDesktop = ref(false)
 
 // Lightbox gesture state
 const lightboxContainer = ref<HTMLElement | null>(null)
@@ -460,7 +463,18 @@ const dragging = ref(false)
 const scale = ref(1)
 let lastTapTime = 0
 
+// Pinch zoom state
+let pinchStartDistance = 0
+let pinchStartScale = 1
+
 function onTouchStart(e: TouchEvent) {
+  if (e.touches.length === 2) {
+    const [a, b] = [e.touches[0], e.touches[1]]
+    pinchStartDistance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+    pinchStartScale = scale.value
+    dragging.value = false
+    return
+  }
   if (e.touches.length !== 1) return
   const t = e.touches[0]
   const now = Date.now()
@@ -479,13 +493,26 @@ function onTouchStart(e: TouchEvent) {
 }
 
 function onTouchMove(e: TouchEvent) {
+  if (e.touches.length === 2) {
+    const [a, b] = [e.touches[0], e.touches[1]]
+    const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+    const factor = dist / (pinchStartDistance || dist)
+    const next = Math.max(1, Math.min(3, pinchStartScale * factor))
+    scale.value = next
+    return
+  }
   if (!dragging.value || e.touches.length !== 1) return
   const t = e.touches[0]
   const dx = t.clientX - startX.value
   const dy = t.clientY - startY.value
 
-  // When not zoomed, allow dragging for gesture detection
-  if (scale.value === 1) {
+  // When zoomed, pan image; when not zoomed, track drag for swipe/close
+  if (scale.value > 1) {
+    dragX.value += dx
+    dragY.value += dy
+    startX.value = t.clientX
+    startY.value = t.clientY
+  } else {
     dragX.value = dx
     dragY.value = dy
   }
@@ -518,8 +545,10 @@ function onTouchEnd(_e: TouchEvent) {
   }
 
   // Reset transform after gesture
-  dragX.value = 0
-  dragY.value = 0
+  if (scale.value === 1) {
+    dragX.value = 0
+    dragY.value = 0
+  }
 }
 
 // Pointer event fallback (for non-touch testing and broader support)
@@ -581,6 +610,18 @@ watch(shareSheetOpen, open => {
 
 // Load trip data
 onMounted(async () => {
+  // Determine initial layout mode for mobile/desktop
+  const mq = window.matchMedia('(min-width: 768px)')
+  const updateDesktop = () => {
+    isDesktop.value = mq.matches
+    if (!isDesktop.value) {
+      // On mobile, default to Photos for faster first paint
+      viewMode.value = 'photos'
+    }
+  }
+  updateDesktop()
+  mq.addEventListener?.('change', updateDesktop)
+
   try {
     const data = await getTripBySlug(slug, token)
     if (!data) {

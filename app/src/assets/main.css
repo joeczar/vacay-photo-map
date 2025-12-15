@@ -104,6 +104,12 @@
     @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-200;
   }
 
+  /* Large sections: allow browser to skip offscreen rendering */
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 600px 800px;
+  }
+
   /* Safe area helper for bottom-fixed UI */
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0.75rem);

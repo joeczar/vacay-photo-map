@@ -9,6 +9,17 @@
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f97316">
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#ea580c">
     <meta name="description" content="View vacation photos on an interactive map with timeline visualization">
+    <script>
+      try {
+        const pref = localStorage.getItem('theme-preference')
+        const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (pref === 'dark' || (!pref && systemDark)) {
+          document.documentElement.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+        }
+      } catch (e) {}
+    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Photo Map">
