@@ -1,7 +1,8 @@
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-background bg-grid grain">
     <!-- Floating Menu Button -->
-    <div class="fixed top-4 right-4 z-50">
+    <!-- Hide floating menu button on md+ (desktop) -->
+    <div class="fixed top-4 right-4 z-50 md:hidden">
       <Button
         variant="outline"
         size="icon"
@@ -52,9 +53,10 @@
       </SheetContent>
     </Sheet>
 
-    <main>
+    <main class="pb-24 md:pb-0">
       <slot />
     </main>
+    <BottomNav />
   </div>
 </template>
 
@@ -65,6 +67,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Separator } from '@/components/ui/separator'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useDarkMode } from '@/composables/useDarkMode'
+import BottomNav from '@/components/BottomNav.vue'
 
 // Initialize dark mode on mount
 useDarkMode()

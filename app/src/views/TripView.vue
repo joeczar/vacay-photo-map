@@ -3,7 +3,12 @@
     <template #actions>
       <!-- Admin-only actions -->
       <template v-if="isAuthenticated">
-        <Button variant="outline" class="w-full justify-start" @click="shareSheetOpen = true">
+        <Button
+          variant="outline"
+          class="w-full justify-start"
+          @click="shareSheetOpen = true"
+          v-ripple
+        >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               stroke-linecap="round"
@@ -15,7 +20,12 @@
           Share
         </Button>
 
-        <Button variant="destructive" class="w-full justify-start" @click="deleteDialogOpen = true">
+        <Button
+          variant="destructive"
+          class="w-full justify-start"
+          @click="deleteDialogOpen = true"
+          v-ripple
+        >
           <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
             <path
               fill-rule="evenodd"
@@ -52,9 +62,11 @@
     <!-- Trip Content -->
     <div v-else-if="trip">
       <!-- Hero Section -->
-      <div class="border-b bg-card">
-        <div class="container py-8 px-4">
-          <h1 class="text-4xl font-bold mb-2">{{ trip.title }}</h1>
+      <div class="relative border-b bg-card transition-colors">
+        <div class="hero-accent-bar" aria-hidden="true"></div>
+        <!-- Match global 7xl width for desktop alignment -->
+        <div class="max-w-7xl mx-auto w-full py-8 px-4 relative">
+          <h1 class="text-4xl font-bold mb-2 text-accent-gradient">{{ trip.title }}</h1>
           <p v-if="trip.description" class="text-muted-foreground mb-4">{{ trip.description }}</p>
           <div class="flex gap-4">
             <Badge variant="secondary">
@@ -75,10 +87,51 @@
         </div>
       </div>
 
+      <!-- Map/Photos Controls (mobile) -->
+      <div class="max-w-7xl mx-auto w-full px-4 pt-4 md:hidden">
+        <div
+          role="tablist"
+          aria-label="View switch"
+          class="inline-flex rounded-lg border border-border p-1 bg-card"
+        >
+          <button
+            role="tab"
+            :aria-selected="viewMode === 'map'"
+            class="px-4 py-2 text-sm rounded-md transition-colors"
+            :class="
+              viewMode === 'map'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            "
+            @click="viewMode = 'map'"
+            @keydown.right.prevent="viewMode = 'photos'"
+          >
+            Map
+          </button>
+          <button
+            role="tab"
+            :aria-selected="viewMode === 'photos'"
+            class="px-4 py-2 text-sm rounded-md transition-colors"
+            :class="
+              viewMode === 'photos'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            "
+            @click="viewMode = 'photos'"
+            @keydown.left.prevent="viewMode = 'map'"
+          >
+            Photos
+          </button>
+        </div>
+      </div>
+
       <!-- Map Section -->
-      <div class="container py-8 px-4">
+      <div class="max-w-7xl mx-auto w-full py-8 px-4">
         <Card class="overflow-hidden">
-          <div style="height: 600px" class="relative z-0">
+          <div
+            v-if="isDesktop || viewMode === 'map'"
+            class="relative z-0 h-[50vh] sm:h-[60vh] md:h-[600px] xl:h-[720px] 2xl:h-[800px]"
+          >
             <l-map
               ref="map"
               v-model:zoom="zoom"
@@ -86,10 +139,7 @@
               :options="{ scrollWheelZoom: true }"
               @ready="onMapReady"
             >
-              <l-tile-layer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
+              <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttribution" />
 
               <!-- Photo Markers -->
               <l-marker
@@ -101,7 +151,7 @@
                 <l-icon :icon-size="[40, 40]" :icon-anchor="[20, 40]">
                   <div class="relative">
                     <div
-                      class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform"
+                      class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform marker-glow"
                       :class="selectedPhoto?.id === photo.id ? 'border-primary border-4' : ''"
                     >
                       <img
@@ -115,10 +165,13 @@
 
                 <l-popup :options="{ maxWidth: 300 }">
                   <div class="p-2">
-                    <img
-                      :src="photo.url"
+                    <ProgressiveImage
+                      :src="popupFallback(photo)"
+                      :srcset="popupSrcset(photo)"
+                      sizes="300px"
                       :alt="photo.caption || 'Photo'"
-                      class="w-full h-48 object-cover rounded mb-2"
+                      wrapper-class="w-full h-48 rounded mb-2"
+                      class="w-full h-48 object-cover rounded"
                     />
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatDate(photo.taken_at) }}</p>
@@ -138,7 +191,10 @@
 
           <!-- Photo Grid Below Map -->
           <Separator />
-          <CardContent class="p-6">
+          <CardContent
+            class="p-6 content-auto"
+            :class="viewMode === 'map' && !isDesktop ? 'hidden' : ''"
+          >
             <h3 class="text-lg font-semibold mb-4">All Photos</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <Card
@@ -148,14 +204,17 @@
                 :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
                 @click="selectPhoto(photo)"
               >
-                <img
-                  :src="photo.thumbnail_url"
+                <ProgressiveImage
+                  :src="gridFallback(photo)"
+                  :srcset="gridSrcset(photo)"
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
                   :alt="photo.caption || 'Photo'"
+                  wrapper-class="w-full h-full"
                   class="w-full h-full object-cover"
                 />
                 <div
                   v-if="!photo.latitude || !photo.longitude"
-                  class="absolute top-1 right-1 bg-yellow-500 rounded-full p-1"
+                  class="absolute top-1 right-1 bg-rose-500 rounded-full p-1"
                   title="No location data"
                 >
                   <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -183,8 +242,8 @@
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" @click="deleteDialogOpen = false">Cancel</Button>
-            <Button variant="destructive" @click="confirmDelete" :disabled="isDeleting">
+            <Button variant="outline" @click="deleteDialogOpen = false" v-ripple>Cancel</Button>
+            <Button variant="destructive" @click="confirmDelete" :disabled="isDeleting" v-ripple>
               {{ isDeleting ? 'Deleting...' : 'Delete' }}
             </Button>
           </DialogFooter>
@@ -244,6 +303,8 @@
                     size="icon"
                     @click="copyShareLink"
                     :disabled="isCopying"
+                    v-ripple
+                    aria-label="Copy share link"
                   >
                     <svg
                       v-if="copySuccess"
@@ -274,6 +335,24 @@
                       />
                     </svg>
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="ml-1"
+                    @click="shareViaNative"
+                    aria-label="Share link"
+                    v-ripple
+                  >
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 8a3 3 0 10-6 0v8a3 3 0 106 0V8z"
+                      />
+                    </svg>
+                    Share
+                  </Button>
                 </div>
 
                 <!-- Regenerate Link -->
@@ -281,6 +360,7 @@
                   variant="outline"
                   class="w-full"
                   @click="regenerateDialogOpen = true"
+                  v-ripple
                   :disabled="isUpdatingProtection"
                 >
                   <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -298,9 +378,10 @@
               <!-- Generate Link Button -->
               <Button
                 v-else
-                class="w-full"
+                class="w-full btn-gradient-primary"
                 @click="generateShareLink"
                 :disabled="isUpdatingProtection"
+                v-ripple
               >
                 <svg
                   v-if="isUpdatingProtection"
@@ -359,8 +440,8 @@
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" @click="regenerateDialogOpen = false">Cancel</Button>
-            <Button @click="confirmRegenerate" :disabled="isUpdatingProtection">
+            <Button variant="outline" @click="regenerateDialogOpen = false" v-ripple>Cancel</Button>
+            <Button @click="confirmRegenerate" :disabled="isUpdatingProtection" v-ripple>
               {{ isUpdatingProtection ? 'Regenerating...' : 'Regenerate' }}
             </Button>
           </DialogFooter>
@@ -378,6 +459,7 @@
             variant="ghost"
             size="icon"
             @click="closePhoto"
+            aria-label="Close lightbox"
             class="absolute -top-12 right-0 text-white hover:text-white/80"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -390,11 +472,32 @@
             </svg>
           </Button>
 
-          <img
-            :src="selectedPhoto.url"
-            :alt="selectedPhoto.caption || 'Photo'"
-            class="w-full h-auto rounded-lg shadow-2xl"
-          />
+          <!-- Lightbox image with touch gestures -->
+          <div
+            ref="lightboxContainer"
+            class="w-full h-auto rounded-lg shadow-2xl overflow-hidden touch-none select-none"
+            :style="{
+              transform: `translate(${dragX}px, ${dragY}px) scale(${scale})`,
+              transition: dragging ? 'none' : 'transform 200ms ease-out',
+              opacity: dragging && scale === 1 ? 1 - Math.min(Math.abs(dragX) / 600, 0.15) : 1
+            }"
+            @touchstart.passive="onTouchStart"
+            @touchmove.prevent="onTouchMove"
+            @touchend="onTouchEnd"
+            @pointerdown.prevent="onPointerStart"
+            @pointermove.prevent="onPointerMove"
+            @pointerup="onPointerEnd"
+          >
+            <img
+              :src="lightboxFallback(selectedPhoto)"
+              :srcset="lightboxSrcset(selectedPhoto)"
+              sizes="100vw"
+              decoding="async"
+              :alt="selectedPhoto.caption || 'Photo'"
+              class="w-full h-auto block"
+              draggable="false"
+            />
+          </div>
 
           <div class="mt-4 text-white">
             <p v-if="selectedPhoto.caption" class="text-lg font-medium mb-2">
@@ -409,6 +512,7 @@
             variant="ghost"
             size="icon"
             @click.stop="previousPhoto"
+            aria-label="Previous photo"
             class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
           >
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -425,6 +529,7 @@
             variant="ghost"
             size="icon"
             @click.stop="nextPhoto"
+            aria-label="Next photo"
             class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
           >
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -436,6 +541,22 @@
               />
             </svg>
           </Button>
+
+          <!-- Edge hint gradients (subtle) -->
+          <div
+            class="pointer-events-none absolute inset-y-0 left-0 w-24"
+            :style="{
+              opacity: scale === 1 ? Math.max(0, Math.min(-dragX / 200, 0.15)) : 0,
+              background: 'linear-gradient(90deg, rgba(0,0,0,.35), rgba(0,0,0,0))'
+            }"
+          ></div>
+          <div
+            class="pointer-events-none absolute inset-y-0 right-0 w-24"
+            :style="{
+              opacity: scale === 1 ? Math.max(0, Math.min(dragX / 200, 0.15)) : 0,
+              background: 'linear-gradient(270deg, rgba(0,0,0,.35), rgba(0,0,0,0))'
+            }"
+          ></div>
         </div>
       </div>
     </div>
@@ -451,7 +572,9 @@ import { LMap, LTileLayer, LMarker, LIcon, LPopup, LPolyline } from '@vue-leafle
 import { getTripBySlug, deleteTrip, updateTripProtection, type ApiTrip } from '@/utils/database'
 import { generateTripToken } from '@/utils/tokenGenerator'
 import { useAuth } from '@/composables/useAuth'
+import { useDarkMode } from '@/composables/useDarkMode'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useShare } from '@/composables/useShare'
 import type { Database } from '@/lib/database.types'
 import TripLayout from '@/layouts/TripLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -477,6 +600,9 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
+import { useAccentColor } from '@/composables/useAccentColor'
+import ProgressiveImage from '@/components/ProgressiveImage.vue'
 
 // Fix Leaflet default icon issue with bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -493,9 +619,11 @@ const router = useRouter()
 const slug = route.params.slug as string
 const token = route.query.token as string | undefined
 
-// Auth
+// Auth & Theme
 const { isAuthenticated, getToken } = useAuth()
+const { isDark } = useDarkMode()
 const { toast } = useToast()
+const { share } = useShare()
 
 // State
 const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
@@ -503,7 +631,8 @@ const loading = ref(true)
 const error = ref('')
 const selectedPhoto = ref<Photo | null>(null)
 const zoom = ref(12)
-const map = ref(null)
+// Vue-leaflet map component ref with leafletObject accessor
+const map = ref<{ leafletObject: L.Map } | null>(null)
 const isDeleting = ref(false)
 const deleteDialogOpen = ref(false)
 
@@ -517,6 +646,156 @@ const regenerateDialogOpen = ref(false)
 const isCopying = ref(false)
 const copySuccess = ref(false)
 
+// Mobile view mode: map or photos
+const viewMode = ref<'map' | 'photos'>('map')
+const isDesktop = ref(false)
+
+// Lightbox gesture state
+const lightboxContainer = ref<HTMLElement | null>(null)
+const startX = ref(0)
+const startY = ref(0)
+const dragX = ref(0)
+const dragY = ref(0)
+const dragging = ref(false)
+const scale = ref(1)
+let lastTapTime = 0
+
+// Pinch zoom state
+let pinchStartDistance = 0
+let pinchStartScale = 1
+
+function onTouchStart(e: TouchEvent) {
+  if (e.touches.length === 2) {
+    const [a, b] = [e.touches[0], e.touches[1]]
+    pinchStartDistance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+    pinchStartScale = scale.value
+    dragging.value = false
+    return
+  }
+  if (e.touches.length !== 1) return
+  const t = e.touches[0]
+  const now = Date.now()
+  const timeSince = now - lastTapTime
+  startX.value = t.clientX
+  startY.value = t.clientY
+  dragX.value = 0
+  dragY.value = 0
+  dragging.value = true
+
+  // Double-tap to toggle zoom
+  if (timeSince < 300) {
+    scale.value = scale.value > 1 ? 1 : 2
+  }
+  lastTapTime = now
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (e.touches.length === 2) {
+    const [a, b] = [e.touches[0], e.touches[1]]
+    const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+    const factor = dist / (pinchStartDistance || dist)
+    const next = Math.max(1, Math.min(3, pinchStartScale * factor))
+    scale.value = next
+    return
+  }
+  if (!dragging.value || e.touches.length !== 1) return
+  const t = e.touches[0]
+  const dx = t.clientX - startX.value
+  const dy = t.clientY - startY.value
+
+  // When zoomed, pan image; when not zoomed, track drag for swipe/close
+  if (scale.value > 1) {
+    dragX.value += dx
+    dragY.value += dy
+    startX.value = t.clientX
+    startY.value = t.clientY
+  } else {
+    dragX.value = dx
+    dragY.value = dy
+  }
+}
+
+function onTouchEnd() {
+  if (!dragging.value) return
+  dragging.value = false
+
+  const thresholdX = 60
+  const thresholdY = 120
+  const dx = dragX.value
+  const dy = dragY.value
+
+  // Vertical swipe down to close (when not zoomed)
+  if (scale.value === 1 && Math.abs(dy) > thresholdY && Math.abs(dx) < 50) {
+    dragX.value = 0
+    dragY.value = 0
+    closePhoto()
+    return
+  }
+
+  // Horizontal swipe to navigate (when not zoomed)
+  if (scale.value === 1) {
+    if (dx > thresholdX) {
+      previousPhoto()
+    } else if (dx < -thresholdX) {
+      nextPhoto()
+    }
+  }
+
+  // Reset transform after gesture
+  if (scale.value === 1) {
+    dragX.value = 0
+    dragY.value = 0
+  }
+}
+
+// Pointer event fallback (for non-touch testing and broader support)
+function onPointerStart(e: PointerEvent) {
+  if (e.pointerType === 'mouse') return
+  startX.value = e.clientX
+  startY.value = e.clientY
+  dragX.value = 0
+  dragY.value = 0
+  dragging.value = true
+
+  const now = Date.now()
+  const timeSince = now - lastTapTime
+  if (timeSince < 300) {
+    scale.value = scale.value > 1 ? 1 : 2
+  }
+  lastTapTime = now
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (e.pointerType === 'mouse' || !dragging.value) return
+  const dx = e.clientX - startX.value
+  const dy = e.clientY - startY.value
+  if (scale.value === 1) {
+    dragX.value = dx
+    dragY.value = dy
+  }
+}
+
+function onPointerEnd(e: PointerEvent) {
+  if (e.pointerType === 'mouse' || !dragging.value) return
+  dragging.value = false
+  const thresholdX = 60
+  const thresholdY = 120
+  const dx = dragX.value
+  const dy = dragY.value
+  if (scale.value === 1 && Math.abs(dy) > thresholdY && Math.abs(dx) < 50) {
+    dragX.value = 0
+    dragY.value = 0
+    closePhoto()
+    return
+  }
+  if (scale.value === 1) {
+    if (dx > thresholdX) previousPhoto()
+    else if (dx < -thresholdX) nextPhoto()
+  }
+  dragX.value = 0
+  dragY.value = 0
+}
+
 // Sync localIsPublic with trip data when sheet opens
 watch(shareSheetOpen, open => {
   if (open && trip.value) {
@@ -528,12 +807,31 @@ watch(shareSheetOpen, open => {
 
 // Load trip data
 onMounted(async () => {
+  // Determine initial layout mode for mobile/desktop
+  const mq = window.matchMedia('(min-width: 768px)')
+  const updateDesktop = () => {
+    isDesktop.value = mq.matches
+    if (!isDesktop.value) {
+      // On mobile, default to Photos for faster first paint
+      viewMode.value = 'photos'
+    }
+  }
+  updateDesktop()
+  mq.addEventListener?.('change', updateDesktop)
+
   try {
     const data = await getTripBySlug(slug, token)
     if (!data) {
       error.value = 'Trip not found'
     } else {
       trip.value = data
+      // Subtle: derive accent color from cover/first photo
+      const cover = data.cover_photo_url || data.photos[0]?.url
+      if (cover) {
+        const { setAccentFromImage } = useAccentColor()
+        // Fire and forget; no need to await
+        setAccentFromImage(cover)
+      }
     }
   } catch (err) {
     console.error('Error loading trip:', err)
@@ -597,13 +895,62 @@ const currentPhotoIndex = computed(() => {
   return trip.value.photos.findIndex(p => p.id === selectedPhoto.value!.id)
 })
 
+const tileLayerUrl = computed(() => {
+  return isDark.value
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+})
+
+const tileLayerAttribution = computed(() => {
+  return '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+})
+
 // Methods
 function onMapReady() {
   // Fit map to show all markers
   if (map.value && photosWithCoordinates.value.length > 0) {
-    const bounds = photosWithCoordinates.value.map(p => [p.latitude!, p.longitude!])
-    ;(map.value as any).leafletObject.fitBounds(bounds, { padding: [50, 50] })
+    const bounds = photosWithCoordinates.value.map(p => [
+      p.latitude!,
+      p.longitude!
+    ]) as L.LatLngBoundsExpression
+    map.value.leafletObject.fitBounds(bounds, { padding: [50, 50] })
   }
+}
+
+// Share via native share sheet or clipboard fallback
+async function shareViaNative() {
+  // Prefer generated share link when available; otherwise, fall back to public URL
+  const url = shareLink.value
+    ? shareLink.value
+    : `${window.location.origin}/trip/${slug}${token ? `?token=${token}` : ''}`
+
+  await share({
+    title: trip.value?.title || 'Trip',
+    text: trip.value?.description || 'Check out my trip',
+    url
+  })
+}
+
+// Responsive image helpers
+function gridSrcset(p: Photo) {
+  return buildSrcSet(p.url, [320, 480, 640, 768])
+}
+function gridFallback(p: Photo) {
+  return cloudinaryUrlForWidth(p.url, 640)
+}
+function popupSrcset(p: Photo) {
+  return buildSrcSet(p.url, [320, 480, 600])
+}
+function popupFallback(p: Photo) {
+  return cloudinaryUrlForWidth(p.url, 600)
+}
+function lightboxSrcset(p: Photo | null) {
+  if (!p) return ''
+  return buildSrcSet(p.url, [640, 960, 1280, 1600, 1920])
+}
+function lightboxFallback(p: Photo | null) {
+  if (!p) return ''
+  return cloudinaryUrlForWidth(p.url, 1280)
 }
 
 function selectPhoto(photo: Photo) {
@@ -611,7 +958,7 @@ function selectPhoto(photo: Photo) {
 
   // Pan map to photo location if it has coordinates
   if (photo.latitude && photo.longitude && map.value) {
-    ;(map.value as any).leafletObject.panTo([photo.latitude, photo.longitude])
+    map.value.leafletObject.panTo([photo.latitude, photo.longitude])
   }
 }
 

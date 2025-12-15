@@ -27,6 +27,12 @@ dist
 dist-ssr
 *.local
 
+# PWA dev files
+app/dev-dist/
+
+# Research files (fetched HTML)
+docs/research/*.html
+
 # TypeScript
 *.tsbuildinfo
 

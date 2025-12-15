@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-background">
-    <header class="border-b border-border bg-card">
+  <div class="min-h-screen bg-background bg-grid grain">
+    <header class="border-b border-border glass-surface">
       <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
         <router-link
           to="/"
@@ -8,7 +8,7 @@
         >
           Vacay Photo Map
         </router-link>
-        <nav class="flex items-center gap-4">
+        <nav class="hidden md:flex items-center gap-4">
           <Button variant="ghost" as-child>
             <router-link to="/">Home</router-link>
           </Button>
@@ -23,13 +23,17 @@
               <router-link to="/login">Login</router-link>
             </Button>
           </template>
-          <ThemeToggle />
+          <div class="hidden md:block">
+            <ThemeToggle />
+          </div>
         </nav>
       </div>
     </header>
-    <main class="container py-8 px-4">
+    <!-- Match header width on large screens for alignment -->
+    <main class="max-w-7xl mx-auto w-full py-8 px-4 pb-24 md:pb-8">
       <slot />
     </main>
+    <BottomNav />
   </div>
 </template>
 
@@ -38,6 +42,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import ThemeToggle from '@/components/ThemeToggle.vue'
+import BottomNav from '@/components/BottomNav.vue'
 
 const router = useRouter()
 const { isAuthenticated, loading, logout } = useAuth()

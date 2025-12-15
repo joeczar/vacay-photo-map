@@ -38,14 +38,6 @@ export function _resetDarkModeState() {
  */
 export function useDarkMode() {
   /**
-   * Get system color scheme preference
-   */
-  function getSystemPreference(): boolean {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-  }
-
-  /**
    * Get stored user preference from localStorage
    */
   function getStoredPreference(): boolean | null {
@@ -77,6 +69,8 @@ export function useDarkMode() {
   function toggleDark() {
     isDark.value = !isDark.value
     savePreference(isDark.value)
+    // Apply immediately to avoid relying solely on watcher timing
+    applyTheme(isDark.value)
   }
 
   /**
@@ -85,6 +79,8 @@ export function useDarkMode() {
   function setDark(value: boolean) {
     isDark.value = value
     savePreference(isDark.value)
+    // Apply immediately to avoid relying solely on watcher timing
+    applyTheme(isDark.value)
   }
 
   /**
@@ -100,8 +96,8 @@ export function useDarkMode() {
       // Use stored preference if exists
       isDark.value = stored
     } else {
-      // Fall back to system preference
-      isDark.value = getSystemPreference()
+      // Fall back to Dark Mode (Dark Friendly default)
+      isDark.value = true
     }
 
     applyTheme(isDark.value)

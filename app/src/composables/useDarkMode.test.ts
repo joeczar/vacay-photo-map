@@ -60,13 +60,13 @@ describe('useDarkMode', () => {
     vi.restoreAllMocks()
   })
 
-  it('should initialize with light mode by default', async () => {
+  it('should initialize with dark mode by default', async () => {
     const TestComponent = await createTestComponent()
     const wrapper = mount(TestComponent)
     await nextTick()
 
-    expect(wrapper.vm.darkMode.isDark.value).toBe(false)
-    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(wrapper.vm.darkMode.isDark.value).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
   it('should detect system dark mode preference', async () => {
@@ -99,17 +99,19 @@ describe('useDarkMode', () => {
     const wrapper = mount(TestComponent)
     await nextTick()
 
-    wrapper.vm.darkMode.toggleDark()
-    await nextTick()
-
-    expect(localStorage.getItem('theme-preference')).toBe('dark')
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
-
+    // Starts at dark, toggle to light
     wrapper.vm.darkMode.toggleDark()
     await nextTick()
 
     expect(localStorage.getItem('theme-preference')).toBe('light')
     expect(document.documentElement.classList.contains('dark')).toBe(false)
+
+    // Toggle back to dark
+    wrapper.vm.darkMode.toggleDark()
+    await nextTick()
+
+    expect(localStorage.getItem('theme-preference')).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
   it('should restore preference from localStorage', async () => {
@@ -170,11 +172,16 @@ describe('useDarkMode', () => {
     const wrapper2 = mount(TestComponent)
     await nextTick()
 
+    // Both start at dark (default)
+    expect(wrapper1.vm.darkMode.isDark.value).toBe(true)
+    expect(wrapper2.vm.darkMode.isDark.value).toBe(true)
+
+    // Toggle from one instance affects both
     wrapper1.vm.darkMode.toggleDark()
     await nextTick()
 
-    expect(wrapper1.vm.darkMode.isDark.value).toBe(true)
-    expect(wrapper2.vm.darkMode.isDark.value).toBe(true)
+    expect(wrapper1.vm.darkMode.isDark.value).toBe(false)
+    expect(wrapper2.vm.darkMode.isDark.value).toBe(false)
   })
 
   it('should update theme on system change when no local preference is set', async () => {
@@ -182,21 +189,11 @@ describe('useDarkMode', () => {
     const wrapper = mount(TestComponent)
     await nextTick()
 
-    expect(wrapper.vm.darkMode.isDark.value).toBe(false)
-    expect(localStorage.getItem('theme-preference')).toBe(null)
-
-    // Simulate system change to dark
-    if (mediaQueryChangeCallback) {
-      mediaQueryChangeCallback({ matches: true } as MediaQueryListEvent)
-      await nextTick()
-    }
-
+    // Starts at dark by default
     expect(wrapper.vm.darkMode.isDark.value).toBe(true)
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
-    // Critical: localStorage should remain null (no user preference saved)
     expect(localStorage.getItem('theme-preference')).toBe(null)
 
-    // Simulate system change back to light
+    // Simulate system change to light
     if (mediaQueryChangeCallback) {
       mediaQueryChangeCallback({ matches: false } as MediaQueryListEvent)
       await nextTick()
@@ -204,6 +201,17 @@ describe('useDarkMode', () => {
 
     expect(wrapper.vm.darkMode.isDark.value).toBe(false)
     expect(document.documentElement.classList.contains('dark')).toBe(false)
+    // Critical: localStorage should remain null (no user preference saved)
+    expect(localStorage.getItem('theme-preference')).toBe(null)
+
+    // Simulate system change back to dark
+    if (mediaQueryChangeCallback) {
+      mediaQueryChangeCallback({ matches: true } as MediaQueryListEvent)
+      await nextTick()
+    }
+
+    expect(wrapper.vm.darkMode.isDark.value).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(localStorage.getItem('theme-preference')).toBe(null)
   })
 

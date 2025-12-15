@@ -1,91 +1,103 @@
 <template>
   <MainLayout>
+    <!-- Hero Section -->
+    <div
+      class="rounded-2xl bg-card border border-border/50 px-6 py-8 sm:px-10 sm:py-10 mb-10 card-soft"
+    >
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl mb-1">
+            Hey there.
+          </h1>
+          <p class="text-muted-foreground">Ready to explore?</p>
+        </div>
+        <Button
+          v-if="trips.length > 0"
+          variant="outline"
+          as-child
+          size="sm"
+          class="btn-gradient-primary"
+        >
+          <router-link to="/admin">Manage Trips</router-link>
+        </Button>
+      </div>
+    </div>
+
     <!-- Loading State -->
     <div v-if="loading" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      <Card v-for="i in 6" :key="i">
-        <Skeleton class="aspect-video w-full" />
-        <CardHeader>
-          <Skeleton class="h-6 w-3/4" />
-          <Skeleton class="h-4 w-full mt-2" />
-        </CardHeader>
+      <Card v-for="i in 6" :key="i" class="bg-card border-border">
+        <Skeleton class="aspect-video w-full rounded-t-xl" />
+        <div class="p-5">
+          <Skeleton class="h-6 w-3/4 mb-3" />
+          <Skeleton class="h-4 w-full" />
+        </div>
       </Card>
     </div>
 
     <!-- Error State -->
-    <div v-else-if="error" class="text-center py-12">
-      <p class="text-destructive">{{ error }}</p>
+    <div v-else-if="error" class="text-center py-16">
+      <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-4">
+        <svg
+          class="w-5 h-5 text-muted-foreground"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M12 9v2m0 4h.01M3 15a4 4 0 014-4h1a4 4 0 010 8H7a4 4 0 01-4-4zm18 0a4 4 0 00-4-4h-1a4 4 0 000 8h1a4 4 0 004-4z"
+          />
+        </svg>
+      </div>
+      <p class="text-muted-foreground mb-4">Couldn't load trips right now</p>
+      <Button variant="outline" size="sm" class="btn-gradient-primary" @click="loadTrips"
+        >Try again</Button
+      >
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="trips.length === 0" class="text-center py-12">
-      <h2 class="text-2xl font-semibold text-foreground mb-4">No Trips Yet</h2>
-      <p class="text-muted-foreground mb-6">Start by uploading your first vacation photos!</p>
-      <Button as-child>
-        <router-link to="/admin">Upload Your First Trip</router-link>
+    <div
+      v-else-if="trips.length === 0"
+      class="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-2xl bg-card/50"
+    >
+      <div
+        class="h-14 w-14 bg-muted rounded-full flex items-center justify-center mb-5 text-muted-foreground"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+      </div>
+      <h2 class="text-xl font-semibold text-foreground mb-2">No trips yet</h2>
+      <p class="text-muted-foreground mb-6">Upload your first vacation photos to get started</p>
+      <Button as-child size="sm" class="btn-gradient-primary">
+        <router-link to="/admin">Add your first trip</router-link>
       </Button>
     </div>
 
     <!-- Trip Grid -->
     <div v-else>
-      <h2 class="text-2xl font-bold text-foreground mb-6">All Trips</h2>
-      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card
-          v-for="trip in trips"
-          :key="trip.id"
-          class="overflow-hidden hover:shadow-xl transition-shadow group cursor-pointer"
+      <div class="flex items-center justify-between mb-8">
+        <h2 class="text-2xl font-bold text-foreground">All Trips</h2>
+        <span class="text-sm text-muted-foreground bg-secondary px-3 py-1 rounded-full"
+          >{{ trips.length }} trips</span
         >
-          <router-link :to="`/trip/${trip.slug}`" class="block">
-            <!-- Cover Photo -->
-            <div class="aspect-video relative bg-muted overflow-hidden">
-              <img
-                v-if="trip.cover_photo_url"
-                :src="trip.cover_photo_url"
-                :alt="trip.title"
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <div
-                v-else
-                class="w-full h-full flex items-center justify-center text-muted-foreground"
-              >
-                <svg class="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fill-rule="evenodd"
-                    d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </div>
-            </div>
+      </div>
 
-            <!-- Trip Info -->
-            <CardHeader>
-              <CardTitle class="group-hover:text-primary transition-colors">
-                {{ trip.title }}
-              </CardTitle>
-              <CardDescription v-if="trip.description" class="line-clamp-2">
-                {{ trip.description }}
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              <div class="flex items-center gap-4 text-sm">
-                <Badge variant="secondary">
-                  <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fill-rule="evenodd"
-                      d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                  {{ trip.photo_count }} photos
-                </Badge>
-                <span v-if="trip.date_range" class="text-muted-foreground text-xs">
-                  {{ formatDateRange(trip.date_range) }}
-                </span>
-              </div>
-            </CardContent>
-          </router-link>
-        </Card>
+      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <template v-for="(trip, i) in trips" :key="trip.id">
+          <!-- On large screens, let featured span full row for balance -->
+          <div v-if="i === 0 && trips.length > 1" class="md:col-span-2 lg:col-span-3">
+            <TripCard :trip="trip" featured />
+          </div>
+          <TripCard v-else :trip="trip" />
+        </template>
       </div>
     </div>
   </MainLayout>
@@ -96,9 +108,9 @@ import { ref, onMounted } from 'vue'
 import { getAllTrips, type ApiTrip } from '@/utils/database'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import TripCard from '@/components/TripCard.vue'
 
 const trips = ref<
   (ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]
@@ -106,7 +118,9 @@ const trips = ref<
 const loading = ref(true)
 const error = ref('')
 
-onMounted(async () => {
+async function loadTrips() {
+  loading.value = true
+  error.value = ''
   try {
     trips.value = await getAllTrips()
   } catch (err) {
@@ -115,25 +129,7 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
-
-function formatDateRange(dateRange: { start: string; end: string }): string {
-  const start = new Date(dateRange.start)
-  const end = new Date(dateRange.end)
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
-
-  if (start.toDateString() === end.toDateString()) {
-    return formatDate(start)
-  }
-
-  // Same year
-  if (start.getFullYear() === end.getFullYear()) {
-    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${formatDate(end)}`
-  }
-
-  return `${formatDate(start)} - ${formatDate(end)}`
 }
+
+onMounted(loadTrips)
 </script>
