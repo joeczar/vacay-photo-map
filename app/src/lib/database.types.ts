@@ -1,5 +1,5 @@
-// Database types for Supabase
-// These types match the schema defined in supabase-schema.sql
+// Database types
+// These types match the schema defined in api/src/db/schema.sql
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
