@@ -19,7 +19,7 @@ Try TDD if you have a difficult feature
 **Always use shadcn-vue components first.** New York style, Slate base, CSS variables for theming.
 
 - Add components: `pnpm dlx shadcn-vue@latest add [component]`
-- Don't use shadcn for: Leaflet maps, EXIF utils, Supabase/Cloudinary clients
+- Don't use shadcn for: Leaflet maps, EXIF utils, Cloudinary client
 
 ## Development
 
@@ -40,7 +40,7 @@ Run from root: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm type-ch
 
 **Critical Details:**
 - **EXIF**: Must use `xmp: true` or GPS fails on 95% of iPhone photos
-- **Supabase**: Type assertions needed (`as unknown as never` for inserts), RLS policies in `supabase-rls-fix.sql`
+- **API**: Hono backend at `api/`, PostgreSQL database via `postgres` package
 - **Cloudinary**: EXIF extracted before upload, originals preserve metadata
 - **Routes**: `/`, `/admin`, `/trip/:slug` - auth guards not enforced yet
 
@@ -63,13 +63,13 @@ Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn au
 ## Common Gotchas
 
 - GPS: Always `xmp: true`, validate coordinates, null island check
-- Supabase: Use type helpers, assertions for inserts
 - Photos: Warning icon if no GPS, map only shows valid coordinates
 - Auth: Not implemented yet despite route guards
 
 ## Environment Variables
 
-Required in `app/.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`
+Required in `app/.env`: `VITE_API_URL`, `VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`
+Required in `api/.env`: `DATABASE_URL`, `JWT_SECRET`, `RP_ID`, `RP_ORIGIN`
 
 ## Agent Workflow
 

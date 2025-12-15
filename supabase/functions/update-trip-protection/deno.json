@@ -1,7 +1,0 @@
-{
-  "imports": {
-    "bcrypt": "https://deno.land/x/bcrypt@v0.4.1/mod.ts",
-    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2",
-    "@supabase/functions-js/edge-runtime.d.ts": "jsr:@supabase/functions-js/edge-runtime.d.ts"
-  }
-}
