@@ -1,17 +1,23 @@
 <template>
   <MainLayout>
     <!-- Hero Section -->
-    <div class="rounded-2xl bg-card border border-border/50 px-6 py-8 sm:px-10 sm:py-10 mb-10 card-soft">
+    <div
+      class="rounded-2xl bg-card border border-border/50 px-6 py-8 sm:px-10 sm:py-10 mb-10 card-soft"
+    >
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl mb-1">
             Hey there.
           </h1>
-          <p class="text-muted-foreground">
-            Ready to explore?
-          </p>
+          <p class="text-muted-foreground">Ready to explore?</p>
         </div>
-        <Button v-if="trips.length > 0" variant="outline" as-child size="sm" class="btn-gradient-primary">
+        <Button
+          v-if="trips.length > 0"
+          variant="outline"
+          as-child
+          size="sm"
+          class="btn-gradient-primary"
+        >
           <router-link to="/admin">Manage Trips</router-link>
         </Button>
       </div>
@@ -31,21 +37,41 @@
     <!-- Error State -->
     <div v-else-if="error" class="text-center py-16">
       <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-4">
-        <svg class="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M12 9v2m0 4h.01M3 15a4 4 0 014-4h1a4 4 0 010 8H7a4 4 0 01-4-4zm18 0a4 4 0 00-4-4h-1a4 4 0 000 8h1a4 4 0 004-4z" />
+        <svg
+          class="w-5 h-5 text-muted-foreground"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M12 9v2m0 4h.01M3 15a4 4 0 014-4h1a4 4 0 010 8H7a4 4 0 01-4-4zm18 0a4 4 0 00-4-4h-1a4 4 0 000 8h1a4 4 0 004-4z"
+          />
         </svg>
       </div>
       <p class="text-muted-foreground mb-4">Couldn't load trips right now</p>
-      <Button variant="outline" size="sm" class="btn-gradient-primary" @click="loadTrips">Try again</Button>
+      <Button variant="outline" size="sm" class="btn-gradient-primary" @click="loadTrips"
+        >Try again</Button
+      >
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="trips.length === 0"
-         class="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-2xl bg-card/50">
-      <div class="h-14 w-14 bg-muted rounded-full flex items-center justify-center mb-5 text-muted-foreground">
+    <div
+      v-else-if="trips.length === 0"
+      class="flex flex-col items-center justify-center py-16 text-center border border-dashed border-border rounded-2xl bg-card/50"
+    >
+      <div
+        class="h-14 w-14 bg-muted rounded-full flex items-center justify-center mb-5 text-muted-foreground"
+      >
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v16m8-8H4" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            d="M12 4v16m8-8H4"
+          />
         </svg>
       </div>
       <h2 class="text-xl font-semibold text-foreground mb-2">No trips yet</h2>
@@ -59,12 +85,15 @@
     <div v-else>
       <div class="flex items-center justify-between mb-8">
         <h2 class="text-2xl font-bold text-foreground">All Trips</h2>
-        <span class="text-sm text-muted-foreground bg-secondary px-3 py-1 rounded-full">{{ trips.length }} trips</span>
+        <span class="text-sm text-muted-foreground bg-secondary px-3 py-1 rounded-full"
+          >{{ trips.length }} trips</span
+        >
       </div>
 
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <template v-for="(trip, i) in trips" :key="trip.id">
-          <div v-if="i === 0 && trips.length > 1" class="md:col-span-2">
+          <!-- On large screens, let featured span full row for balance -->
+          <div v-if="i === 0 && trips.length > 1" class="md:col-span-2 lg:col-span-3">
             <TripCard :trip="trip" featured />
           </div>
           <TripCard v-else :trip="trip" />

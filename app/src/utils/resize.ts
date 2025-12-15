@@ -6,7 +6,12 @@ export interface ResizeOptions {
   outputType?: 'image/jpeg' | 'image/webp'
 }
 
-function getOrientationTransform(ctx: CanvasRenderingContext2D, width: number, height: number, orientation: number | undefined) {
+function getOrientationTransform(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  orientation: number | undefined
+) {
   switch (orientation) {
     case 2:
       // Flip horizontal
@@ -62,7 +67,8 @@ export async function resizeImageFile(file: File, opts: ResizeOptions = {}): Pro
   })
 
   const orientationData = await exifr.parse(file, { tiff: true }).catch(() => undefined)
-  const orientation: number | undefined = (orientationData as { Orientation?: number } | undefined)?.Orientation
+  const orientation: number | undefined = (orientationData as { Orientation?: number } | undefined)
+    ?.Orientation
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image()
@@ -95,7 +101,11 @@ export async function resizeImageFile(file: File, opts: ResizeOptions = {}): Pro
   ctx.drawImage(img, 0, 0, width, height)
 
   const blob: Blob = await new Promise((resolve, reject) => {
-    canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), outputType, quality)
+    canvas.toBlob(
+      b => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))),
+      outputType,
+      quality
+    )
   })
 
   const newName = file.name.replace(/\.(png|jpeg|jpg|webp|heic|heif)$/i, '') + '.jpg'
@@ -114,4 +124,3 @@ export async function resizeFiles(files: File[], options?: ResizeOptions): Promi
   }
   return out
 }
-

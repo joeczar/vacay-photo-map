@@ -19,7 +19,9 @@
         <Button as-child class="btn-gradient-primary">
           <router-link :to="`/trip/${tripSlug}`" target="_blank">View Trip</router-link>
         </Button>
-        <Button variant="outline" class="btn-gradient-primary" @click="resetForm"> Upload Another Trip </Button>
+        <Button variant="outline" class="btn-gradient-primary" @click="resetForm">
+          Upload Another Trip
+        </Button>
       </div>
     </Alert>
 
@@ -65,7 +67,13 @@
                 Select Photos *
               </label>
               <div class="flex items-center gap-3">
-                <Button type="button" class="h-11 px-5 btn-gradient-primary" @click="() => fileInput?.click()" aria-label="Choose photos" :aria-controls="fileInputId">
+                <Button
+                  type="button"
+                  class="h-11 px-5 btn-gradient-primary"
+                  @click="() => fileInput?.click()"
+                  aria-label="Choose photos"
+                  :aria-controls="fileInputId"
+                >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
@@ -107,7 +115,9 @@
 
             <div v-if="selectedFiles.length > 0" class="mt-4">
               <p class="text-sm mb-2">{{ selectedFiles.length }} photos selected</p>
-              <div class="flex md:grid md:grid-cols-4 gap-2 overflow-x-auto md:overflow-visible pb-2 snap-x">
+              <div
+                class="flex md:grid md:grid-cols-4 gap-2 overflow-x-auto md:overflow-visible pb-2 snap-x"
+              >
                 <div
                   v-for="(file, index) in selectedFiles"
                   :key="index"
@@ -130,7 +140,12 @@
                     @click.stop="removeFile(index)"
                   >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </Button>
                 </div>
@@ -170,11 +185,7 @@
 
           <!-- Per-file progress list -->
           <div v-if="selectedFiles.length > 0" class="mt-2 space-y-3">
-            <div
-              v-for="(file, i) in selectedFiles"
-              :key="file.name + i"
-              class="space-y-1"
-            >
+            <div v-for="(file, i) in selectedFiles" :key="file.name + i" class="space-y-1">
               <div class="flex justify-between text-xs text-muted-foreground">
                 <span class="truncate max-w-[60%]">{{ file.name }}</span>
                 <span>{{ perFileProgress[i] || 0 }}%</span>

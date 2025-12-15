@@ -20,20 +20,20 @@
 
   :root {
     /* Light Mode - Neutral Grey Base */
-    --background: 0 0% 98%;           /* #fafafa - warm white */
-    --foreground: 0 0% 9%;            /* near black */
+    --background: 0 0% 98%; /* #fafafa - warm white */
+    --foreground: 0 0% 9%; /* near black */
 
-    --card: 0 0% 100%;                /* pure white cards */
+    --card: 0 0% 100%; /* pure white cards */
     --card-foreground: 0 0% 9%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
 
     /* Primary: Modern Indigo (away from yellow/orange) */
-    --primary: 262 83% 55%;           /* ~indigo-500/600 */
+    --primary: 262 83% 55%; /* ~indigo-500/600 */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 0 0% 95%;            /* #f3f3f3 */
+    --secondary: 0 0% 95%; /* #f3f3f3 */
     --secondary-foreground: 0 0% 20%;
 
     --muted: 0 0% 94%;
@@ -42,24 +42,24 @@
     --accent: 0 0% 95%;
     --accent-foreground: 0 0% 20%;
 
-    --destructive: 0 72% 51%;         /* softer red */
+    --destructive: 0 72% 51%; /* softer red */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 90%;               /* neutral grey borders */
+    --border: 0 0% 90%; /* neutral grey borders */
     --input: 0 0% 90%;
     --ring: 262 83% 55%;
 
     --radius: 0.75rem;
   }
- 
+
   .dark {
     /* Dark Friendly Foundation - Developer Chic & Cozy */
-    
-    /* Backgrounds: Neutral / Carbon (Pure Grey, NO Blue) */
-    --background: 0 0% 10%;       /* #1a1a1a - Neutral 900 */
-    --foreground: 0 0% 98%;       /* Soft White */
 
-    --card: 0 0% 13%;             /* Neutral 850 */
+    /* Backgrounds: Neutral / Carbon (Pure Grey, NO Blue) */
+    --background: 0 0% 10%; /* #1a1a1a - Neutral 900 */
+    --foreground: 0 0% 98%; /* Soft White */
+
+    --card: 0 0% 13%; /* Neutral 850 */
     --card-foreground: 0 0% 98%;
 
     --popover: 0 0% 13%;
@@ -70,7 +70,7 @@
     --primary-foreground: 0 0% 100%;
 
     /* Secondary: Soft Grey */
-    --secondary: 0 0% 18%;        /* Neutral 800 */
+    --secondary: 0 0% 18%; /* Neutral 800 */
     --secondary-foreground: 0 0% 98%;
 
     --muted: 0 0% 18%;
@@ -95,7 +95,7 @@
   .glass {
     @apply bg-black/40 backdrop-blur-md border border-white/10;
   }
-  
+
   .glass-card {
     @apply bg-slate-900/80 backdrop-blur-sm border border-white/10 shadow-lg;
   }
@@ -112,19 +112,22 @@
     background: color-mix(in oklab, hsl(var(--card)) 75%, transparent);
     backdrop-filter: saturate(1.1) blur(10px);
     -webkit-backdrop-filter: saturate(1.1) blur(10px);
-    border-color: hsl(var(--border)/0.6);
+    border-color: hsl(var(--border) / 0.6);
   }
 
   /* Ambient accent background (subtle radial + linear mix) */
   .accent-ambient {
-    background: radial-gradient(120% 120% at 50% -20%,
-      color-mix(in oklab, hsl(var(--accent)) 18%, transparent),
-      transparent 40%
-    ),
-    linear-gradient(to bottom,
-      color-mix(in oklab, hsl(var(--accent)) 12%, transparent),
-      transparent 60%
-    );
+    background:
+      radial-gradient(
+        120% 120% at 50% -20%,
+        color-mix(in oklab, hsl(var(--accent)) 18%, transparent),
+        transparent 40%
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, hsl(var(--accent)) 12%, transparent),
+        transparent 60%
+      );
   }
 
   /* Tone-on-tone dotted grid (theme-aware, very faint) */
@@ -151,10 +154,26 @@
   /* Aurora gradient background for the app shell */
   .aurora-bg {
     background:
-      radial-gradient(60% 80% at 0% 0%, color-mix(in oklab, hsl(var(--primary)) 18%, transparent), transparent 60%),
-      radial-gradient(50% 60% at 100% 0%, color-mix(in oklab, hsl(var(--accent)) 16%, transparent), transparent 55%),
-      radial-gradient(60% 80% at 100% 100%, color-mix(in oklab, hsl(var(--primary)) 10%, transparent), transparent 60%),
-      radial-gradient(70% 80% at 0% 100%, color-mix(in oklab, hsl(var(--accent)) 10%, transparent), transparent 60%),
+      radial-gradient(
+        60% 80% at 0% 0%,
+        color-mix(in oklab, hsl(var(--primary)) 18%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        50% 60% at 100% 0%,
+        color-mix(in oklab, hsl(var(--accent)) 16%, transparent),
+        transparent 55%
+      ),
+      radial-gradient(
+        60% 80% at 100% 100%,
+        color-mix(in oklab, hsl(var(--primary)) 10%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        70% 80% at 0% 100%,
+        color-mix(in oklab, hsl(var(--accent)) 10%, transparent),
+        transparent 60%
+      ),
       linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background)));
   }
 
@@ -165,12 +184,19 @@
     background-image: linear-gradient(135deg, var(--gp-b), var(--gp-a));
     color: hsl(var(--primary-foreground));
     border: 1px solid hsl(var(--primary) / 0.3);
-    box-shadow: 0 6px 16px -8px hsl(var(--primary) / 0.35), inset 0 1px 0 0 hsl(var(--primary-foreground) / 0.1);
-    transition: transform 150ms ease, box-shadow 200ms ease, filter 200ms ease;
+    box-shadow:
+      0 6px 16px -8px hsl(var(--primary) / 0.35),
+      inset 0 1px 0 0 hsl(var(--primary-foreground) / 0.1);
+    transition:
+      transform 150ms ease,
+      box-shadow 200ms ease,
+      filter 200ms ease;
   }
   .btn-gradient-primary:hover {
     filter: brightness(1.03);
-    box-shadow: 0 10px 22px -10px hsl(var(--primary) / 0.4), inset 0 1px 0 0 hsl(var(--primary-foreground) / 0.1);
+    box-shadow:
+      0 10px 22px -10px hsl(var(--primary) / 0.4),
+      inset 0 1px 0 0 hsl(var(--primary-foreground) / 0.1);
   }
   .btn-gradient-primary:active {
     transform: translateY(0.5px) scale(0.99);
@@ -178,7 +204,9 @@
 
   /* Map marker accent glow */
   .marker-glow {
-    box-shadow: 0 0 0 3px hsl(var(--accent) / 0.35), 0 6px 14px -8px hsl(var(--accent) / 0.35);
+    box-shadow:
+      0 0 0 3px hsl(var(--accent) / 0.35),
+      0 6px 14px -8px hsl(var(--accent) / 0.35);
   }
 
   /* Ultra-faint grain overlay (patterned, motion-safe) */

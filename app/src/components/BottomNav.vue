@@ -18,8 +18,15 @@
               aria-label="Home"
               :aria-current="isActive ? 'page' : undefined"
             >
-              <svg class="w-5 h-5 mb-0.5" :class="isActive ? 'text-primary' : ''" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+              <svg
+                class="w-5 h-5 mb-0.5"
+                :class="isActive ? 'text-primary' : ''"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"
+                />
               </svg>
               Home
             </a>
@@ -28,7 +35,12 @@
 
         <!-- Upload/Admin or Login -->
         <li class="flex-1">
-          <RouterLink v-if="isAuthenticated" to="/admin" custom v-slot="{ href, navigate, isActive }">
+          <RouterLink
+            v-if="isAuthenticated"
+            to="/admin"
+            custom
+            v-slot="{ href, navigate, isActive }"
+          >
             <a
               :href="href"
               @click="navigate"
@@ -38,8 +50,19 @@
               aria-label="Upload"
               :aria-current="isActive ? 'page' : undefined"
             >
-              <svg class="w-5 h-5 mb-0.5" :class="isActive ? 'text-primary' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              <svg
+                class="w-5 h-5 mb-0.5"
+                :class="isActive ? 'text-primary' : ''"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               Upload
             </a>
@@ -54,8 +77,19 @@
               aria-label="Login"
               :aria-current="isActive ? 'page' : undefined"
             >
-              <svg class="w-5 h-5 mb-0.5" :class="isActive ? 'text-primary' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7" />
+              <svg
+                class="w-5 h-5 mb-0.5"
+                :class="isActive ? 'text-primary' : ''"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 12h14M12 5l7 7-7 7"
+                />
               </svg>
               Login
             </a>

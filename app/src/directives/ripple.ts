@@ -33,12 +33,12 @@ export const ripple = {
         top: `${y - size / 2}px`,
         width: `${size}px`,
         height: `${size}px`,
-        background: `color-mix(in oklab, ${color} 20%, transparent)` ,
+        background: `color-mix(in oklab, ${color} 20%, transparent)`,
         borderRadius: '9999px',
         pointerEvents: 'none',
         transform: 'scale(0.5)',
         opacity: '0.0',
-        transition: 'transform 500ms cubic-bezier(.22,1,.36,1), opacity 600ms ease-out',
+        transition: 'transform 500ms cubic-bezier(.22,1,.36,1), opacity 600ms ease-out'
       } as CSSStyleDeclaration)
       el.appendChild(rippleEl)
       requestAnimationFrame(() => {
@@ -62,7 +62,7 @@ export const ripple = {
       el.removeEventListener('touchstart', handler)
       rippleHandlers.delete(el)
     }
-  },
+  }
 }
 
 export default ripple

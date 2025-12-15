@@ -41,6 +41,7 @@ function onLoad() {
 </script>
 
 <style scoped>
-.blur-md { filter: blur(12px); }
+.blur-md {
+  filter: blur(12px);
+}
 </style>
-

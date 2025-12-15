@@ -1,7 +1,8 @@
 <template>
   <div class="min-h-screen bg-background bg-grid grain">
     <!-- Floating Menu Button -->
-    <div class="fixed top-4 right-4 z-50">
+    <!-- Hide floating menu button on md+ (desktop) -->
+    <div class="fixed top-4 right-4 z-50 md:hidden">
       <Button
         variant="outline"
         size="icon"

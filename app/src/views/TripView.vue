@@ -3,23 +3,35 @@
     <template #actions>
       <!-- Admin-only actions -->
       <template v-if="isAuthenticated">
-        <Button variant="outline" class="w-full justify-start" @click="shareSheetOpen = true" v-ripple>
+        <Button
+          variant="outline"
+          class="w-full justify-start"
+          @click="shareSheetOpen = true"
+          v-ripple
+        >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+            />
           </svg>
           Share
         </Button>
 
-        <Button variant="destructive" class="w-full justify-start" @click="deleteDialogOpen = true" v-ripple>
+        <Button
+          variant="destructive"
+          class="w-full justify-start"
+          @click="deleteDialogOpen = true"
+          v-ripple
+        >
           <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
             <path
-                  fill-rule="evenodd"
-                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                  clip-rule="evenodd" />
+              fill-rule="evenodd"
+              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+              clip-rule="evenodd"
+            />
           </svg>
           Delete Trip
         </Button>
@@ -29,7 +41,9 @@
     <!-- Loading State -->
     <div v-if="loading" class="flex items-center justify-center min-h-screen">
       <div class="text-center">
-        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"
+        ></div>
         <p class="text-muted-foreground">Loading trip...</p>
       </div>
     </div>
@@ -50,32 +64,45 @@
       <!-- Hero Section -->
       <div class="relative border-b bg-card transition-colors">
         <div class="hero-accent-bar" aria-hidden="true"></div>
-        <div class="container py-8 px-4 relative">
+        <!-- Match global 7xl width for desktop alignment -->
+        <div class="max-w-7xl mx-auto w-full py-8 px-4 relative">
           <h1 class="text-4xl font-bold mb-2 text-accent-gradient">{{ trip.title }}</h1>
           <p v-if="trip.description" class="text-muted-foreground mb-4">{{ trip.description }}</p>
           <div class="flex gap-4">
             <Badge variant="secondary">
               <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd"
-                      d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                      clip-rule="evenodd" />
+                <path
+                  fill-rule="evenodd"
+                  d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                  clip-rule="evenodd"
+                />
               </svg>
               {{ trip.photos.length }} photos
             </Badge>
             <Badge v-if="dateRange" variant="outline">{{ dateRange }}</Badge>
-            <Badge v-if="photosWithLocation" variant="outline">{{ photosWithLocation }} locations</Badge>
+            <Badge v-if="photosWithLocation" variant="outline"
+              >{{ photosWithLocation }} locations</Badge
+            >
           </div>
         </div>
       </div>
 
       <!-- Map/Photos Controls (mobile) -->
-      <div class="container px-4 pt-4 md:hidden">
-        <div role="tablist" aria-label="View switch" class="inline-flex rounded-lg border border-border p-1 bg-card">
+      <div class="max-w-7xl mx-auto w-full px-4 pt-4 md:hidden">
+        <div
+          role="tablist"
+          aria-label="View switch"
+          class="inline-flex rounded-lg border border-border p-1 bg-card"
+        >
           <button
             role="tab"
             :aria-selected="viewMode === 'map'"
             class="px-4 py-2 text-sm rounded-md transition-colors"
-            :class="viewMode === 'map' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            :class="
+              viewMode === 'map'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            "
             @click="viewMode = 'map'"
             @keydown.right.prevent="viewMode = 'photos'"
           >
@@ -85,7 +112,11 @@
             role="tab"
             :aria-selected="viewMode === 'photos'"
             class="px-4 py-2 text-sm rounded-md transition-colors"
-            :class="viewMode === 'photos' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+            :class="
+              viewMode === 'photos'
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            "
             @click="viewMode = 'photos'"
             @keydown.left.prevent="viewMode = 'map'"
           >
@@ -95,37 +126,53 @@
       </div>
 
       <!-- Map Section -->
-      <div class="container py-8 px-4">
+      <div class="max-w-7xl mx-auto w-full py-8 px-4">
         <Card class="overflow-hidden">
-          <div v-if="isDesktop || viewMode === 'map'" class="relative z-0 h-[50vh] sm:h-[60vh] md:h-[600px]">
-            <l-map ref="map" v-model:zoom="zoom" :center="mapCenter as [number, number]"
-                   :options="{ scrollWheelZoom: true }" @ready="onMapReady">
+          <div
+            v-if="isDesktop || viewMode === 'map'"
+            class="relative z-0 h-[50vh] sm:h-[60vh] md:h-[600px] xl:h-[720px] 2xl:h-[800px]"
+          >
+            <l-map
+              ref="map"
+              v-model:zoom="zoom"
+              :center="mapCenter as [number, number]"
+              :options="{ scrollWheelZoom: true }"
+              @ready="onMapReady"
+            >
               <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttribution" />
 
               <!-- Photo Markers -->
-              <l-marker v-for="photo in photosWithCoordinates" :key="photo.id"
-                        :lat-lng="[photo.latitude!, photo.longitude!]" @click="selectPhoto(photo)">
+              <l-marker
+                v-for="photo in photosWithCoordinates"
+                :key="photo.id"
+                :lat-lng="[photo.latitude!, photo.longitude!]"
+                @click="selectPhoto(photo)"
+              >
                 <l-icon :icon-size="[40, 40]" :icon-anchor="[20, 40]">
                   <div class="relative">
                     <div
-                         class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform marker-glow"
-                         :class="selectedPhoto?.id === photo.id ? 'border-primary border-4' : ''">
-                      <img :src="photo.thumbnail_url" :alt="photo.caption || 'Photo'"
-                           class="w-full h-full object-cover" />
+                      class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform marker-glow"
+                      :class="selectedPhoto?.id === photo.id ? 'border-primary border-4' : ''"
+                    >
+                      <img
+                        :src="photo.thumbnail_url"
+                        :alt="photo.caption || 'Photo'"
+                        class="w-full h-full object-cover"
+                      />
                     </div>
                   </div>
                 </l-icon>
 
                 <l-popup :options="{ maxWidth: 300 }">
                   <div class="p-2">
-                <ProgressiveImage
-                     :src="popupFallback(photo)"
-                     :srcset="popupSrcset(photo)"
-                     sizes="300px"
-                     :alt="photo.caption || 'Photo'"
-                     wrapper-class="w-full h-48 rounded mb-2"
-                     class="w-full h-48 object-cover rounded"
-                />
+                    <ProgressiveImage
+                      :src="popupFallback(photo)"
+                      :srcset="popupSrcset(photo)"
+                      sizes="300px"
+                      :alt="photo.caption || 'Photo'"
+                      wrapper-class="w-full h-48 rounded mb-2"
+                      class="w-full h-48 object-cover rounded"
+                    />
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatDate(photo.taken_at) }}</p>
                   </div>
@@ -133,20 +180,30 @@
               </l-marker>
 
               <!-- Route Line -->
-              <l-polyline v-if="routeCoordinates.length > 0" :lat-lngs="routeCoordinates as [number, number][]"
-                          :weight="3"
-                          color="#3B82F6" />
+              <l-polyline
+                v-if="routeCoordinates.length > 0"
+                :lat-lngs="routeCoordinates as [number, number][]"
+                :weight="3"
+                color="#3B82F6"
+              />
             </l-map>
           </div>
 
           <!-- Photo Grid Below Map -->
           <Separator />
-          <CardContent class="p-6 content-auto" :class="viewMode === 'map' && !isDesktop ? 'hidden' : ''">
+          <CardContent
+            class="p-6 content-auto"
+            :class="viewMode === 'map' && !isDesktop ? 'hidden' : ''"
+          >
             <h3 class="text-lg font-semibold mb-4">All Photos</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              <Card v-for="photo in trip.photos" :key="photo.id"
-                    class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
-                    :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''" @click="selectPhoto(photo)">
+              <Card
+                v-for="photo in trip.photos"
+                :key="photo.id"
+                class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
+                :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
+                @click="selectPhoto(photo)"
+              >
                 <ProgressiveImage
                   :src="gridFallback(photo)"
                   :srcset="gridSrcset(photo)"
@@ -155,12 +212,17 @@
                   wrapper-class="w-full h-full"
                   class="w-full h-full object-cover"
                 />
-                <div v-if="!photo.latitude || !photo.longitude"
-                     class="absolute top-1 right-1 bg-rose-500 rounded-full p-1" title="No location data">
+                <div
+                  v-if="!photo.latitude || !photo.longitude"
+                  class="absolute top-1 right-1 bg-rose-500 rounded-full p-1"
+                  title="No location data"
+                >
                   <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                          clip-rule="evenodd" />
+                    <path
+                      fill-rule="evenodd"
+                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                      clip-rule="evenodd"
+                    />
                   </svg>
                 </div>
               </Card>
@@ -209,8 +271,12 @@
                   }}
                 </p>
               </div>
-              <Switch id="public-toggle" :checked="localIsPublic" :disabled="isUpdatingProtection"
-                      @update:checked="handlePublicToggle" />
+              <Switch
+                id="public-toggle"
+                :checked="localIsPublic"
+                :disabled="isUpdatingProtection"
+                @update:checked="handlePublicToggle"
+              />
             </div>
 
             <Separator />
@@ -232,48 +298,124 @@
               <div v-if="shareLink" class="space-y-3">
                 <div class="flex items-center gap-2">
                   <Input :value="shareLink" readonly class="font-mono text-xs" />
-                  <Button variant="outline" size="icon" @click="copyShareLink" :disabled="isCopying" v-ripple
-                          aria-label="Copy share link">
-                    <svg v-if="copySuccess" class="w-4 h-4 text-green-500" fill="none" stroke="currentColor"
-                         viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    @click="copyShareLink"
+                    :disabled="isCopying"
+                    v-ripple
+                    aria-label="Copy share link"
+                  >
+                    <svg
+                      v-if="copySuccess"
+                      class="w-4 h-4 text-green-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
-                    <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      v-else
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
                     </svg>
                   </Button>
-                  <Button variant="outline" size="sm" class="ml-1" @click="shareViaNative" aria-label="Share link" v-ripple>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="ml-1"
+                    @click="shareViaNative"
+                    aria-label="Share link"
+                    v-ripple
+                  >
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 8a3 3 0 10-6 0v8a3 3 0 106 0V8z" />
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M15 8a3 3 0 10-6 0v8a3 3 0 106 0V8z"
+                      />
                     </svg>
                     Share
                   </Button>
                 </div>
 
                 <!-- Regenerate Link -->
-                <Button variant="outline" class="w-full" @click="regenerateDialogOpen = true" v-ripple
-                        :disabled="isUpdatingProtection">
+                <Button
+                  variant="outline"
+                  class="w-full"
+                  @click="regenerateDialogOpen = true"
+                  v-ripple
+                  :disabled="isUpdatingProtection"
+                >
                   <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
                   </svg>
                   Regenerate Link
                 </Button>
               </div>
 
               <!-- Generate Link Button -->
-              <Button v-else class="w-full btn-gradient-primary" @click="generateShareLink" :disabled="isUpdatingProtection" v-ripple>
-                <svg v-if="isUpdatingProtection" class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                  </path>
+              <Button
+                v-else
+                class="w-full btn-gradient-primary"
+                @click="generateShareLink"
+                :disabled="isUpdatingProtection"
+                v-ripple
+              >
+                <svg
+                  v-if="isUpdatingProtection"
+                  class="w-4 h-4 mr-2 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  ></circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
                 </svg>
-                <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                <svg
+                  v-else
+                  class="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                  />
                 </svg>
                 {{ isUpdatingProtection ? 'Generating...' : 'Generate Share Link' }}
               </Button>
@@ -307,13 +449,26 @@
       </Dialog>
 
       <!-- Lightbox -->
-      <div v-if="selectedPhoto" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-           @click="closePhoto">
+      <div
+        v-if="selectedPhoto"
+        class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+        @click="closePhoto"
+      >
         <div class="relative max-w-6xl w-full" @click.stop>
-          <Button variant="ghost" size="icon" @click="closePhoto" aria-label="Close lightbox"
-                  class="absolute -top-12 right-0 text-white hover:text-white/80">
+          <Button
+            variant="ghost"
+            size="icon"
+            @click="closePhoto"
+            aria-label="Close lightbox"
+            class="absolute -top-12 right-0 text-white hover:text-white/80"
+          >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </Button>
 
@@ -352,24 +507,56 @@
           </div>
 
           <!-- Navigation -->
-          <Button v-if="currentPhotoIndex > 0" variant="ghost" size="icon" @click.stop="previousPhoto" aria-label="Previous photo"
-                  class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80">
+          <Button
+            v-if="currentPhotoIndex > 0"
+            variant="ghost"
+            size="icon"
+            @click.stop="previousPhoto"
+            aria-label="Previous photo"
+            class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
+          >
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </Button>
-          <Button v-if="currentPhotoIndex < trip.photos.length - 1" variant="ghost" size="icon" @click.stop="nextPhoto" aria-label="Next photo"
-                  class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80">
+          <Button
+            v-if="currentPhotoIndex < trip.photos.length - 1"
+            variant="ghost"
+            size="icon"
+            @click.stop="nextPhoto"
+            aria-label="Next photo"
+            class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-white/80"
+          >
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </Button>
 
           <!-- Edge hint gradients (subtle) -->
-          <div class="pointer-events-none absolute inset-y-0 left-0 w-24"
-               :style="{opacity: scale === 1 ? Math.max(0, Math.min(-dragX / 200, 0.15)) : 0, background: 'linear-gradient(90deg, rgba(0,0,0,.35), rgba(0,0,0,0))'}"></div>
-          <div class="pointer-events-none absolute inset-y-0 right-0 w-24"
-               :style="{opacity: scale === 1 ? Math.max(0, Math.min(dragX / 200, 0.15)) : 0, background: 'linear-gradient(270deg, rgba(0,0,0,.35), rgba(0,0,0,0))'}"></div>
+          <div
+            class="pointer-events-none absolute inset-y-0 left-0 w-24"
+            :style="{
+              opacity: scale === 1 ? Math.max(0, Math.min(-dragX / 200, 0.15)) : 0,
+              background: 'linear-gradient(90deg, rgba(0,0,0,.35), rgba(0,0,0,0))'
+            }"
+          ></div>
+          <div
+            class="pointer-events-none absolute inset-y-0 right-0 w-24"
+            :style="{
+              opacity: scale === 1 ? Math.max(0, Math.min(dragX / 200, 0.15)) : 0,
+              background: 'linear-gradient(270deg, rgba(0,0,0,.35), rgba(0,0,0,0))'
+            }"
+          ></div>
         </div>
       </div>
     </div>
@@ -722,7 +909,10 @@ const tileLayerAttribution = computed(() => {
 function onMapReady() {
   // Fit map to show all markers
   if (map.value && photosWithCoordinates.value.length > 0) {
-    const bounds = photosWithCoordinates.value.map(p => [p.latitude!, p.longitude!]) as L.LatLngBoundsExpression
+    const bounds = photosWithCoordinates.value.map(p => [
+      p.latitude!,
+      p.longitude!
+    ]) as L.LatLngBoundsExpression
     map.value.leafletObject.fitBounds(bounds, { padding: [50, 50] })
   }
 }

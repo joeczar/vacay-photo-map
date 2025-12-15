@@ -29,7 +29,8 @@
         </nav>
       </div>
     </header>
-    <main class="container py-8 px-4 pb-24 md:pb-8">
+    <!-- Match header width on large screens for alignment -->
+    <main class="max-w-7xl mx-auto w-full py-8 px-4 pb-24 md:pb-8">
       <slot />
     </main>
     <BottomNav />
