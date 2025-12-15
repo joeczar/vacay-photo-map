@@ -61,8 +61,8 @@ export async function resizeImageFile(file: File, opts: ResizeOptions = {}): Pro
     reader.readAsDataURL(file)
   })
 
-  const orientationData = await exifr.parse(file, { tiff: true }).catch(() => undefined as any)
-  const orientation: number | undefined = orientationData?.Orientation as number | undefined
+  const orientationData = await exifr.parse(file, { tiff: true }).catch(() => undefined)
+  const orientation: number | undefined = (orientationData as { Orientation?: number } | undefined)?.Orientation
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image()

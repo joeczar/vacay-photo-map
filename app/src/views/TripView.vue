@@ -444,7 +444,8 @@ const loading = ref(true)
 const error = ref('')
 const selectedPhoto = ref<Photo | null>(null)
 const zoom = ref(12)
-const map = ref(null)
+// Vue-leaflet map component ref with leafletObject accessor
+const map = ref<{ leafletObject: L.Map } | null>(null)
 const isDeleting = ref(false)
 const deleteDialogOpen = ref(false)
 
@@ -721,8 +722,8 @@ const tileLayerAttribution = computed(() => {
 function onMapReady() {
   // Fit map to show all markers
   if (map.value && photosWithCoordinates.value.length > 0) {
-    const bounds = photosWithCoordinates.value.map(p => [p.latitude!, p.longitude!])
-      ; (map.value as any).leafletObject.fitBounds(bounds, { padding: [50, 50] })
+    const bounds = photosWithCoordinates.value.map(p => [p.latitude!, p.longitude!]) as L.LatLngBoundsExpression
+    map.value.leafletObject.fitBounds(bounds, { padding: [50, 50] })
   }
 }
 
@@ -767,7 +768,7 @@ function selectPhoto(photo: Photo) {
 
   // Pan map to photo location if it has coordinates
   if (photo.latitude && photo.longitude && map.value) {
-    ; (map.value as any).leafletObject.panTo([photo.latitude, photo.longitude])
+    map.value.leafletObject.panTo([photo.latitude, photo.longitude])
   }
 }
 

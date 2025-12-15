@@ -2,6 +2,17 @@ import type { DirectiveBinding } from 'vue'
 
 const prefersReduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+type RippleHandler = (e: PointerEvent | MouseEvent | TouchEvent) => void
+const rippleHandlers = new WeakMap<HTMLElement, RippleHandler>()
+
+function getClientX(e: PointerEvent | MouseEvent | TouchEvent): number {
+  return 'touches' in e ? e.touches[0].clientX : e.clientX
+}
+
+function getClientY(e: PointerEvent | MouseEvent | TouchEvent): number {
+  return 'touches' in e ? e.touches[0].clientY : e.clientY
+}
+
 export const ripple = {
   mounted(el: HTMLElement, binding: DirectiveBinding<string>) {
     el.style.position ||= 'relative'
@@ -11,8 +22,8 @@ export const ripple = {
     function onPointerDown(e: PointerEvent | MouseEvent | TouchEvent) {
       if (prefersReduced()) return
       const rect = el.getBoundingClientRect()
-      const x = ('touches' in e ? e.touches[0].clientX : (e as any).clientX) - rect.left
-      const y = ('touches' in e ? e.touches[0].clientY : (e as any).clientY) - rect.top
+      const x = getClientX(e) - rect.left
+      const y = getClientY(e) - rect.top
       const maxDim = Math.max(rect.width, rect.height)
       const rippleEl = document.createElement('span')
       const size = maxDim * 1.25
@@ -40,16 +51,16 @@ export const ripple = {
       }, 250)
     }
 
-    ;(el as any).__rippleHandler__ = onPointerDown
+    rippleHandlers.set(el, onPointerDown)
     el.addEventListener('pointerdown', onPointerDown, { passive: true })
     el.addEventListener('touchstart', onPointerDown, { passive: true })
   },
   unmounted(el: HTMLElement) {
-    const handler = (el as any).__rippleHandler__
+    const handler = rippleHandlers.get(el)
     if (handler) {
       el.removeEventListener('pointerdown', handler)
       el.removeEventListener('touchstart', handler)
-      delete (el as any).__rippleHandler__
+      rippleHandlers.delete(el)
     }
   },
 }
