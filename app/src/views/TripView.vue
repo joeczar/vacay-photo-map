@@ -528,7 +528,7 @@ function onTouchMove(e: TouchEvent) {
   }
 }
 
-function onTouchEnd(_e: TouchEvent) {
+function onTouchEnd() {
   if (!dragging.value) return
   dragging.value = false
 
