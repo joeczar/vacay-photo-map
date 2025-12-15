@@ -1,6 +1,6 @@
 <template>
   <nav
-    class="md:hidden fixed bottom-0 inset-x-0 z-50 bg-card/90 backdrop-blur border-t border-border safe-bottom"
+    class="md:hidden fixed bottom-0 inset-x-0 z-50 glass-surface safe-bottom shadow-[0_-1px_0_0_hsl(var(--accent)/.2),0_-16px_48px_hsl(var(--accent)/.14)]"
     role="navigation"
     aria-label="Primary"
   >
@@ -13,6 +13,7 @@
               :href="href"
               @click="navigate"
               class="w-full h-12 min-h-12 flex flex-col items-center justify-center rounded-md text-xs hover:bg-accent"
+              v-ripple
               :class="isActive ? 'text-primary' : 'text-foreground/80'"
               aria-label="Home"
               :aria-current="isActive ? 'page' : undefined"
@@ -32,6 +33,7 @@
               :href="href"
               @click="navigate"
               class="w-full h-12 min-h-12 flex flex-col items-center justify-center rounded-md text-xs hover:bg-accent"
+              v-ripple
               :class="isActive ? 'text-primary' : 'text-foreground/80'"
               aria-label="Upload"
               :aria-current="isActive ? 'page' : undefined"
@@ -47,6 +49,7 @@
               :href="href"
               @click="navigate"
               class="w-full h-12 min-h-12 flex flex-col items-center justify-center rounded-md text-xs hover:bg-accent"
+              v-ripple
               :class="isActive ? 'text-primary' : 'text-foreground/80'"
               aria-label="Login"
               :aria-current="isActive ? 'page' : undefined"

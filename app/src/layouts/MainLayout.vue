@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-background">
-    <header class="border-b border-border bg-card">
+  <div class="min-h-screen bg-background bg-grid grain">
+    <header class="border-b border-border glass-surface">
       <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
         <router-link
           to="/"

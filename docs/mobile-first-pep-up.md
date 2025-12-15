@@ -65,6 +65,13 @@
 - TripView segmented control (mobile): Map/Photos tabs to switch views, with both visible on md+.
 - Mobile nav duplication resolved: header nav hidden under `md` (`hidden md:flex`) and BottomNav handles primary actions on mobile.
 
+### Subtle Pop Enhancements
+- Accent color system: derive `--accent` from cover/first photo via lightweight canvas sampling (`useAccentColor`), reset on unmount.
+- Ambient hero: add `.accent-ambient` background and `text-accent-gradient` for Trip title.
+- Progressive image reveal: `ProgressiveImage.vue` adds blur-up + scale-in on load (respects reduced motion); used in Trip grid, popups, and trip cards.
+- Tactile taps: `v-ripple` directive on primary tappables (BottomNav + key buttons) with motion-safe checks.
+- BottomNav polish: frosted card with subtle accent glow shadow.
+
 ## Notes / Open Decisions
 - Mobile nav is no longer doubled: header nav is hidden under `md`; BottomNav is the primary mobile nav.
 
@@ -96,3 +103,35 @@
 ## Next Steps
 1) Lightbox gestures (swipe/drag/zoom) for better mobile UX.
 2) PWA manifest and caching via `vite-plugin-pwa`.
+
+## Design Research Brief (Modern UI/UX)
+
+Sources reviewed (offline copies in `docs/research/`):
+- Apple Human Interface Guidelines — foundations, materials, depth cues
+- Material 3 — motion, easing and duration, state layers
+- Microsoft Fluent 2 — surfaces, inner borders, radii, elevation
+- Linear Design — indigo gradients, minimal chrome, dark mode craft
+- Vercel site — aurora gradients, ambient backgrounds, strong contrast
+
+Key takeaways:
+- Color: Deep indigo/violet or cyan accents over neutral bases; avoid yellow for modern feel.
+- Ambient: Low-saturation aurora/radial gradients behind content; strengthen only on hero/featured.
+- Depth: Glass/translucent surfaces with thin inner borders; layered, soft shadows.
+- Motion: Short, confident durations (~180–220ms); blur-up image reveals; motion-safe fallbacks.
+- Microinteractions: Subtle press/ripple states and tiny elevation shifts on tap/hover.
+- Typography: Larger hero titles with tight leading; comfortable body size; occasional gradient text.
+- Chrome: Chromeless lightbox; edge-to-edge mobile with safe-area padding.
+- A11y: Respect reduced-motion; clamp accent saturation/lightness for contrast.
+
+Applied so far:
+- Primary shifted to indigo/violet; accent can derive from cover photo.
+- Ambient aurora background utilities added and applied to layouts.
+- Progressive image reveal and ripple interactions implemented (motion-safe).
+- Yellow removed from UI badges; neutral/rose used instead.
+
+Proposed next visual upgrades:
+- Glass header/bottom nav with inner borders for subtle depth.
+- Gradient primary buttons with gentle pressed state.
+- Featured “bento” card on Home (wider/taller, gradient frame, glass caption).
+- Lightbox “peek” when swiping; slightly brighter captions.
+- Map marker accent glow ring for clarity over dark/light tiles.

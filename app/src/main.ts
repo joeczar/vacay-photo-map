@@ -4,11 +4,13 @@ import App from './App.vue'
 import router from './router'
 import { initializeAuth } from '@/composables/useAuth'
 import './assets/main.css'
+import ripple from './directives/ripple'
 
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+app.directive('ripple', ripple)
 
 // Initialize auth state before mounting to ensure router guards have valid state
 ;(async () => {

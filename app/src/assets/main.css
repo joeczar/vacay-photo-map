@@ -29,7 +29,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 9%;
 
-    --primary: 220 13% 35%;           /* #4b5563 - slate-600 */
+    /* Primary: Modern Indigo (away from yellow/orange) */
+    --primary: 262 83% 55%;           /* ~indigo-500/600 */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 95%;            /* #f3f3f3 */
@@ -46,7 +47,7 @@
 
     --border: 0 0% 90%;               /* neutral grey borders */
     --input: 0 0% 90%;
-    --ring: 220 13% 35%;
+    --ring: 262 83% 55%;
 
     --radius: 0.75rem;
   }
@@ -64,8 +65,8 @@
     --popover: 0 0% 13%;
     --popover-foreground: 0 0% 98%;
 
-    /* Primary: Warm Ember (Unchanged - pops against grey) */
-    --primary: 24 95% 53%;        /* #f97316 */
+    /* Primary: Modern Indigo (consistent with light) */
+    --primary: 262 83% 55%;
     --primary-foreground: 0 0% 100%;
 
     /* Secondary: Soft Grey */
@@ -84,7 +85,7 @@
     /* Borders: Neutral separation */
     --border: 0 0% 20%;
     --input: 0 0% 18%;
-    --ring: 24 95% 53%;
+    --ring: 262 83% 55%;
 
     --radius: 1rem;
   }
@@ -99,9 +100,121 @@
     @apply bg-slate-900/80 backdrop-blur-sm border border-white/10 shadow-lg;
   }
 
+  /* Subtle, theme-aware card surface */
+  .card-soft {
+    background: color-mix(in oklab, hsl(var(--card)) 94%, transparent);
+    border-color: hsl(var(--border) / 0.7);
+    box-shadow: 0 6px 16px -12px hsl(var(--foreground) / 0.12);
+  }
+
+  /* Subtle glass surface for headers/navs (theme-aware) */
+  .glass-surface {
+    background: color-mix(in oklab, hsl(var(--card)) 75%, transparent);
+    backdrop-filter: saturate(1.1) blur(10px);
+    -webkit-backdrop-filter: saturate(1.1) blur(10px);
+    border-color: hsl(var(--border)/0.6);
+  }
+
+  /* Ambient accent background (subtle radial + linear mix) */
+  .accent-ambient {
+    background: radial-gradient(120% 120% at 50% -20%,
+      color-mix(in oklab, hsl(var(--accent)) 18%, transparent),
+      transparent 40%
+    ),
+    linear-gradient(to bottom,
+      color-mix(in oklab, hsl(var(--accent)) 12%, transparent),
+      transparent 60%
+    );
+  }
+
+  /* Tone-on-tone dotted grid (theme-aware, very faint) */
+  .bg-grid {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: 0 0;
+  }
+
+  /* Trip hero accent bar (content-first; subtle, desaturated) */
+  .hero-accent-bar {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    height: 140px; /* ~120–160px band */
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, hsl(var(--accent)) 12%, transparent),
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  /* Aurora gradient background for the app shell */
+  .aurora-bg {
+    background:
+      radial-gradient(60% 80% at 0% 0%, color-mix(in oklab, hsl(var(--primary)) 18%, transparent), transparent 60%),
+      radial-gradient(50% 60% at 100% 0%, color-mix(in oklab, hsl(var(--accent)) 16%, transparent), transparent 55%),
+      radial-gradient(60% 80% at 100% 100%, color-mix(in oklab, hsl(var(--primary)) 10%, transparent), transparent 60%),
+      radial-gradient(70% 80% at 0% 100%, color-mix(in oklab, hsl(var(--accent)) 10%, transparent), transparent 60%),
+      linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background)));
+  }
+
+  /* Subtle gradient primary button */
+  .btn-gradient-primary {
+    --gp-a: hsl(var(--primary) / 0.95);
+    --gp-b: color-mix(in oklab, hsl(var(--primary)) 75%, white);
+    background-image: linear-gradient(135deg, var(--gp-b), var(--gp-a));
+    color: hsl(var(--primary-foreground));
+    border: 1px solid hsl(var(--primary) / 0.3);
+    box-shadow: 0 6px 16px -8px hsl(var(--primary) / 0.35), inset 0 1px 0 0 hsl(var(--primary-foreground) / 0.1);
+    transition: transform 150ms ease, box-shadow 200ms ease, filter 200ms ease;
+  }
+  .btn-gradient-primary:hover {
+    filter: brightness(1.03);
+    box-shadow: 0 10px 22px -10px hsl(var(--primary) / 0.4), inset 0 1px 0 0 hsl(var(--primary-foreground) / 0.1);
+  }
+  .btn-gradient-primary:active {
+    transform: translateY(0.5px) scale(0.99);
+  }
+
+  /* Map marker accent glow */
+  .marker-glow {
+    box-shadow: 0 0 0 3px hsl(var(--accent) / 0.35), 0 6px 14px -8px hsl(var(--accent) / 0.35);
+  }
+
+  /* Ultra-faint grain overlay (patterned, motion-safe) */
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, currentColor 10%, transparent 11%),
+      radial-gradient(1px 1px at 30% 80%, currentColor 10%, transparent 11%),
+      radial-gradient(1px 1px at 50% 10%, currentColor 10%, transparent 11%),
+      radial-gradient(1px 1px at 70% 50%, currentColor 10%, transparent 11%),
+      radial-gradient(1px 1px at 90% 30%, currentColor 10%, transparent 11%);
+    background-size: 180px 180px;
+    mix-blend-mode: soft-light;
+  }
+
   /* Text Gradients */
   .text-gradient-ember {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-amber-200;
+  }
+  .text-accent-gradient {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, hsl(var(--accent)) 85%, white) 0%,
+      hsl(var(--accent)) 50%,
+      color-mix(in oklab, hsl(var(--accent)) 70%, black) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   /* Large sections: allow browser to skip offscreen rendering */

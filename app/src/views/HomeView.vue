@@ -1,7 +1,7 @@
 <template>
   <MainLayout>
     <!-- Hero Section -->
-    <div class="rounded-2xl bg-card border border-border/50 px-6 py-8 sm:px-10 sm:py-10 mb-10">
+    <div class="rounded-2xl bg-card border border-border/50 px-6 py-8 sm:px-10 sm:py-10 mb-10 card-soft">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl mb-1">
@@ -11,7 +11,7 @@
             Ready to explore?
           </p>
         </div>
-        <Button v-if="trips.length > 0" variant="outline" as-child size="sm">
+        <Button v-if="trips.length > 0" variant="outline" as-child size="sm" class="btn-gradient-primary">
           <router-link to="/admin">Manage Trips</router-link>
         </Button>
       </div>
@@ -37,7 +37,7 @@
         </svg>
       </div>
       <p class="text-muted-foreground mb-4">Couldn't load trips right now</p>
-      <Button variant="outline" size="sm" @click="loadTrips">Try again</Button>
+      <Button variant="outline" size="sm" class="btn-gradient-primary" @click="loadTrips">Try again</Button>
     </div>
 
     <!-- Empty State -->
@@ -50,7 +50,7 @@
       </div>
       <h2 class="text-xl font-semibold text-foreground mb-2">No trips yet</h2>
       <p class="text-muted-foreground mb-6">Upload your first vacation photos to get started</p>
-      <Button as-child size="sm">
+      <Button as-child size="sm" class="btn-gradient-primary">
         <router-link to="/admin">Add your first trip</router-link>
       </Button>
     </div>
@@ -63,10 +63,12 @@
       </div>
 
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <TripCard
-                  v-for="trip in trips"
-                  :key="trip.id"
-                  :trip="trip" />
+        <template v-for="(trip, i) in trips" :key="trip.id">
+          <div v-if="i === 0 && trips.length > 1" class="md:col-span-2">
+            <TripCard :trip="trip" featured />
+          </div>
+          <TripCard v-else :trip="trip" />
+        </template>
       </div>
     </div>
   </MainLayout>

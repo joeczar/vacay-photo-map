@@ -1,18 +1,19 @@
 <template>
   <div
-       class="group relative h-full flex flex-col overflow-hidden rounded-xl bg-card border border-border shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+       class="group relative h-full flex flex-col overflow-hidden rounded-xl bg-card border border-border shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 card-soft"
+       :class="featured ? 'ring-1 ring-primary/20' : ''">
     <router-link :to="`/trip/${trip.slug}`" class="block h-full">
       <!-- Cover Photo -->
-      <div class="aspect-video relative bg-muted overflow-hidden">
-        <img
-             v-if="trip.cover_photo_url"
-             :src="coverFallback"
-             :srcset="coverSrcset"
-             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-             loading="lazy"
-             decoding="async"
-             :alt="trip.title"
-             class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+      <div class="aspect-video relative bg-muted overflow-hidden" :class="featured ? 'sm:aspect-[2/1]' : ''">
+        <ProgressiveImage
+          v-if="trip.cover_photo_url"
+          :src="coverFallback"
+          :srcset="coverSrcset"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          :alt="trip.title"
+          wrapper-class="w-full h-full"
+          class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
         <div
              v-else
              class="w-full h-full flex items-center justify-center text-muted-foreground bg-muted">
@@ -32,6 +33,8 @@
 
       <!-- Content -->
       <div class="flex flex-col flex-1 p-5">
+        <!-- Accent hover bar -->
+        <span class="pointer-events-none absolute inset-x-0 top-0 h-0.5 opacity-0 group-hover:opacity-100 transition-opacity" :style="{ background: 'hsl(var(--accent))' }" />
         <div class="flex items-start justify-between mb-2">
           <h3 class="font-semibold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-1">
             {{ trip.title }}
@@ -63,13 +66,15 @@
 <script setup lang="ts">
 import type { ApiTrip } from '@/utils/database'
 import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
+import ProgressiveImage from '@/components/ProgressiveImage.vue'
 
 const props = defineProps<{
   trip: ApiTrip & { photo_count: number; date_range: { start: string; end: string } }
+  featured?: boolean
 }>()
 
-const coverSrcset = props.trip.cover_photo_url ? buildSrcSet(props.trip.cover_photo_url, [320, 480, 640, 768, 960, 1200]) : ''
-const coverFallback = props.trip.cover_photo_url ? cloudinaryUrlForWidth(props.trip.cover_photo_url, 960) : ''
+const coverSrcset = props.trip.cover_photo_url ? buildSrcSet(props.trip.cover_photo_url, [320, 480, 640, 768, 960, 1200, 1600]) : ''
+const coverFallback = props.trip.cover_photo_url ? cloudinaryUrlForWidth(props.trip.cover_photo_url, props.featured ? 1600 : 960) : ''
 
 function formatDateRange(dateRange: { start: string; end: string }): string {
   if (!dateRange || !dateRange.start) return ''

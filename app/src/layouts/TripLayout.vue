@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-background">
+  <div class="min-h-screen bg-background bg-grid grain">
     <!-- Floating Menu Button -->
     <div class="fixed top-4 right-4 z-50">
       <Button

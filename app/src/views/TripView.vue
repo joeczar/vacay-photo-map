@@ -3,7 +3,7 @@
     <template #actions>
       <!-- Admin-only actions -->
       <template v-if="isAuthenticated">
-        <Button variant="outline" class="w-full justify-start" @click="shareSheetOpen = true">
+        <Button variant="outline" class="w-full justify-start" @click="shareSheetOpen = true" v-ripple>
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
                   stroke-linecap="round"
@@ -14,7 +14,7 @@
           Share
         </Button>
 
-        <Button variant="destructive" class="w-full justify-start" @click="deleteDialogOpen = true">
+        <Button variant="destructive" class="w-full justify-start" @click="deleteDialogOpen = true" v-ripple>
           <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
             <path
                   fill-rule="evenodd"
@@ -48,9 +48,10 @@
     <!-- Trip Content -->
     <div v-else-if="trip">
       <!-- Hero Section -->
-      <div class="border-b bg-card">
-        <div class="container py-8 px-4">
-          <h1 class="text-4xl font-bold mb-2">{{ trip.title }}</h1>
+      <div class="relative border-b bg-card transition-colors">
+        <div class="hero-accent-bar" aria-hidden="true"></div>
+        <div class="container py-8 px-4 relative">
+          <h1 class="text-4xl font-bold mb-2 text-accent-gradient">{{ trip.title }}</h1>
           <p v-if="trip.description" class="text-muted-foreground mb-4">{{ trip.description }}</p>
           <div class="flex gap-4">
             <Badge variant="secondary">
@@ -107,7 +108,7 @@
                 <l-icon :icon-size="[40, 40]" :icon-anchor="[20, 40]">
                   <div class="relative">
                     <div
-                         class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform"
+                         class="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden cursor-pointer hover:scale-110 transition-transform marker-glow"
                          :class="selectedPhoto?.id === photo.id ? 'border-primary border-4' : ''">
                       <img :src="photo.thumbnail_url" :alt="photo.caption || 'Photo'"
                            class="w-full h-full object-cover" />
@@ -117,14 +118,14 @@
 
                 <l-popup :options="{ maxWidth: 300 }">
                   <div class="p-2">
-                <img
+                <ProgressiveImage
                      :src="popupFallback(photo)"
                      :srcset="popupSrcset(photo)"
                      sizes="300px"
-                     loading="lazy"
-                     decoding="async"
                      :alt="photo.caption || 'Photo'"
-                     class="w-full h-48 object-cover rounded mb-2" />
+                     wrapper-class="w-full h-48 rounded mb-2"
+                     class="w-full h-48 object-cover rounded"
+                />
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatDate(photo.taken_at) }}</p>
                   </div>
@@ -146,17 +147,16 @@
               <Card v-for="photo in trip.photos" :key="photo.id"
                     class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
                     :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''" @click="selectPhoto(photo)">
-                <img
+                <ProgressiveImage
                   :src="gridFallback(photo)"
                   :srcset="gridSrcset(photo)"
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                  loading="lazy"
-                  decoding="async"
                   :alt="photo.caption || 'Photo'"
+                  wrapper-class="w-full h-full"
                   class="w-full h-full object-cover"
                 />
                 <div v-if="!photo.latitude || !photo.longitude"
-                     class="absolute top-1 right-1 bg-yellow-500 rounded-full p-1" title="No location data">
+                     class="absolute top-1 right-1 bg-rose-500 rounded-full p-1" title="No location data">
                   <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd"
                           d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
@@ -180,8 +180,8 @@
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" @click="deleteDialogOpen = false">Cancel</Button>
-            <Button variant="destructive" @click="confirmDelete" :disabled="isDeleting">
+            <Button variant="outline" @click="deleteDialogOpen = false" v-ripple>Cancel</Button>
+            <Button variant="destructive" @click="confirmDelete" :disabled="isDeleting" v-ripple>
               {{ isDeleting ? 'Deleting...' : 'Delete' }}
             </Button>
           </DialogFooter>
@@ -232,7 +232,7 @@
               <div v-if="shareLink" class="space-y-3">
                 <div class="flex items-center gap-2">
                   <Input :value="shareLink" readonly class="font-mono text-xs" />
-                  <Button variant="outline" size="icon" @click="copyShareLink" :disabled="isCopying"
+                  <Button variant="outline" size="icon" @click="copyShareLink" :disabled="isCopying" v-ripple
                           aria-label="Copy share link">
                     <svg v-if="copySuccess" class="w-4 h-4 text-green-500" fill="none" stroke="currentColor"
                          viewBox="0 0 24 24">
@@ -243,7 +243,7 @@
                             d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                   </Button>
-                  <Button variant="outline" size="sm" class="ml-1" @click="shareViaNative" aria-label="Share link">
+                  <Button variant="outline" size="sm" class="ml-1" @click="shareViaNative" aria-label="Share link" v-ripple>
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M15 8a3 3 0 10-6 0v8a3 3 0 106 0V8z" />
@@ -253,7 +253,7 @@
                 </div>
 
                 <!-- Regenerate Link -->
-                <Button variant="outline" class="w-full" @click="regenerateDialogOpen = true"
+                <Button variant="outline" class="w-full" @click="regenerateDialogOpen = true" v-ripple
                         :disabled="isUpdatingProtection">
                   <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -264,7 +264,7 @@
               </div>
 
               <!-- Generate Link Button -->
-              <Button v-else class="w-full" @click="generateShareLink" :disabled="isUpdatingProtection">
+              <Button v-else class="w-full btn-gradient-primary" @click="generateShareLink" :disabled="isUpdatingProtection" v-ripple>
                 <svg v-if="isUpdatingProtection" class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                   <path class="opacity-75" fill="currentColor"
@@ -298,8 +298,8 @@
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" @click="regenerateDialogOpen = false">Cancel</Button>
-            <Button @click="confirmRegenerate" :disabled="isUpdatingProtection">
+            <Button variant="outline" @click="regenerateDialogOpen = false" v-ripple>Cancel</Button>
+            <Button @click="confirmRegenerate" :disabled="isUpdatingProtection" v-ripple>
               {{ isUpdatingProtection ? 'Regenerating...' : 'Regenerate' }}
             </Button>
           </DialogFooter>
@@ -323,7 +323,8 @@
             class="w-full h-auto rounded-lg shadow-2xl overflow-hidden touch-none select-none"
             :style="{
               transform: `translate(${dragX}px, ${dragY}px) scale(${scale})`,
-              transition: dragging ? 'none' : 'transform 200ms ease-out'
+              transition: dragging ? 'none' : 'transform 200ms ease-out',
+              opacity: dragging && scale === 1 ? 1 - Math.min(Math.abs(dragX) / 600, 0.15) : 1
             }"
             @touchstart.passive="onTouchStart"
             @touchmove.prevent="onTouchMove"
@@ -363,6 +364,12 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
           </Button>
+
+          <!-- Edge hint gradients (subtle) -->
+          <div class="pointer-events-none absolute inset-y-0 left-0 w-24"
+               :style="{opacity: scale === 1 ? Math.max(0, Math.min(-dragX / 200, 0.15)) : 0, background: 'linear-gradient(90deg, rgba(0,0,0,.35), rgba(0,0,0,0))'}"></div>
+          <div class="pointer-events-none absolute inset-y-0 right-0 w-24"
+               :style="{opacity: scale === 1 ? Math.max(0, Math.min(dragX / 200, 0.15)) : 0, background: 'linear-gradient(270deg, rgba(0,0,0,.35), rgba(0,0,0,0))'}"></div>
         </div>
       </div>
     </div>
@@ -407,6 +414,8 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
+import { useAccentColor } from '@/composables/useAccentColor'
+import ProgressiveImage from '@/components/ProgressiveImage.vue'
 
 // Fix Leaflet default icon issue with bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -628,6 +637,13 @@ onMounted(async () => {
       error.value = 'Trip not found'
     } else {
       trip.value = data
+      // Subtle: derive accent color from cover/first photo
+      const cover = data.cover_photo_url || data.photos[0]?.url
+      if (cover) {
+        const { setAccentFromImage } = useAccentColor()
+        // Fire and forget; no need to await
+        setAccentFromImage(cover)
+      }
     }
   } catch (err) {
     console.error('Error loading trip:', err)

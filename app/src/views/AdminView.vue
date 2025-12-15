@@ -16,10 +16,10 @@
       <AlertTitle>Trip Uploaded Successfully!</AlertTitle>
       <AlertDescription> Your trip is now live and ready to share. </AlertDescription>
       <div class="flex gap-3 mt-4">
-        <Button as-child>
+        <Button as-child class="btn-gradient-primary">
           <router-link :to="`/trip/${tripSlug}`" target="_blank">View Trip</router-link>
         </Button>
-        <Button variant="outline" @click="resetForm"> Upload Another Trip </Button>
+        <Button variant="outline" class="btn-gradient-primary" @click="resetForm"> Upload Another Trip </Button>
       </div>
     </Alert>
 
@@ -65,7 +65,7 @@
                 Select Photos *
               </label>
               <div class="flex items-center gap-3">
-                <Button type="button" class="h-11 px-5" @click="() => fileInput?.click()" aria-label="Choose photos" :aria-controls="fileInputId">
+                <Button type="button" class="h-11 px-5 btn-gradient-primary" @click="() => fileInput?.click()" aria-label="Choose photos" :aria-controls="fileInputId">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="16"
@@ -140,6 +140,7 @@
             <Button
               type="submit"
               :disabled="!meta.valid || selectedFiles.length === 0 || isUploading"
+              class="btn-gradient-primary"
             >
               {{ isUploading ? 'Processing...' : 'Start Upload' }}
             </Button>
