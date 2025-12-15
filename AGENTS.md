@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 - Frontend lives in `app` (Vue 3 + Vite, TypeScript); core code in `app/src` with feature folders for components, views, composables, stores, utils, and router. Static assets stay in `app/public` and `app/src/assets`.
 - Backend lives in `api` (Bun + Hono) with routes and middleware under `api/src`. Keep new API handlers co-located with related middleware and tests.
-- Shared docs and schemas: `docs/` for setup guides, `supabase-schema.sql` and `supabase/migrations/` for database changes, `netlify.toml` for deploy settings.
+- Shared docs and schemas: `docs/` for setup guides, `api/src/db/schema.sql` for database schema, `netlify.toml` for deploy settings.
 
 ## Build, Test, and Development Commands
 - `pnpm install` — install workspace deps (requires Node 18+ and pnpm 9+). Bun is needed for API scripts.
@@ -27,5 +27,5 @@
 - Before opening a PR: ensure lint, type-check, and tests pass; include a brief summary, linked issue (if any), and relevant screenshots or request logs for UI/API changes.
 
 ## Security & Configuration Tips
-- Copy `app/.env.example` to `app/.env`; never commit secrets. Keep Supabase keys, Cloudinary presets, and RP settings scoped to environment.
-- Run SQL from `supabase-schema.sql`/`supabase/migrations/` through Supabase to stay aligned with RLS policies. Confirm `netlify.toml` env vars in deployment.
+- Copy `app/.env.example` to `app/.env` and `api/.env.example` to `api/.env`; never commit secrets. Keep Cloudinary presets, JWT secrets, and RP settings scoped to environment.
+- Run `pnpm migrate:api` to apply database migrations. Use `docker-compose up` for local PostgreSQL. Confirm `netlify.toml` env vars in deployment.
