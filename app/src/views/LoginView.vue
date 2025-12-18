@@ -131,7 +131,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import { startAuthentication } from '@simplewebauthn/browser'
+import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
 import { useAuth } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -234,8 +234,53 @@ const onSubmit = handleSubmit(async (values) => {
   }
 })
 
-// Registration submission handler (placeholder for Commit 5)
+// Registration submission handler
 const onRegister = registerForm.handleSubmit(async (values) => {
-  console.log('Register attempt with:', values)
+  isRegistering.value = true
+  registerError.value = ''
+
+  try {
+    // Step 1: Get registration options from backend
+    const options = await api.post<any>('/api/auth/register/options', {
+      email: values.email
+    })
+
+    // Step 2: Create passkey credential (browser prompts user)
+    const credential = await startRegistration(options)
+
+    // Step 3: Verify and create user with backend
+    const { token, user } = await api.post<{ token: string; user: any }>(
+      '/api/auth/register/verify',
+      {
+        email: values.email,
+        displayName: values.displayName || null,
+        credential
+      }
+    )
+
+    // Step 4: Set auth state and redirect
+    setAuthState(token, user)
+    await router.push('/admin')
+  } catch (err) {
+    console.error('Registration failed:', err)
+
+    if (err instanceof ApiError) {
+      if (err.status === 409) {
+        registerError.value = 'An account with this email already exists. Please login instead.'
+      } else if (err.status === 400) {
+        registerError.value = 'Registration failed. Please check your information and try again.'
+      } else {
+        registerError.value = err.message || 'Registration failed. Please try again.'
+      }
+    } else if (err instanceof Error && err.name === 'NotAllowedError') {
+      registerError.value = 'Passkey creation was cancelled. Please try again.'
+    } else if (err instanceof Error && err.name === 'InvalidStateError') {
+      registerError.value = 'This passkey is already registered. Please try a different authenticator.'
+    } else {
+      registerError.value = 'An unexpected error occurred. Please try again.'
+    }
+  } finally {
+    isRegistering.value = false
+  }
 })
 </script>
