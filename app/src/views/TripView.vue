@@ -39,25 +39,14 @@
     </template>
 
     <!-- Loading State -->
-    <div v-if="loading" class="flex items-center justify-center min-h-screen">
-      <div class="text-center">
-        <div
-          class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"
-        ></div>
-        <p class="text-muted-foreground">Loading trip...</p>
-      </div>
-    </div>
+    <LoadingState v-if="loading" message="Loading trip..." :full-screen="true" />
 
     <!-- Error State -->
-    <div v-else-if="error" class="flex items-center justify-center min-h-screen">
-      <div class="text-center">
-        <h2 class="text-2xl font-bold mb-2">Trip Not Found</h2>
-        <p class="text-muted-foreground mb-4">{{ error }}</p>
-        <Button as-child>
-          <router-link to="/">← Back to Home</router-link>
-        </Button>
-      </div>
-    </div>
+    <ErrorState v-else-if="error" title="Trip Not Found" :message="error">
+      <Button as-child>
+        <router-link to="/">← Back to Home</router-link>
+      </Button>
+    </ErrorState>
 
     <!-- Trip Content -->
     <div v-else-if="trip">
@@ -603,6 +592,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
 import { useAccentColor } from '@/composables/useAccentColor'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
+import ErrorState from '@/components/ErrorState.vue'
+import LoadingState from '@/components/LoadingState.vue'
 
 // Fix Leaflet default icon issue with bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl
