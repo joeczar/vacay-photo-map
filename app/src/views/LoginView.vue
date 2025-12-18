@@ -1,75 +1,57 @@
 <template>
-  <div class="min-h-screen bg-background flex flex-col">
-    <header class="border-b border-border bg-card">
-      <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
-        <router-link
-          to="/"
-          class="text-xl font-bold text-foreground hover:text-primary transition-colors"
-        >
-          Vacay Photo Map
-        </router-link>
-        <nav class="flex items-center gap-4">
-          <Button variant="ghost" as-child>
-            <router-link to="/">Home</router-link>
+  <AuthLayout>
+    <Card class="w-full max-w-md">
+      <CardHeader class="text-center">
+        <CardTitle class="text-2xl">Admin Login</CardTitle>
+        <CardDescription>Sign in with your passkey</CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <!-- WebAuthn not supported warning -->
+        <Alert v-if="!webAuthnSupported" variant="destructive" class="mb-4">
+          <AlertDescription>{{ webAuthnMessage }}</AlertDescription>
+        </Alert>
+
+        <!-- Error alert -->
+        <Alert v-if="error" variant="destructive" class="mb-4">
+          <AlertDescription>{{ error }}</AlertDescription>
+        </Alert>
+
+        <form @submit="onSubmit" class="space-y-4">
+          <FormField v-slot="{ componentField }" name="email">
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  v-bind="componentField"
+                  :disabled="isLoggingIn || !webAuthnSupported"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <Button
+            type="submit"
+            class="w-full"
+            :disabled="isLoggingIn || !meta.valid || !webAuthnSupported"
+          >
+            {{ isLoggingIn ? 'Authenticating...' : 'Login with Passkey' }}
           </Button>
-          <ThemeToggle />
-        </nav>
-      </div>
-    </header>
-    <main class="flex-1 flex items-center justify-center p-4">
-      <Card class="w-full max-w-md">
-        <CardHeader class="text-center">
-          <CardTitle class="text-2xl">Admin Login</CardTitle>
-          <CardDescription>Sign in with your passkey</CardDescription>
-        </CardHeader>
+        </form>
 
-        <CardContent>
-          <!-- WebAuthn not supported warning -->
-          <Alert v-if="!webAuthnSupported" variant="destructive" class="mb-4">
-            <AlertDescription>{{ webAuthnMessage }}</AlertDescription>
-          </Alert>
-
-          <!-- Error alert -->
-          <Alert v-if="error" variant="destructive" class="mb-4">
-            <AlertDescription>{{ error }}</AlertDescription>
-          </Alert>
-
-          <form @submit="onSubmit" class="space-y-4">
-            <FormField v-slot="{ componentField }" name="email">
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    v-bind="componentField"
-                    :disabled="isLoggingIn || !webAuthnSupported"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
-
-            <Button
-              type="submit"
-              class="w-full"
-              :disabled="isLoggingIn || !meta.valid || !webAuthnSupported"
-            >
-              {{ isLoggingIn ? 'Authenticating...' : 'Login with Passkey' }}
-            </Button>
-          </form>
-
-          <!-- Dev-only registration link -->
-          <div v-if="isDev" class="mt-4 text-center text-sm text-muted-foreground">
-            Need an account?
-            <router-link to="/register" class="text-primary hover:underline">
-              Register
-            </router-link>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
-  </div>
+        <!-- Dev-only registration link -->
+        <div v-if="isDev" class="mt-4 text-center text-sm text-muted-foreground">
+          Need an account?
+          <router-link to="/register" class="text-primary hover:underline">
+            Register
+          </router-link>
+        </div>
+      </CardContent>
+    </Card>
+  </AuthLayout>
 </template>
 
 <script setup lang="ts">
@@ -90,7 +72,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import AuthLayout from '@/layouts/AuthLayout.vue'
 import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()

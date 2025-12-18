@@ -1,87 +1,69 @@
 <template>
-  <div class="min-h-screen bg-background flex flex-col">
-    <header class="border-b border-border bg-card">
-      <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4">
-        <router-link
-          to="/"
-          class="text-xl font-bold text-foreground hover:text-primary transition-colors"
-        >
-          Vacay Photo Map
-        </router-link>
-        <nav class="flex items-center gap-4">
-          <Button variant="ghost" as-child>
-            <router-link to="/">Home</router-link>
+  <AuthLayout>
+    <Card class="w-full max-w-md">
+      <CardHeader class="text-center">
+        <CardTitle class="text-2xl">Create Account</CardTitle>
+        <CardDescription>Register a new passkey</CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <!-- WebAuthn not supported warning -->
+        <Alert v-if="!webAuthnSupported" variant="destructive" class="mb-4">
+          <AlertDescription>{{ webAuthnMessage }}</AlertDescription>
+        </Alert>
+
+        <!-- Error alert -->
+        <Alert v-if="error" variant="destructive" class="mb-4">
+          <AlertDescription>{{ error }}</AlertDescription>
+        </Alert>
+
+        <form @submit="onSubmit" class="space-y-4">
+          <FormField v-slot="{ componentField }" name="email">
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input
+                  type="email"
+                  placeholder="you@example.com"
+                  v-bind="componentField"
+                  :disabled="isRegistering || !webAuthnSupported"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ componentField }" name="displayName">
+            <FormItem>
+              <FormLabel>Display Name (optional)</FormLabel>
+              <FormControl>
+                <Input
+                  type="text"
+                  placeholder="Your name"
+                  v-bind="componentField"
+                  :disabled="isRegistering || !webAuthnSupported"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <Button
+            type="submit"
+            class="w-full"
+            :disabled="isRegistering || !meta.valid || !webAuthnSupported"
+          >
+            {{ isRegistering ? 'Creating account...' : 'Register with Passkey' }}
           </Button>
-          <ThemeToggle />
-        </nav>
-      </div>
-    </header>
-    <main class="flex-1 flex items-center justify-center p-4">
-      <Card class="w-full max-w-md">
-        <CardHeader class="text-center">
-          <CardTitle class="text-2xl">Create Account</CardTitle>
-          <CardDescription>Register a new passkey</CardDescription>
-        </CardHeader>
+        </form>
 
-        <CardContent>
-          <!-- WebAuthn not supported warning -->
-          <Alert v-if="!webAuthnSupported" variant="destructive" class="mb-4">
-            <AlertDescription>{{ webAuthnMessage }}</AlertDescription>
-          </Alert>
-
-          <!-- Error alert -->
-          <Alert v-if="error" variant="destructive" class="mb-4">
-            <AlertDescription>{{ error }}</AlertDescription>
-          </Alert>
-
-          <form @submit="onSubmit" class="space-y-4">
-            <FormField v-slot="{ componentField }" name="email">
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    v-bind="componentField"
-                    :disabled="isRegistering || !webAuthnSupported"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
-
-            <FormField v-slot="{ componentField }" name="displayName">
-              <FormItem>
-                <FormLabel>Display Name (optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="text"
-                    placeholder="Your name"
-                    v-bind="componentField"
-                    :disabled="isRegistering || !webAuthnSupported"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
-
-            <Button
-              type="submit"
-              class="w-full"
-              :disabled="isRegistering || !meta.valid || !webAuthnSupported"
-            >
-              {{ isRegistering ? 'Creating account...' : 'Register with Passkey' }}
-            </Button>
-          </form>
-
-          <div class="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?
-            <router-link to="/login" class="text-primary hover:underline"> Login </router-link>
-          </div>
-        </CardContent>
-      </Card>
-    </main>
-  </div>
+        <div class="mt-4 text-center text-sm text-muted-foreground">
+          Already have an account?
+          <router-link to="/login" class="text-primary hover:underline"> Login </router-link>
+        </div>
+      </CardContent>
+    </Card>
+  </AuthLayout>
 </template>
 
 <script setup lang="ts">
@@ -102,7 +84,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import AuthLayout from '@/layouts/AuthLayout.vue'
 import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()
