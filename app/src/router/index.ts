@@ -16,6 +16,19 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue')
     },
     {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+      beforeEnter: (_to, _from, next) => {
+        // Only allow registration in development mode
+        if (import.meta.env.DEV) {
+          next()
+        } else {
+          next({ name: 'login' })
+        }
+      }
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: () => import('../views/AdminView.vue'),
