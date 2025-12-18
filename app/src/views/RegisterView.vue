@@ -19,8 +19,8 @@
     <main class="flex-1 flex items-center justify-center p-4">
       <Card class="w-full max-w-md">
         <CardHeader class="text-center">
-          <CardTitle class="text-2xl">Admin Login</CardTitle>
-          <CardDescription>Sign in with your passkey</CardDescription>
+          <CardTitle class="text-2xl">Create Account</CardTitle>
+          <CardDescription>Register a new passkey</CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -43,7 +43,22 @@
                     type="email"
                     placeholder="you@example.com"
                     v-bind="componentField"
-                    :disabled="isLoggingIn || !webAuthnSupported"
+                    :disabled="isRegistering || !webAuthnSupported"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+
+            <FormField v-slot="{ componentField }" name="displayName">
+              <FormItem>
+                <FormLabel>Display Name (optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="text"
+                    placeholder="Your name"
+                    v-bind="componentField"
+                    :disabled="isRegistering || !webAuthnSupported"
                   />
                 </FormControl>
                 <FormMessage />
@@ -53,17 +68,16 @@
             <Button
               type="submit"
               class="w-full"
-              :disabled="isLoggingIn || !meta.valid || !webAuthnSupported"
+              :disabled="isRegistering || !meta.valid || !webAuthnSupported"
             >
-              {{ isLoggingIn ? 'Authenticating...' : 'Login with Passkey' }}
+              {{ isRegistering ? 'Creating account...' : 'Register with Passkey' }}
             </Button>
           </form>
 
-          <!-- Dev-only registration link -->
-          <div v-if="isDev" class="mt-4 text-center text-sm text-muted-foreground">
-            Need an account?
-            <router-link to="/register" class="text-primary hover:underline">
-              Register
+          <div class="mt-4 text-center text-sm text-muted-foreground">
+            Already have an account?
+            <router-link to="/login" class="text-primary hover:underline">
+              Login
             </router-link>
           </div>
         </CardContent>
@@ -73,13 +87,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import { startAuthentication } from '@simplewebauthn/browser'
-import type { PublicKeyCredentialRequestOptionsJSON, AuthenticationResponseJSON } from '@simplewebauthn/types'
+import { startRegistration } from '@simplewebauthn/browser'
+import type { PublicKeyCredentialCreationOptionsJSON, RegistrationResponseJSON } from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -91,7 +105,6 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()
-const route = useRoute()
 const { isAuthenticated, setAuthState } = useAuth()
 
 // Redirect if already authenticated
@@ -100,71 +113,73 @@ if (isAuthenticated.value) {
 }
 
 // State
-const isLoggingIn = ref(false)
+const isRegistering = ref(false)
 const error = ref('')
 
 // Check WebAuthn support
 const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthnSupport()
 
-// Check if in dev mode
-const isDev = computed(() => import.meta.env.DEV)
-
 // Form validation schema
-const loginSchema = toTypedSchema(
+const registerSchema = toTypedSchema(
   z.object({
-    email: z.string().email('Please enter a valid email address')
+    email: z.string().email('Please enter a valid email address'),
+    displayName: z.string().min(2, 'Display name must be at least 2 characters').optional().or(z.literal(''))
   })
 )
 
 const { handleSubmit, meta } = useForm({
-  validationSchema: loginSchema,
-  initialValues: { email: '' }
+  validationSchema: registerSchema,
+  initialValues: { email: '', displayName: '' }
 })
 
 // Form submission handler
 const onSubmit = handleSubmit(async (values) => {
-  isLoggingIn.value = true
+  isRegistering.value = true
   error.value = ''
 
   try {
-    // Step 1: Get authentication options from backend
-    const { options } = await api.post<{ options: PublicKeyCredentialRequestOptionsJSON }>(
-      '/api/auth/login/options',
+    // Step 1: Get registration options from backend
+    const { options } = await api.post<{ options: PublicKeyCredentialCreationOptionsJSON }>(
+      '/api/auth/register/options',
       { email: values.email }
     )
 
-    // Step 2: Authenticate with passkey (browser prompts user)
-    const credential: AuthenticationResponseJSON = await startAuthentication(options)
+    // Step 2: Create passkey credential (browser prompts user)
+    const credential: RegistrationResponseJSON = await startRegistration(options)
 
-    // Step 3: Verify credential with backend
+    // Step 3: Verify and create user with backend
     const { token, user } = await api.post<{ token: string; user: User }>(
-      '/api/auth/login/verify',
-      { email: values.email, credential }
+      '/api/auth/register/verify',
+      {
+        email: values.email,
+        displayName: values.displayName || null,
+        credential
+      }
     )
 
     // Step 4: Set auth state and redirect
     setAuthState(token, user)
-
-    const redirectPath = (route.query.redirect as string) || '/admin'
-    await router.push(redirectPath)
+    await router.push('/admin')
   } catch (err) {
-    console.error('Login failed:', err)
+    console.error('Registration failed:', err)
 
     if (err instanceof ApiError) {
-      if (err.status === 404) {
-        error.value = 'No account found with this email. Please register first.'
+      if (err.status === 409) {
+        error.value = 'An account with this email already exists. Please login instead.'
       } else if (err.status === 400) {
-        error.value = 'Authentication failed. Please try again.'
+        error.value = 'Registration failed. Please check your information and try again.'
       } else {
-        error.value = err.message || 'Login failed. Please try again.'
+        error.value = err.message || 'Registration failed. Please try again.'
       }
     } else if (err instanceof Error && err.name === 'NotAllowedError') {
-      error.value = 'Authentication was cancelled. Please try again.'
+      error.value = 'Passkey creation was cancelled. Please try again.'
+    } else if (err instanceof Error && err.name === 'InvalidStateError') {
+      error.value = 'This passkey is already registered. Please try a different authenticator.'
     } else {
       error.value = 'An unexpected error occurred. Please try again.'
     }
   } finally {
-    isLoggingIn.value = false
+    isRegistering.value = false
   }
 })
 </script>
