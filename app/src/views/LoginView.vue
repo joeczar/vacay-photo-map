@@ -45,9 +45,7 @@
         <!-- Dev-only registration link -->
         <div v-if="isDev" class="mt-4 text-center text-sm text-muted-foreground">
           Need an account?
-          <router-link to="/register" class="text-primary hover:underline">
-            Register
-          </router-link>
+          <router-link to="/register" class="text-primary hover:underline"> Register </router-link>
         </div>
       </CardContent>
     </Card>
@@ -119,7 +117,9 @@ const onSubmit = handleSubmit(async values => {
     )
 
     // Step 2: Authenticate with passkey (browser prompts user)
-    const credential: AuthenticationResponseJSON = await startAuthentication({ optionsJSON: options })
+    const credential: AuthenticationResponseJSON = await startAuthentication({
+      optionsJSON: options
+    })
 
     // Step 3: Verify credential with backend
     const { token, user } = await api.post<{ token: string; user: User }>(
