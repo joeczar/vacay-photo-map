@@ -60,12 +60,73 @@
           </form>
         </CardContent>
       </Card>
+
+      <!-- Registration form (dev only) -->
+      <Card v-if="isDev" class="w-full max-w-md mt-6">
+        <CardHeader class="text-center">
+          <CardTitle class="text-2xl">Create Account</CardTitle>
+          <CardDescription>Register a new passkey</CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <Alert class="mb-4">
+            <AlertDescription>
+              Registration is only available in development mode.
+            </AlertDescription>
+          </Alert>
+
+          <!-- Error alert -->
+          <Alert v-if="registerError" variant="destructive" class="mb-4">
+            <AlertDescription>{{ registerError }}</AlertDescription>
+          </Alert>
+
+          <form @submit="onRegister" class="space-y-4">
+            <FormField v-slot="{ componentField }" name="email" :form="registerForm">
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    v-bind="componentField"
+                    :disabled="isRegistering || !webAuthnSupported"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+
+            <FormField v-slot="{ componentField }" name="displayName" :form="registerForm">
+              <FormItem>
+                <FormLabel>Display Name (optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="text"
+                    placeholder="Your name"
+                    v-bind="componentField"
+                    :disabled="isRegistering || !webAuthnSupported"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+
+            <Button
+              type="submit"
+              class="w-full"
+              :disabled="isRegistering || !registerForm.meta.value.valid || !webAuthnSupported"
+            >
+              {{ isRegistering ? 'Creating account...' : 'Register with Passkey' }}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -93,9 +154,14 @@ if (isAuthenticated.value) {
 // State
 const isLoggingIn = ref(false)
 const error = ref('')
+const isRegistering = ref(false)
+const registerError = ref('')
 
 // Check WebAuthn support
 const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthnSupport()
+
+// Check if in dev mode
+const isDev = computed(() => import.meta.env.DEV)
 
 // Form validation schema
 const loginSchema = toTypedSchema(
@@ -107,6 +173,19 @@ const loginSchema = toTypedSchema(
 const { handleSubmit, meta } = useForm({
   validationSchema: loginSchema,
   initialValues: { email: '' }
+})
+
+// Registration validation schema
+const registerSchema = toTypedSchema(
+  z.object({
+    email: z.string().email('Please enter a valid email address'),
+    displayName: z.string().min(2, 'Display name must be at least 2 characters').optional().or(z.literal(''))
+  })
+)
+
+const registerForm = useForm({
+  validationSchema: registerSchema,
+  initialValues: { email: '', displayName: '' }
 })
 
 // Form submission handler
@@ -153,5 +232,10 @@ const onSubmit = handleSubmit(async (values) => {
   } finally {
     isLoggingIn.value = false
   }
+})
+
+// Registration submission handler (placeholder for Commit 5)
+const onRegister = registerForm.handleSubmit(async (values) => {
+  console.log('Register attempt with:', values)
 })
 </script>
