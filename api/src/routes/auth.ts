@@ -324,10 +324,11 @@ auth.post('/register/verify', async (c) => {
       `
 
       // Store authenticator
+      // Note: In SimpleWebAuthn v10+, credential.id is already a Base64URLString
       await tx`
         INSERT INTO authenticators (credential_id, user_id, public_key, counter, transports)
         VALUES (
-          ${Buffer.from(verifiedCredential.id).toString('base64url')},
+          ${verifiedCredential.id},
           ${user.id},
           ${Buffer.from(verifiedCredential.publicKey).toString('base64url')},
           ${verifiedCredential.counter},
@@ -474,10 +475,11 @@ auth.post('/passkeys/verify', requireAuth, async (c) => {
     const db = getDbClient()
 
     // Store new authenticator
+    // Note: In SimpleWebAuthn v10+, credential.id is already a Base64URLString
     await db`
       INSERT INTO authenticators (credential_id, user_id, public_key, counter, transports)
       VALUES (
-        ${Buffer.from(verifiedCredential.id).toString('base64url')},
+        ${verifiedCredential.id},
         ${currentUser.id},
         ${Buffer.from(verifiedCredential.publicKey).toString('base64url')},
         ${verifiedCredential.counter},

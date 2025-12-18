@@ -60,11 +60,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import { startAuthentication } from '@simplewebauthn/browser'
-import type {
-  PublicKeyCredentialRequestOptionsJSON,
-  AuthenticationResponseJSON
-} from '@simplewebauthn/types'
+import {
+  startAuthentication,
+  type PublicKeyCredentialRequestOptionsJSON,
+  type AuthenticationResponseJSON
+} from '@simplewebauthn/browser'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -119,7 +119,7 @@ const onSubmit = handleSubmit(async values => {
     )
 
     // Step 2: Authenticate with passkey (browser prompts user)
-    const credential: AuthenticationResponseJSON = await startAuthentication(options)
+    const credential: AuthenticationResponseJSON = await startAuthentication({ optionsJSON: options })
 
     // Step 3: Verify credential with backend
     const { token, user } = await api.post<{ token: string; user: User }>(
