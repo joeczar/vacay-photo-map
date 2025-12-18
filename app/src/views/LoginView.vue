@@ -148,7 +148,10 @@ const onSubmit = handleSubmit(async values => {
     // Step 4: Set auth state and redirect
     setAuthState(token, user)
 
-    const redirectPath = (route.query.redirect as string) || '/admin'
+    // Validate redirect path to prevent open redirect attacks
+    const redirectQuery = route.query.redirect
+    const redirect = Array.isArray(redirectQuery) ? redirectQuery[0] : redirectQuery
+    const redirectPath = redirect && redirect.startsWith('/') ? redirect : '/admin'
     await router.push(redirectPath)
   } catch (err) {
     console.error('Login failed:', err)
