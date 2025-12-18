@@ -76,9 +76,7 @@
 
           <div class="mt-4 text-center text-sm text-muted-foreground">
             Already have an account?
-            <router-link to="/login" class="text-primary hover:underline">
-              Login
-            </router-link>
+            <router-link to="/login" class="text-primary hover:underline"> Login </router-link>
           </div>
         </CardContent>
       </Card>
@@ -93,7 +91,10 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 import { startRegistration } from '@simplewebauthn/browser'
-import type { PublicKeyCredentialCreationOptionsJSON, RegistrationResponseJSON } from '@simplewebauthn/types'
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  RegistrationResponseJSON
+} from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -123,7 +124,11 @@ const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthn
 const registerSchema = toTypedSchema(
   z.object({
     email: z.string().email('Please enter a valid email address'),
-    displayName: z.string().min(2, 'Display name must be at least 2 characters').optional().or(z.literal(''))
+    displayName: z
+      .string()
+      .min(2, 'Display name must be at least 2 characters')
+      .optional()
+      .or(z.literal(''))
   })
 )
 
@@ -133,7 +138,7 @@ const { handleSubmit, meta } = useForm({
 })
 
 // Form submission handler
-const onSubmit = handleSubmit(async (values) => {
+const onSubmit = handleSubmit(async values => {
   isRegistering.value = true
   error.value = ''
 

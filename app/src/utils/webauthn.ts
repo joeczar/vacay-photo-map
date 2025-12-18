@@ -7,7 +7,8 @@ export function checkWebAuthnSupport(): WebAuthnSupportCheck {
   if (!window?.PublicKeyCredential) {
     return {
       supported: false,
-      message: 'Your browser does not support passkeys. Please use a modern browser like Chrome, Safari, or Edge.'
+      message:
+        'Your browser does not support passkeys. Please use a modern browser like Chrome, Safari, or Edge.'
     }
   }
 

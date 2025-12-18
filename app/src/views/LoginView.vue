@@ -79,7 +79,10 @@ import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 import { startAuthentication } from '@simplewebauthn/browser'
-import type { PublicKeyCredentialRequestOptionsJSON, AuthenticationResponseJSON } from '@simplewebauthn/types'
+import type {
+  PublicKeyCredentialRequestOptionsJSON,
+  AuthenticationResponseJSON
+} from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -122,7 +125,7 @@ const { handleSubmit, meta } = useForm({
 })
 
 // Form submission handler
-const onSubmit = handleSubmit(async (values) => {
+const onSubmit = handleSubmit(async values => {
   isLoggingIn.value = true
   error.value = ''
 
