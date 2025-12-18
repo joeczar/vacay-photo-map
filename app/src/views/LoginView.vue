@@ -66,11 +66,13 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
+import { startAuthentication } from '@simplewebauthn/browser'
 import { useAuth } from '@/composables/useAuth'
+import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -80,7 +82,8 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()
-const { isAuthenticated } = useAuth()
+const route = useRoute()
+const { isAuthenticated, setAuthState } = useAuth()
 
 // Redirect if already authenticated
 if (isAuthenticated.value) {
@@ -106,9 +109,49 @@ const { handleSubmit, meta } = useForm({
   initialValues: { email: '' }
 })
 
-// Form submission handler (placeholder for Commit 3)
+// Form submission handler
 const onSubmit = handleSubmit(async (values) => {
-  // Will be implemented in Commit 3
-  console.log('Login attempt with:', values.email)
+  isLoggingIn.value = true
+  error.value = ''
+
+  try {
+    // Step 1: Get authentication options from backend
+    const options = await api.post<any>('/api/auth/login/options', {
+      email: values.email
+    })
+
+    // Step 2: Authenticate with passkey (browser prompts user)
+    const credential = await startAuthentication(options)
+
+    // Step 3: Verify credential with backend
+    const { token, user } = await api.post<{ token: string; user: any }>(
+      '/api/auth/login/verify',
+      { email: values.email, credential }
+    )
+
+    // Step 4: Set auth state and redirect
+    setAuthState(token, user)
+
+    const redirectPath = (route.query.redirect as string) || '/admin'
+    await router.push(redirectPath)
+  } catch (err) {
+    console.error('Login failed:', err)
+
+    if (err instanceof ApiError) {
+      if (err.status === 404) {
+        error.value = 'No account found with this email. Please register first.'
+      } else if (err.status === 400) {
+        error.value = 'Authentication failed. Please try again.'
+      } else {
+        error.value = err.message || 'Login failed. Please try again.'
+      }
+    } else if (err instanceof Error && err.name === 'NotAllowedError') {
+      error.value = 'Authentication was cancelled. Please try again.'
+    } else {
+      error.value = 'An unexpected error occurred. Please try again.'
+    }
+  } finally {
+    isLoggingIn.value = false
+  }
 })
 </script>
