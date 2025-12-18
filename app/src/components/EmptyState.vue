@@ -16,16 +16,16 @@
         </svg>
       </slot>
     </div>
-    <h2 class="text-xl font-semibold text-foreground mb-2">{{ title }}</h2>
-    <p class="text-muted-foreground mb-6">{{ description }}</p>
+    <h2 v-if="title" class="text-xl font-semibold text-foreground mb-2">{{ title }}</h2>
+    <p v-if="description" class="text-muted-foreground mb-6">{{ description }}</p>
     <slot />
   </div>
 </template>
 
 <script setup lang="ts">
 interface Props {
-  title: string
-  description: string
+  title?: string
+  description?: string
 }
 
 defineProps<Props>()
