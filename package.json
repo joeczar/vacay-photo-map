@@ -17,6 +17,7 @@
     "test:api": "pnpm --filter vacay-photo-map-api test",
     "type-check": "pnpm --filter vacay-photo-map-app type-check",
     "type-check:api": "pnpm --filter vacay-photo-map-api type-check",
+    "check:all": "pnpm type-check && pnpm type-check:api && pnpm lint:check && pnpm format:check",
     "migrate:api": "pnpm --filter vacay-photo-map-api migrate",
     "seed:api": "pnpm --filter vacay-photo-map-api seed",
     "prepare": "husky"
