@@ -293,13 +293,78 @@ trips.get("/admin", requireAdmin, async (c) => {
 });
 
 // =============================================================================
-// GET /api/trips/:slug - Get trip by slug with access control
+// GET /api/trips/:identifier - Get trip by UUID or slug
 // =============================================================================
-trips.get("/:slug", optionalAuth, async (c) => {
-  const slug = c.req.param("slug");
+// This route handles both:
+// - UUID (admin only): GET /api/trips/550e8400-e29b-41d4-a716-446655440000
+// - Slug (public with access control): GET /api/trips/my-trip-slug
+//
+// If the identifier is a valid UUID, treat it as an ID and require admin auth.
+// Otherwise, treat it as a slug and apply standard access control.
+trips.get("/:identifier", optionalAuth, async (c) => {
+  const identifier = c.req.param("identifier");
   const token = c.req.query("token");
   const user = c.var.user;
   const db = getDbClient();
+
+  // Check if identifier is a UUID
+  const isUuid = UUID_REGEX.test(identifier);
+
+  if (isUuid) {
+    // UUID path - admin only
+    if (!user?.isAdmin) {
+      return c.json(
+        { error: "Unauthorized", message: "Admin access required" },
+        401,
+      );
+    }
+
+    // Find trip by UUID
+    const tripResults = await db<DbTrip[]>`
+      SELECT id, slug, title, description, cover_photo_url, is_public,
+             access_token_hash, created_at, updated_at
+      FROM trips
+      WHERE id = ${identifier}
+    `;
+
+    if (tripResults.length === 0) {
+      return c.json({ error: "Not Found", message: "Trip not found" }, 404);
+    }
+
+    const trip = tripResults[0];
+
+    // Fetch photos for this trip
+    const photos = await db<DbPhoto[]>`
+      SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
+             latitude, longitude, taken_at, caption, album, created_at
+      FROM photos
+      WHERE trip_id = ${trip.id}
+      ORDER BY taken_at ASC
+    `;
+
+    // Compute photo metadata
+    const photoCount = photos.length;
+    const dateRange = {
+      start:
+        photos.length > 0
+          ? photos[0].taken_at.toISOString()
+          : trip.created_at.toISOString(),
+      end:
+        photos.length > 0
+          ? photos[photos.length - 1].taken_at.toISOString()
+          : trip.created_at.toISOString(),
+    };
+
+    const response: TripWithPhotosResponse = {
+      ...toTripResponse(trip, photoCount, dateRange),
+      photos: photos.map(toPhotoResponse),
+    };
+
+    return c.json(response);
+  }
+
+  // Slug path - standard access control
+  const slug = identifier;
 
   // Find trip by slug
   const tripResults = await db<DbTrip[]>`
