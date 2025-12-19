@@ -1,0 +1,7 @@
+# Bun configuration
+# https://bun.sh/docs/runtime/bunfig
+
+[test]
+# Preload test-setup.ts before running any tests
+# This loads .env.test and validates required environment variables
+preload = ["./src/test-setup.ts"]
