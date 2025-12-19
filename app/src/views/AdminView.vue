@@ -206,9 +206,10 @@ import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 import { extractExifBatch } from '@/utils/exif'
 import { resizeFiles } from '@/utils/resize'
-import { createTrip, createPhotos, updateTripCoverPhoto } from '@/utils/database'
+import { createTrip, createPhotos, updateTrip } from '@/utils/database'
 import { generateUniqueSlug } from '@/utils/slug'
 import type { PhotoMetadata } from '@/utils/exif'
+import { useAuth } from '@/composables/useAuth'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -217,7 +218,7 @@ import { Progress } from '@/components/ui/progress'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { uploadMultipleFiles } from '@/lib/cloudinary'
+import { uploadMultipleFiles } from '@/lib/upload'
 
 // Form validation schema
 const formSchema = toTypedSchema(
@@ -311,34 +312,45 @@ const onSubmit = handleSubmit(async formValues => {
     uploadProgress.value = 20
     const optimizedFiles = await resizeFiles(selectedFiles.value, { maxSize: 1600, quality: 0.85 })
 
-    // Step 3: Upload to Cloudinary
-    uploadStatus.value = 'Uploading photos to cloud storage...'
-    uploadProgress.value = 30
-
-    // Initialize per-file progress
-    perFileProgress.value = new Array(optimizedFiles.length).fill(0)
-    const uploadResults = await uploadMultipleFiles(optimizedFiles, (fileIndex, progress) => {
-      const baseProgress = 20
-      const uploadWeight = 50
-      const fileProgress = (fileIndex / optimizedFiles.length) * uploadWeight
-      const currentFileProgress =
-        (progress.percentage / 100) * (uploadWeight / optimizedFiles.length)
-      uploadProgress.value = Math.round(baseProgress + fileProgress + currentFileProgress)
-      perFileProgress.value[fileIndex] = Math.max(0, Math.min(100, Math.round(progress.percentage)))
-    })
-
-    // Step 4: Create trip in database
+    // Step 3: Create trip as draft FIRST
     uploadStatus.value = 'Creating trip...'
-    uploadProgress.value = 75
+    uploadProgress.value = 25
 
     const slug = generateUniqueSlug(formValues.tripTitle)
     const trip = await createTrip({
       title: formValues.tripTitle,
       description: formValues.tripDescription || null,
       slug,
-      is_public: true,
+      is_public: false, // Draft state
       cover_photo_url: null
     })
+
+    // Step 4: Upload photos to our API
+    uploadStatus.value = 'Uploading photos...'
+    uploadProgress.value = 30
+
+    const { getToken } = useAuth()
+    const token = getToken()
+    if (!token) {
+      throw new Error('Not authenticated')
+    }
+
+    // Initialize per-file progress
+    perFileProgress.value = new Array(optimizedFiles.length).fill(0)
+    const uploadResults = await uploadMultipleFiles(
+      trip.id,
+      optimizedFiles,
+      token,
+      (fileIndex, progress) => {
+        const baseProgress = 30
+        const uploadWeight = 50
+        const fileProgress = (fileIndex / optimizedFiles.length) * uploadWeight
+        const currentFileProgress =
+          (progress.percentage / 100) * (uploadWeight / optimizedFiles.length)
+        uploadProgress.value = Math.round(baseProgress + fileProgress + currentFileProgress)
+        perFileProgress.value[fileIndex] = Math.max(0, Math.min(100, Math.round(progress.percentage)))
+      }
+    )
 
     // Step 5: Save photos to database
     uploadStatus.value = 'Saving photos...'
@@ -362,11 +374,15 @@ const onSubmit = handleSubmit(async formValues => {
 
     await createPhotos(photoInserts)
 
-    // Step 6: Set cover photo (first photo with location, or just first photo)
+    // Step 6: Set cover photo and update trip to public
+    uploadStatus.value = 'Finalizing trip...'
+    uploadProgress.value = 95
+
     const coverPhoto = photoInserts.find(p => p.latitude && p.longitude) || photoInserts[0]
-    if (coverPhoto) {
-      await updateTripCoverPhoto(trip.id, coverPhoto.thumbnail_url)
-    }
+    await updateTrip(trip.id, {
+      coverPhotoUrl: coverPhoto?.thumbnail_url,
+      isPublic: true
+    })
 
     // Done!
     uploadStatus.value = 'Complete!'

@@ -197,15 +197,30 @@ export async function getAllTrips(): Promise<TripWithMetadata[]> {
 }
 
 /**
- * Update trip cover photo
+ * Update trip fields
  */
-export async function updateTripCoverPhoto(tripId: string, coverPhotoUrl: string): Promise<void> {
+export async function updateTrip(
+  tripId: string,
+  updates: {
+    isPublic?: boolean
+    coverPhotoUrl?: string
+    title?: string
+    description?: string | null
+  }
+): Promise<void> {
   const { getToken } = useAuth()
   const token = getToken()
   if (!token) throw new Error('Authentication required')
 
   api.setToken(token)
-  await api.patch(`/api/trips/${tripId}`, { coverPhotoUrl })
+  await api.patch(`/api/trips/${tripId}`, updates)
+}
+
+/**
+ * Update trip cover photo
+ */
+export async function updateTripCoverPhoto(tripId: string, coverPhotoUrl: string): Promise<void> {
+  await updateTrip(tripId, { coverPhotoUrl })
 }
 
 /**
