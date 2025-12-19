@@ -183,6 +183,32 @@
             <AlertDescription>{{ error }}</AlertDescription>
           </Alert>
 
+          <!-- Failed uploads with retry -->
+          <div v-if="failedUploads.length > 0" class="space-y-3">
+            <Alert variant="destructive">
+              <AlertDescription>
+                {{ failedUploads.length }} photo{{ failedUploads.length > 1 ? 's' : '' }} failed to upload
+              </AlertDescription>
+            </Alert>
+            <div class="text-sm text-muted-foreground space-y-1">
+              <div v-for="failed in failedUploads" :key="failed.index" class="flex justify-between">
+                <span class="truncate max-w-[70%]">{{ failed.filename }}</span>
+                <span class="text-destructive">{{ failed.error }}</span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              @click="retryFailedUploads"
+              :disabled="isUploading"
+            >
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Retry Failed
+            </Button>
+          </div>
+
           <!-- Per-file progress list -->
           <div v-if="selectedFiles.length > 0" class="mt-2 space-y-3">
             <div v-for="(file, i) in selectedFiles" :key="file.name + i" class="space-y-1">
@@ -218,7 +244,7 @@ import { Progress } from '@/components/ui/progress'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { uploadMultipleFiles } from '@/lib/upload'
+import { uploadMultipleFiles, uploadPhoto, type UploadError, type UploadResult } from '@/lib/upload'
 
 // Form validation schema
 const formSchema = toTypedSchema(
@@ -258,6 +284,9 @@ const perFileProgress = ref<number[]>([])
 const error = ref('')
 const uploadComplete = ref(false)
 const tripSlug = ref('')
+const failedUploads = ref<UploadError[]>([])
+const currentTripId = ref<string | null>(null)
+const uploadResults = ref<(UploadResult | null)[]>([])
 
 // File selection
 function handleFileSelect(event: Event) {
@@ -338,7 +367,9 @@ const onSubmit = handleSubmit(async formValues => {
 
     // Initialize per-file progress
     perFileProgress.value = new Array(optimizedFiles.length).fill(0)
-    const uploadResults = await uploadMultipleFiles(
+    currentTripId.value = trip.id
+
+    const { results, errors } = await uploadMultipleFiles(
       trip.id,
       optimizedFiles,
       token,
@@ -353,43 +384,59 @@ const onSubmit = handleSubmit(async formValues => {
       }
     )
 
-    // Step 5: Save photos to database
+    // Track results and errors for potential retry
+    uploadResults.value = results
+    failedUploads.value = errors
+
+    // Step 5: Save successful photos to database
     uploadStatus.value = 'Saving photos...'
     uploadProgress.value = 85
 
-    const photoInserts = selectedFiles.value.map((file, index) => {
-      const metadata = exifData.get(file) as PhotoMetadata
-      const uploadResult = uploadResults[index]
+    const photoInserts = selectedFiles.value
+      .map((file, index) => {
+        const uploadResult = results[index]
+        if (!uploadResult) return null // Skip failed uploads
 
-      return {
-        trip_id: trip.id,
-        cloudinary_public_id: uploadResult.publicId,
-        url: uploadResult.url,
-        thumbnail_url: uploadResult.thumbnailUrl,
-        latitude: metadata.latitude || null,
-        longitude: metadata.longitude || null,
-        taken_at: metadata.takenAt?.toISOString() || new Date().toISOString(),
-        caption: null
-      }
-    })
+        const metadata = exifData.get(file) as PhotoMetadata
+        return {
+          trip_id: trip.id,
+          cloudinary_public_id: uploadResult.publicId,
+          url: uploadResult.url,
+          thumbnail_url: uploadResult.thumbnailUrl,
+          latitude: metadata.latitude || null,
+          longitude: metadata.longitude || null,
+          taken_at: metadata.takenAt?.toISOString() || new Date().toISOString(),
+          caption: null
+        }
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null)
 
-    await createPhotos(photoInserts)
+    if (photoInserts.length > 0) {
+      await createPhotos(photoInserts)
+    }
 
     // Step 6: Set cover photo and update trip to public
     uploadStatus.value = 'Finalizing trip...'
     uploadProgress.value = 95
 
-    const coverPhoto = photoInserts.find(p => p.latitude && p.longitude) || photoInserts[0]
-    await updateTrip(trip.id, {
-      coverPhotoUrl: coverPhoto?.thumbnail_url,
-      isPublic: true
-    })
+    if (photoInserts.length > 0) {
+      const coverPhoto = photoInserts.find(p => p.latitude && p.longitude) || photoInserts[0]
+      await updateTrip(trip.id, {
+        coverPhotoUrl: coverPhoto?.thumbnail_url,
+        isPublic: true
+      })
+    }
 
-    // Done!
-    uploadStatus.value = 'Complete!'
+    // Done (with possible partial failures)
     uploadProgress.value = 100
     tripSlug.value = slug
     uploadComplete.value = true
+
+    if (errors.length > 0) {
+      uploadStatus.value = `${photoInserts.length} uploaded, ${errors.length} failed`
+    } else {
+      uploadStatus.value = 'Complete!'
+    }
   } catch (err) {
     console.error('Upload error:', err)
     error.value = err instanceof Error ? err.message : 'Upload failed. Please try again.'
@@ -409,8 +456,64 @@ function resetForm() {
   uploadStatus.value = ''
   error.value = ''
   tripSlug.value = ''
+  failedUploads.value = []
+  currentTripId.value = null
+  uploadResults.value = []
   if (fileInput.value) {
     fileInput.value.value = ''
+  }
+}
+
+async function retryFailedUploads() {
+  if (!currentTripId.value || failedUploads.value.length === 0) return
+
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) return
+
+  isUploading.value = true
+  uploadStatus.value = 'Retrying failed uploads...'
+
+  const failedIndices = failedUploads.value.map(e => e.index)
+  const filesToRetry = failedIndices.map(i => selectedFiles.value[i])
+  const newErrors: UploadError[] = []
+
+  for (let i = 0; i < filesToRetry.length; i++) {
+    const file = filesToRetry[i]
+    const originalIndex = failedIndices[i]
+
+    try {
+      const result = await uploadPhoto(currentTripId.value, file, token)
+      uploadResults.value[originalIndex] = result
+
+      // Save to database
+      const exifData = await import('@/utils/exif').then(m => m.extractExif(file))
+      await createPhotos([{
+        trip_id: currentTripId.value,
+        cloudinary_public_id: result.publicId,
+        url: result.url,
+        thumbnail_url: result.thumbnailUrl,
+        latitude: exifData.latitude || null,
+        longitude: exifData.longitude || null,
+        taken_at: exifData.takenAt?.toISOString() || new Date().toISOString(),
+        caption: null
+      }])
+    } catch (err) {
+      newErrors.push({
+        index: originalIndex,
+        filename: file.name,
+        error: err instanceof Error ? err.message : 'Retry failed'
+      })
+    }
+  }
+
+  failedUploads.value = newErrors
+  isUploading.value = false
+
+  if (newErrors.length === 0) {
+    uploadStatus.value = 'All photos uploaded!'
+  } else {
+    uploadStatus.value = `${filesToRetry.length - newErrors.length} recovered, ${newErrors.length} still failed`
   }
 }
 </script>

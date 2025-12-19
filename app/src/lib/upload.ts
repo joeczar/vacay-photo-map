@@ -17,6 +17,17 @@ export interface UploadResult {
   height: number
 }
 
+export interface UploadError {
+  index: number
+  filename: string
+  error: string
+}
+
+export interface MultiUploadResult {
+  results: (UploadResult | null)[]
+  errors: UploadError[]
+}
+
 /**
  * Upload a single photo to the API
  * @param tripId - The trip ID to upload the photo to
@@ -86,13 +97,13 @@ export function uploadPhoto(
 
 /**
  * Upload multiple files with concurrency control
- * Matches the Cloudinary uploadMultipleFiles signature for easy migration
+ * Continues on failures and returns both successes and errors
  * @param tripId - The trip ID to upload photos to
  * @param files - Array of image files to upload
  * @param token - JWT authentication token
  * @param onProgress - Optional callback for per-file upload progress
  * @param maxConcurrent - Maximum number of concurrent uploads (default: 3)
- * @returns Array of upload results in same order as input files
+ * @returns Results and errors arrays
  */
 export async function uploadMultipleFiles(
   tripId: string,
@@ -100,25 +111,25 @@ export async function uploadMultipleFiles(
   token: string,
   onProgress?: (fileIndex: number, progress: UploadProgress) => void,
   maxConcurrent = 3
-): Promise<UploadResult[]> {
-  const results: UploadResult[] = new Array(files.length)
-  const queue = [...files]
+): Promise<MultiUploadResult> {
+  const results: (UploadResult | null)[] = new Array(files.length).fill(null)
+  const errors: UploadError[] = []
+  let nextIndex = 0
   let activeUploads = 0
-  let completedCount = 0
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const processNext = () => {
       // All done
-      if (queue.length === 0 && activeUploads === 0) {
-        resolve(results)
+      if (nextIndex >= files.length && activeUploads === 0) {
+        resolve({ results, errors })
         return
       }
 
       // Start new uploads up to the concurrency limit
-      while (queue.length > 0 && activeUploads < maxConcurrent) {
-        const file = queue.shift()!
-        const fileIndex = completedCount + activeUploads
-
+      while (nextIndex < files.length && activeUploads < maxConcurrent) {
+        const fileIndex = nextIndex
+        const file = files[fileIndex]
+        nextIndex++
         activeUploads++
 
         uploadPhoto(
@@ -130,11 +141,16 @@ export async function uploadMultipleFiles(
           .then((result) => {
             results[fileIndex] = result
             activeUploads--
-            completedCount++
             processNext()
           })
           .catch((error) => {
-            reject(error)
+            errors.push({
+              index: fileIndex,
+              filename: file.name,
+              error: error instanceof Error ? error.message : 'Upload failed'
+            })
+            activeUploads--
+            processNext()
           })
       }
     }
