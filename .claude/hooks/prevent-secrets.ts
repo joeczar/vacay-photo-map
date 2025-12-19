@@ -5,9 +5,9 @@
  * This hook runs before Write/Edit tool calls and blocks attempts
  * to add hardcoded environment variables to test files.
  *
- * Exit codes:
- * - 0: Allow the write
- * - Non-zero with JSON output: Block the write
+ * Uses hookSpecificOutput.permissionDecision to control behavior:
+ * - "allow": Permit the write
+ * - "deny": Block the write with permissionDecisionReason
  */
 
 interface HookInput {
@@ -40,7 +40,7 @@ if (!filePath.match(/\.test\.ts$/)) {
 
 // Check for hardcoded env var assignments
 // Pattern: process.env.ANYTHING = 'value' or "value"
-const pattern = /process\.env\.[A-Z_]+ *= *['"][^'"]+['"]/g;
+const pattern = /process\.env\.[A-Z0-9_]+ *= *['"][^'"]+['"]/g;
 const violations = content.match(pattern);
 
 if (violations && violations.length > 0) {
