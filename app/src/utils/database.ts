@@ -269,3 +269,37 @@ export async function updateTripProtection(
   api.setToken(authToken)
   await api.patch(`/api/trips/${tripId}/protection`, { isPublic, token })
 }
+
+/**
+ * Get a trip by ID (admin-only)
+ * Used for editing draft trips
+ */
+export async function getTripById(tripId: string): Promise<(ApiTrip & { photos: Photo[] }) | null> {
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
+
+  api.setToken(token)
+
+  try {
+    const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/${tripId}`)
+    return transformApiTripWithPhotos(trip)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+/**
+ * Delete a photo from a trip (admin-only)
+ */
+export async function deletePhoto(photoId: string): Promise<void> {
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
+
+  api.setToken(token)
+  await api.delete(`/api/trips/photos/${photoId}`)
+}
