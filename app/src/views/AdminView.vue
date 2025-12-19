@@ -187,7 +187,8 @@
           <div v-if="failedUploads.length > 0" class="space-y-3">
             <Alert variant="destructive">
               <AlertDescription>
-                {{ failedUploads.length }} photo{{ failedUploads.length > 1 ? 's' : '' }} failed to upload
+                {{ failedUploads.length }} photo{{ failedUploads.length > 1 ? 's' : '' }} failed to
+                upload
               </AlertDescription>
             </Alert>
             <div class="text-sm text-muted-foreground space-y-1">
@@ -196,14 +197,14 @@
                 <span class="text-destructive">{{ failed.error }}</span>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              @click="retryFailedUploads"
-              :disabled="isUploading"
-            >
+            <Button variant="outline" size="sm" @click="retryFailedUploads" :disabled="isUploading">
               <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
               Retry Failed
             </Button>
@@ -380,7 +381,10 @@ const onSubmit = handleSubmit(async formValues => {
         const currentFileProgress =
           (progress.percentage / 100) * (uploadWeight / optimizedFiles.length)
         uploadProgress.value = Math.round(baseProgress + fileProgress + currentFileProgress)
-        perFileProgress.value[fileIndex] = Math.max(0, Math.min(100, Math.round(progress.percentage)))
+        perFileProgress.value[fileIndex] = Math.max(
+          0,
+          Math.min(100, Math.round(progress.percentage))
+        )
       }
     )
 
@@ -488,16 +492,18 @@ async function retryFailedUploads() {
 
       // Save to database
       const exifData = await import('@/utils/exif').then(m => m.extractExif(file))
-      await createPhotos([{
-        trip_id: currentTripId.value,
-        cloudinary_public_id: result.publicId,
-        url: result.url,
-        thumbnail_url: result.thumbnailUrl,
-        latitude: exifData.latitude || null,
-        longitude: exifData.longitude || null,
-        taken_at: exifData.takenAt?.toISOString() || new Date().toISOString(),
-        caption: null
-      }])
+      await createPhotos([
+        {
+          trip_id: currentTripId.value,
+          cloudinary_public_id: result.publicId,
+          url: result.url,
+          thumbnail_url: result.thumbnailUrl,
+          latitude: exifData.latitude || null,
+          longitude: exifData.longitude || null,
+          taken_at: exifData.takenAt?.toISOString() || new Date().toISOString(),
+          caption: null
+        }
+      ])
     } catch (err) {
       newErrors.push({
         index: originalIndex,

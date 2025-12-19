@@ -48,12 +48,12 @@ export function uploadPhoto(
     formData.append('file', file)
 
     // Track upload progress
-    xhr.upload.addEventListener('progress', (event) => {
+    xhr.upload.addEventListener('progress', event => {
       if (event.lengthComputable && onProgress) {
         onProgress({
           loaded: event.loaded,
           total: event.total,
-          percentage: Math.round((event.loaded / event.total) * 100),
+          percentage: Math.round((event.loaded / event.total) * 100)
         })
       }
     })
@@ -117,7 +117,7 @@ export async function uploadMultipleFiles(
   let nextIndex = 0
   let activeUploads = 0
 
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const processNext = () => {
       // All done
       if (nextIndex >= files.length && activeUploads === 0) {
@@ -136,14 +136,14 @@ export async function uploadMultipleFiles(
           tripId,
           file,
           token,
-          onProgress ? (progress) => onProgress(fileIndex, progress) : undefined
+          onProgress ? progress => onProgress(fileIndex, progress) : undefined
         )
-          .then((result) => {
+          .then(result => {
             results[fileIndex] = result
             activeUploads--
             processNext()
           })
-          .catch((error) => {
+          .catch(error => {
             errors.push({
               index: fileIndex,
               filename: file.name,
