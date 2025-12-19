@@ -862,4 +862,62 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
   return c.json({ photos: insertedPhotos.map(toPhotoResponse) }, 201);
 });
 
+// =============================================================================
+// DELETE /api/trips/photos/:id - Delete individual photo (admin only)
+// =============================================================================
+trips.delete("/photos/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid photo ID format." },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Fetch photo to get trip_id and url for disk cleanup
+  const photoResults = await db<DbPhoto[]>`
+    SELECT id, trip_id, url
+    FROM photos
+    WHERE id = ${id}
+  `;
+
+  if (photoResults.length === 0) {
+    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
+  }
+
+  const photo = photoResults[0];
+
+  // Delete photo from database
+  await db`
+    DELETE FROM photos
+    WHERE id = ${id}
+  `;
+
+  // Clean up photo file on disk
+  // URL format: /api/photos/{tripId}/{filename}
+  try {
+    const urlPath = photo.url.replace("/api/photos/", "");
+    const photosDir = getPhotosDir();
+    const photoPath = `${photosDir}/${urlPath}`;
+
+    await rm(photoPath, { force: true }).catch((error) => {
+      // Log but don't fail the request - DB transaction already committed
+      console.error(`Failed to delete photo file at ${photoPath}:`, error);
+    });
+  } catch (error) {
+    // Log parsing errors but don't fail - DB is source of truth
+    console.error(
+      `Failed to parse photo URL for deletion: ${photo.url}`,
+      error,
+    );
+  }
+
+  // 204 No Content
+  return c.body(null, 204);
+});
+
 export { trips };
