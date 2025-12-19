@@ -26,7 +26,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://vacay:vacay@localhost:5432/vacay
-      JWT_SECRET: test-secret-key-for-ci-only-32chars
+      JWT_SECRET: ${{ secrets.JWT_SECRET_TEST || 'ci-test-jwt-secret-not-for-production' }}
       RP_ID: localhost
       RP_NAME: Test App
       RP_ORIGIN: http://localhost:5173
