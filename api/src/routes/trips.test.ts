@@ -71,7 +71,7 @@ describe("Trip Routes", () => {
   describe("GET /api/trips", () => {
     // These tests require a real database connection
     // They are tested via integration tests
-    it.skip("returns 200 with trips array (even if empty)", async () => {
+    it("returns 200 with trips array (even if empty)", async () => {
       const app = createTestApp();
       const res = await app.fetch(
         new Request("http://localhost/api/trips", {
@@ -83,7 +83,7 @@ describe("Trip Routes", () => {
       expect(Array.isArray(data.trips)).toBe(true);
     });
 
-    it.skip("does not require authentication", async () => {
+    it("does not require authentication", async () => {
       const app = createTestApp();
       const res = await app.fetch(
         new Request("http://localhost/api/trips", {
@@ -98,7 +98,7 @@ describe("Trip Routes", () => {
   // GET /api/trips/:slug - Get trip by slug
   // ==========================================================================
   describe("GET /api/trips/:slug", () => {
-    it.skip("returns 404 for non-existent trip", async () => {
+    it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const res = await app.fetch(
         new Request("http://localhost/api/trips/non-existent-trip-slug", {
@@ -249,7 +249,7 @@ describe("Trip Routes", () => {
       expect(data.message).toContain("Invalid trip ID format");
     });
 
-    it.skip("returns 400 for no fields to update (requires DB)", async () => {
+    it("returns 400 for no fields to update", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
       const res = await app.fetch(
@@ -307,7 +307,7 @@ describe("Trip Routes", () => {
       expect(data.message).toContain("Invalid trip ID format");
     });
 
-    it.skip("returns 404 for non-existent trip (requires DB)", async () => {
+    it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
       const res = await app.fetch(
@@ -396,7 +396,7 @@ describe("Trip Routes", () => {
       expect(data.message).toContain("Token must be at least 8 characters");
     });
 
-    it.skip("returns 404 for non-existent trip (requires DB)", async () => {
+    it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
       const res = await app.fetch(
@@ -407,6 +407,130 @@ describe("Trip Routes", () => {
         }),
       );
       expect(res.status).toBe(404);
+    });
+  });
+
+  // ==========================================================================
+  // GET /api/trips/admin - List all trips (admin only)
+  // ==========================================================================
+  describe("GET /api/trips/admin", () => {
+    it("returns all trips (draft + public) for admin user", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create test trips with unique slugs
+      const draftSlug = "draft-trip-" + crypto.randomUUID();
+      const publicSlug = "public-trip-" + crypto.randomUUID();
+
+      const [draftTrip] = await db`
+        INSERT INTO trips (title, slug, is_public)
+        VALUES ('Draft Trip', ${draftSlug}, false)
+        RETURNING id
+      `;
+
+      const [publicTrip] = await db`
+        INSERT INTO trips (title, slug, is_public)
+        VALUES ('Public Trip', ${publicSlug}, true)
+        RETURNING id
+      `;
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/admin", {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripListResponse;
+      expect(Array.isArray(data.trips)).toBe(true);
+
+      // Verify both draft and public trips are returned
+      const draftFound = data.trips.find((t) => t.id === draftTrip.id);
+      const publicFound = data.trips.find((t) => t.id === publicTrip.id);
+
+      expect(draftFound).toBeDefined();
+      expect(draftFound?.isPublic).toBe(false);
+      expect(publicFound).toBeDefined();
+      expect(publicFound?.isPublic).toBe(true);
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${draftTrip.id}`;
+      await db`DELETE FROM trips WHERE id = ${publicTrip.id}`;
+    });
+
+    it("returns 403 for non-admin user", async () => {
+      const app = createTestApp();
+      const authHeader = await getUserAuthHeader();
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/admin", {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+    });
+
+    it("returns 401 for unauthenticated request", async () => {
+      const app = createTestApp();
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/admin", {
+          method: "GET",
+        }),
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it("returns trips ordered by created_at DESC", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create trips with deliberate timing
+      const olderSlug = "older-trip-" + crypto.randomUUID();
+      const newerSlug = "newer-trip-" + crypto.randomUUID();
+
+      const [olderTrip] = await db`
+        INSERT INTO trips (title, slug, is_public, created_at)
+        VALUES ('Older Trip', ${olderSlug}, true, NOW() - INTERVAL '1 hour')
+        RETURNING id, created_at
+      `;
+
+      const [newerTrip] = await db`
+        INSERT INTO trips (title, slug, is_public, created_at)
+        VALUES ('Newer Trip', ${newerSlug}, true, NOW())
+        RETURNING id, created_at
+      `;
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/admin", {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripListResponse;
+
+      // Find positions of our test trips
+      const newerIndex = data.trips.findIndex((t) => t.id === newerTrip.id);
+      const olderIndex = data.trips.findIndex((t) => t.id === olderTrip.id);
+
+      // Newer trip should appear before older trip (DESC order)
+      expect(newerIndex).toBeGreaterThanOrEqual(0);
+      expect(olderIndex).toBeGreaterThanOrEqual(0);
+      expect(newerIndex).toBeLessThan(olderIndex);
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${olderTrip.id}`;
+      await db`DELETE FROM trips WHERE id = ${newerTrip.id}`;
     });
   });
 
