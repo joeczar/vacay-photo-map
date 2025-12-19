@@ -4,6 +4,7 @@ import { corsMiddleware } from './middleware/cors'
 import { health } from './routes/health'
 import { auth } from './routes/auth'
 import { trips } from './routes/trips'
+import { upload } from './routes/upload'
 
 const app = new Hono()
 
@@ -15,6 +16,7 @@ app.use('*', corsMiddleware)
 app.route('/health', health)
 app.route('/api/auth', auth)
 app.route('/api/trips', trips)
+app.route('/api', upload)
 
 // Root
 app.get('/', (c) => {

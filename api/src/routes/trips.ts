@@ -97,6 +97,8 @@ function isValidDescription(description: string | undefined | null): boolean {
 
 function isValidUrl(url: string | undefined | null): boolean {
   if (!url) return true
+  // Accept relative paths for self-hosted photos
+  if (url.startsWith('/api/photos/')) return true
   try {
     new URL(url)
     return true

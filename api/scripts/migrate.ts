@@ -12,9 +12,20 @@ const schemaPath = path.join(__dirname, '..', 'src', 'db', 'schema.sql')
  *
  * This is a safeguard, not a full SQL parser. It removes comments and
  * PL/pgSQL blocks before checking for forbidden DML statements.
+ *
+ * Note: This specifically matches DML syntax patterns, not DDL clauses like
+ * "ON DELETE CASCADE" or "BEFORE UPDATE ON" which are valid in schemas.
  */
 function validateSchemaSql(sql: string): void {
-  const forbiddenDmlPattern = /\b(INSERT|UPDATE|DELETE)\b/gi
+  // Match actual DML statements, not DDL clauses containing these keywords
+  // - INSERT INTO ... (DML)
+  // - DELETE FROM ... (DML)
+  // - UPDATE table SET ... (DML)
+  const dmlPatterns = [
+    /\bINSERT\s+INTO\b/gi,
+    /\bDELETE\s+FROM\b/gi,
+    /\bUPDATE\s+\w+\s+SET\b/gi,
+  ]
 
   // Remove comments and PL/pgSQL blocks to avoid false positives
   const sanitizedSql = sql
@@ -22,10 +33,17 @@ function validateSchemaSql(sql: string): void {
     .replace(/\/\*[\s\S]*?\*\//g, '') // remove multi-line comments
     .replace(/\$\$[\s\S]*?\$\$/g, '') // remove PL/pgSQL blocks
 
-  const matches = sanitizedSql.match(forbiddenDmlPattern)
-  if (matches) {
+  const foundDml: string[] = []
+  for (const pattern of dmlPatterns) {
+    const matches = sanitizedSql.match(pattern)
+    if (matches) {
+      foundDml.push(...matches)
+    }
+  }
+
+  if (foundDml.length > 0) {
     throw new Error(
-      `Schema validation failed: DML statement(s) (${matches.join(', ')}) ` +
+      `Schema validation failed: DML statement(s) (${foundDml.join(', ')}) ` +
         `found outside a function or DO block.`
     )
   }

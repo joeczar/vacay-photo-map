@@ -17,15 +17,27 @@
     "test:api": "pnpm --filter vacay-photo-map-api test",
     "type-check": "pnpm --filter vacay-photo-map-app type-check",
     "type-check:api": "pnpm --filter vacay-photo-map-api type-check",
+    "check:all": "pnpm type-check && pnpm type-check:api && pnpm lint:check && pnpm format:check",
     "migrate:api": "pnpm --filter vacay-photo-map-api migrate",
-    "seed:api": "pnpm --filter vacay-photo-map-api seed"
+    "seed:api": "pnpm --filter vacay-photo-map-api seed",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7"
   },
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=9.15.0"
   },
-  "packageManager": "pnpm@9.15.0"
+  "packageManager": "pnpm@9.15.0",
+  "lint-staged": {
+    "app/src/**/*.{ts,vue,js}": [
+      "prettier --write"
+    ],
+    "api/src/**/*.ts": [
+      "prettier --write"
+    ]
+  }
 }

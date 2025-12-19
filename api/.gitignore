@@ -6,3 +6,5 @@ dist/
 *.tsbuildinfo
 bun.lockb
 .DS_Store
+/data/photos-test/
+/data/photos/
