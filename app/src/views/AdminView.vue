@@ -1,5 +1,13 @@
 <template>
   <MainLayout>
+    <!-- Header with link to Manage Trips -->
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold text-foreground">Upload Trip</h1>
+      <Button as-child variant="outline" size="sm" class="btn-gradient-primary">
+        <router-link to="/admin/trips">Manage Trips</router-link>
+      </Button>
+    </div>
+
     <!-- Success Message -->
     <Alert
       v-if="uploadComplete && tripSlug"

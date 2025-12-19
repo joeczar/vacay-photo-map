@@ -197,6 +197,19 @@ export async function getAllTrips(): Promise<TripWithMetadata[]> {
 }
 
 /**
+ * Admin-only endpoint that returns all trips including drafts
+ */
+export async function getAllTripsAdmin(): Promise<TripWithMetadata[]> {
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
+
+  api.setToken(token)
+  const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips/admin')
+  return trips.map(transformApiTrip)
+}
+
+/**
  * Update trip fields
  */
 export async function updateTrip(

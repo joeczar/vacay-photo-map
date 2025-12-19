@@ -15,6 +15,9 @@
           <Button v-if="isAdmin" variant="ghost" as-child>
             <router-link to="/admin">Upload</router-link>
           </Button>
+          <Button v-if="isAdmin" variant="ghost" as-child>
+            <router-link to="/admin/trips">Manage</router-link>
+          </Button>
           <template v-if="isAuthenticated">
             <Button variant="ghost" @click="handleLogout" :disabled="loading"> Logout </Button>
           </template>
