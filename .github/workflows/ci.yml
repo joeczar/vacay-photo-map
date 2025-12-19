@@ -9,6 +9,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vacay
+          POSTGRES_PASSWORD: vacay
+          POSTGRES_DB: vacay
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://vacay:vacay@localhost:5432/vacay
+      JWT_SECRET: test-secret-key-for-ci-only-32chars
+      RP_ID: localhost
+      RP_NAME: Test App
+      RP_ORIGIN: http://localhost:5173
+      PHOTOS_DIR: ./data/photos-test
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,6 +63,9 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Run database migrations
+        run: pnpm migrate:api
 
       - name: Lint
         run: pnpm lint:check
