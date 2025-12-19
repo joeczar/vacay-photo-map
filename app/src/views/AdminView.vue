@@ -216,6 +216,7 @@ import { Progress } from '@/components/ui/progress'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { uploadMultipleFiles } from '@/lib/cloudinary'
 
 // Form validation schema
 const formSchema = toTypedSchema(

@@ -35,12 +35,7 @@
 
         <!-- Upload/Admin or Login -->
         <li class="flex-1">
-          <RouterLink
-            v-if="isAdmin"
-            to="/admin"
-            custom
-            v-slot="{ href, navigate, isActive }"
-          >
+          <RouterLink v-if="isAdmin" to="/admin" custom v-slot="{ href, navigate, isActive }">
             <a
               :href="href"
               @click="navigate"
@@ -67,7 +62,12 @@
               Upload
             </a>
           </RouterLink>
-          <RouterLink v-else-if="!isAuthenticated" to="/login" custom v-slot="{ href, navigate, isActive }">
+          <RouterLink
+            v-else-if="!isAuthenticated"
+            to="/login"
+            custom
+            v-slot="{ href, navigate, isActive }"
+          >
             <a
               :href="href"
               @click="navigate"
