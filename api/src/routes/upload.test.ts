@@ -1,18 +1,19 @@
-// Set environment before importing modules
-process.env.JWT_SECRET = "test-secret-key-for-testing-only-32chars";
-process.env.RP_ID = "localhost";
-process.env.RP_NAME = "Test App";
-process.env.RP_ORIGIN = "http://localhost:5173";
-process.env.DATABASE_URL = "postgresql://vacay:vacay@localhost:5432/vacay";
-process.env.PHOTOS_DIR = "./data/photos-test";
+// Environment loaded automatically from .env.test via bunfig.toml preload
 
 import { describe, expect, it, beforeAll, afterAll } from "bun:test";
 import { Hono } from "hono";
 import { upload } from "./upload";
-import { signToken } from "../utils/jwt";
 import { getDbClient } from "../db/client";
 import type { AuthEnv } from "../types/auth";
 import { rm, mkdir } from "fs/promises";
+import {
+  getAdminAuthHeader,
+  getUserAuthHeader,
+  createJpegFile,
+  createPngFile,
+  createWebpFile,
+  createFormData,
+} from "../test-helpers";
 
 // Response types
 interface ErrorResponse {
@@ -36,56 +37,6 @@ function createTestApp() {
   const app = new Hono<AuthEnv>();
   app.route("/api", upload);
   return app;
-}
-
-// Helper to create auth headers
-async function getAdminAuthHeader(): Promise<{ Authorization: string }> {
-  const token = await signToken({
-    sub: "admin-user-123",
-    email: "admin@example.com",
-    isAdmin: true,
-  });
-  return { Authorization: `Bearer ${token}` };
-}
-
-async function getUserAuthHeader(): Promise<{ Authorization: string }> {
-  const token = await signToken({
-    sub: "user-123",
-    email: "user@example.com",
-    isAdmin: false,
-  });
-  return { Authorization: `Bearer ${token}` };
-}
-
-// Helper to create a minimal valid JPEG file
-function createJpegFile(filename = "test.jpg"): File {
-  // Minimal valid JPEG (FFD8 start, FFD9 end)
-  const jpegBytes = new Uint8Array([
-    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
-    0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
-  ]);
-  return new File([jpegBytes], filename, { type: "image/jpeg" });
-}
-
-function createPngFile(filename = "test.png"): File {
-  // Minimal PNG header
-  const pngBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-  return new File([pngBytes], filename, { type: "image/png" });
-}
-
-function createWebpFile(filename = "test.webp"): File {
-  // Minimal WebP header (RIFF....WEBP)
-  const webpBytes = new Uint8Array([
-    82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80,
-  ]);
-  return new File([webpBytes], filename, { type: "image/webp" });
-}
-
-// Helper to create form data with file
-function createFormData(file: File): FormData {
-  const formData = new FormData();
-  formData.append("file", file);
-  return formData;
 }
 
 describe("Upload Routes", () => {
