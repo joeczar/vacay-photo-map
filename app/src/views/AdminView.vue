@@ -676,7 +676,8 @@ async function publishTrip() {
 
 // Load trip in edit mode if tripId query param present
 onMounted(async () => {
-  const tripId = route.query.tripId as string | undefined
+  const tripIdQuery = route.query.tripId
+  const tripId = (Array.isArray(tripIdQuery) ? tripIdQuery[0] : tripIdQuery) as string | undefined
 
   if (tripId) {
     isEditMode.value = true

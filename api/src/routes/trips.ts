@@ -314,8 +314,8 @@ trips.get("/:identifier", optionalAuth, async (c) => {
     // UUID path - admin only
     if (!user?.isAdmin) {
       return c.json(
-        { error: "Unauthorized", message: "Admin access required" },
-        401,
+        { error: "Forbidden", message: "Admin access required" },
+        403,
       );
     }
 

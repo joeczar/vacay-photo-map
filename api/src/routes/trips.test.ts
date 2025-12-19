@@ -589,7 +589,7 @@ describe("Trip Routes", () => {
       await db`DELETE FROM trips WHERE id = ${trip.id}`;
     });
 
-    it("returns 401 for non-admin user", async () => {
+    it("returns 403 for non-admin user", async () => {
       const app = createTestApp();
       const authHeader = await getUserAuthHeader();
       const validUuid = "550e8400-e29b-41d4-a716-446655440000";
@@ -601,7 +601,7 @@ describe("Trip Routes", () => {
         }),
       );
 
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(403);
     });
 
     it("returns 404 for non-existent trip", async () => {
