@@ -1,36 +1,38 @@
-import { Hono } from 'hono'
-import { getDbClient } from '../db/client'
-import { requireAdmin, optionalAuth } from '../middleware/auth'
-import type { AuthEnv } from '../types/auth'
+import { Hono } from "hono";
+import { rm } from "node:fs/promises";
+import { getDbClient } from "../db/client";
+import { requireAdmin, optionalAuth } from "../middleware/auth";
+import type { AuthEnv } from "../types/auth";
+import { getPhotosDir } from "./upload";
 
 // =============================================================================
 // Database Types
 // =============================================================================
 
 interface DbTrip {
-  id: string
-  slug: string
-  title: string
-  description: string | null
-  cover_photo_url: string | null
-  is_public: boolean
-  access_token_hash: string | null
-  created_at: Date
-  updated_at: Date
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  cover_photo_url: string | null;
+  is_public: boolean;
+  access_token_hash: string | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
 interface DbPhoto {
-  id: string
-  trip_id: string
-  cloudinary_public_id: string
-  url: string
-  thumbnail_url: string
-  latitude: string | null // Decimal comes as string from postgres
-  longitude: string | null
-  taken_at: Date
-  caption: string | null
-  album: string | null
-  created_at: Date
+  id: string;
+  trip_id: string;
+  cloudinary_public_id: string;
+  url: string;
+  thumbnail_url: string;
+  latitude: string | null; // Decimal comes as string from postgres
+  longitude: string | null;
+  taken_at: Date;
+  caption: string | null;
+  album: string | null;
+  created_at: Date;
 }
 
 // =============================================================================
@@ -38,72 +40,73 @@ interface DbPhoto {
 // =============================================================================
 
 interface TripResponse {
-  id: string
-  slug: string
-  title: string
-  description: string | null
-  coverPhotoUrl: string | null
-  isPublic: boolean
-  createdAt: Date
-  updatedAt: Date
-  photoCount: number
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  coverPhotoUrl: string | null;
+  isPublic: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  photoCount: number;
   dateRange: {
-    start: string
-    end: string
-  }
+    start: string;
+    end: string;
+  };
 }
 
 interface TripWithPhotosResponse extends TripResponse {
-  photos: PhotoResponse[]
+  photos: PhotoResponse[];
 }
 
 interface PhotoResponse {
-  id: string
-  cloudinaryPublicId: string
-  url: string
-  thumbnailUrl: string
-  latitude: number | null
-  longitude: number | null
-  takenAt: Date
-  caption: string | null
-  album: string | null
-  createdAt: Date
+  id: string;
+  cloudinaryPublicId: string;
+  url: string;
+  thumbnailUrl: string;
+  latitude: number | null;
+  longitude: number | null;
+  takenAt: Date;
+  caption: string | null;
+  album: string | null;
+  createdAt: Date;
 }
 
 // =============================================================================
 // Validation Helpers
 // =============================================================================
 
-const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const MAX_TITLE_LENGTH = 200
-const MAX_DESCRIPTION_LENGTH = 2000
-const MAX_SLUG_LENGTH = 100
+const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_TITLE_LENGTH = 200;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_SLUG_LENGTH = 100;
 
 function isValidSlug(slug: string): boolean {
   return (
     SLUG_REGEX.test(slug) && slug.length > 0 && slug.length <= MAX_SLUG_LENGTH
-  )
+  );
 }
 
 function isValidTitle(title: string): boolean {
-  return title.trim().length > 0 && title.length <= MAX_TITLE_LENGTH
+  return title.trim().length > 0 && title.length <= MAX_TITLE_LENGTH;
 }
 
 function isValidDescription(description: string | undefined | null): boolean {
-  if (!description) return true
-  return description.length <= MAX_DESCRIPTION_LENGTH
+  if (!description) return true;
+  return description.length <= MAX_DESCRIPTION_LENGTH;
 }
 
 function isValidUrl(url: string | undefined | null): boolean {
-  if (!url) return true
+  if (!url) return true;
   // Accept relative paths for self-hosted photos
-  if (url.startsWith('/api/photos/')) return true
+  if (url.startsWith("/api/photos/")) return true;
   try {
-    new URL(url)
-    return true
+    new URL(url);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
@@ -111,9 +114,9 @@ function isValidUrl(url: string | undefined | null): boolean {
 function isUniqueViolation(error: unknown): boolean {
   return (
     error instanceof Error &&
-    'code' in error &&
-    (error as { code: string }).code === '23505'
-  )
+    "code" in error &&
+    (error as { code: string }).code === "23505"
+  );
 }
 
 // =============================================================================
@@ -121,16 +124,16 @@ function isUniqueViolation(error: unknown): boolean {
 // =============================================================================
 
 interface PhotoStats {
-  photo_count: string // COUNT returns bigint as string
-  min_taken_at: Date | null
-  max_taken_at: Date | null
+  photo_count: string; // COUNT returns bigint as string
+  min_taken_at: Date | null;
+  max_taken_at: Date | null;
 }
 
 function getMetadataFromStats(
   stats: PhotoStats | undefined,
-  fallbackDate: Date
+  fallbackDate: Date,
 ): { photoCount: number; dateRange: { start: string; end: string } } {
-  const photoCount = stats ? parseInt(stats.photo_count, 10) : 0
+  const photoCount = stats ? parseInt(stats.photo_count, 10) : 0;
   const dateRange = {
     start: stats?.min_taken_at
       ? stats.min_taken_at.toISOString()
@@ -138,14 +141,14 @@ function getMetadataFromStats(
     end: stats?.max_taken_at
       ? stats.max_taken_at.toISOString()
       : fallbackDate.toISOString(),
-  }
-  return { photoCount, dateRange }
+  };
+  return { photoCount, dateRange };
 }
 
 function toTripResponse(
   trip: DbTrip,
   photoCount: number,
-  dateRange: { start: string; end: string }
+  dateRange: { start: string; end: string },
 ): TripResponse {
   return {
     id: trip.id,
@@ -158,7 +161,7 @@ function toTripResponse(
     updatedAt: trip.updated_at,
     photoCount,
     dateRange,
-  }
+  };
 }
 
 function toPhotoResponse(photo: DbPhoto): PhotoResponse {
@@ -173,33 +176,33 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
     caption: photo.caption,
     album: photo.album,
     createdAt: photo.created_at,
-  }
+  };
 }
 
 // =============================================================================
 // Routes
 // =============================================================================
 
-const trips = new Hono<AuthEnv>()
+const trips = new Hono<AuthEnv>();
 
 // =============================================================================
 // GET /api/trips - List all public trips
 // =============================================================================
-trips.get('/', async (c) => {
-  const db = getDbClient()
+trips.get("/", async (c) => {
+  const db = getDbClient();
 
   const tripList = await db<DbTrip[]>`
     SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
     FROM trips
     WHERE is_public = true
     ORDER BY created_at DESC
-  `
+  `;
 
   // Get photo metadata for all trips in one query
-  const tripIds = tripList.map((t) => t.id)
+  const tripIds = tripList.map((t) => t.id);
 
   interface PhotoStatsWithTripId extends PhotoStats {
-    trip_id: string
+    trip_id: string;
   }
 
   const photoStats =
@@ -214,31 +217,34 @@ trips.get('/', async (c) => {
         WHERE trip_id = ANY(${tripIds})
         GROUP BY trip_id
       `
-      : []
+      : [];
 
   // Create a map for quick lookup
-  const statsMap = new Map(photoStats.map((s) => [s.trip_id, s]))
+  const statsMap = new Map(photoStats.map((s) => [s.trip_id, s]));
 
   // Combine trips with their photo metadata
   const tripsWithMetadata = tripList.map((trip) => {
-    const stats = statsMap.get(trip.id)
-    const { photoCount, dateRange } = getMetadataFromStats(stats, trip.created_at)
-    return toTripResponse(trip, photoCount, dateRange)
-  })
+    const stats = statsMap.get(trip.id);
+    const { photoCount, dateRange } = getMetadataFromStats(
+      stats,
+      trip.created_at,
+    );
+    return toTripResponse(trip, photoCount, dateRange);
+  });
 
   return c.json({
     trips: tripsWithMetadata,
-  })
-})
+  });
+});
 
 // =============================================================================
 // GET /api/trips/:slug - Get trip by slug with access control
 // =============================================================================
-trips.get('/:slug', optionalAuth, async (c) => {
-  const slug = c.req.param('slug')
-  const token = c.req.query('token')
-  const user = c.var.user
-  const db = getDbClient()
+trips.get("/:slug", optionalAuth, async (c) => {
+  const slug = c.req.param("slug");
+  const token = c.req.query("token");
+  const user = c.var.user;
+  const db = getDbClient();
 
   // Find trip by slug
   const tripResults = await db<DbTrip[]>`
@@ -246,32 +252,32 @@ trips.get('/:slug', optionalAuth, async (c) => {
            access_token_hash, created_at, updated_at
     FROM trips
     WHERE slug = ${slug}
-  `
+  `;
 
   if (tripResults.length === 0) {
-    return c.json({ error: 'Not Found', message: 'Trip not found' }, 404)
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
   }
 
-  const trip = tripResults[0]
+  const trip = tripResults[0];
 
   // Access control for private trips
   if (!trip.is_public) {
-    const isAdmin = user?.isAdmin === true
+    const isAdmin = user?.isAdmin === true;
 
     // Check if admin
     if (!isAdmin) {
       // Check token if provided
       if (!token || !trip.access_token_hash) {
-        return c.json({ error: 'Unauthorized', message: 'Access denied' }, 401)
+        return c.json({ error: "Unauthorized", message: "Access denied" }, 401);
       }
 
       // Verify token against hash
       const isValidToken = await Bun.password.verify(
         token,
-        trip.access_token_hash
-      )
+        trip.access_token_hash,
+      );
       if (!isValidToken) {
-        return c.json({ error: 'Unauthorized', message: 'Invalid token' }, 401)
+        return c.json({ error: "Unauthorized", message: "Invalid token" }, 401);
       }
     }
   }
@@ -283,190 +289,198 @@ trips.get('/:slug', optionalAuth, async (c) => {
     FROM photos
     WHERE trip_id = ${trip.id}
     ORDER BY taken_at ASC
-  `
+  `;
 
   // Compute photo metadata
-  const photoCount = photos.length
+  const photoCount = photos.length;
   const dateRange = {
-    start: photos.length > 0
-      ? photos[0].taken_at.toISOString()
-      : trip.created_at.toISOString(),
-    end: photos.length > 0
-      ? photos[photos.length - 1].taken_at.toISOString()
-      : trip.created_at.toISOString(),
-  }
+    start:
+      photos.length > 0
+        ? photos[0].taken_at.toISOString()
+        : trip.created_at.toISOString(),
+    end:
+      photos.length > 0
+        ? photos[photos.length - 1].taken_at.toISOString()
+        : trip.created_at.toISOString(),
+  };
 
   const response: TripWithPhotosResponse = {
     ...toTripResponse(trip, photoCount, dateRange),
     photos: photos.map(toPhotoResponse),
-  }
+  };
 
-  return c.json(response)
-})
+  return c.json(response);
+});
 
 // =============================================================================
 // POST /api/trips - Create trip (admin only)
 // =============================================================================
-trips.post('/', requireAdmin, async (c) => {
+trips.post("/", requireAdmin, async (c) => {
   const body = await c.req.json<{
-    slug: string
-    title: string
-    description?: string
-    coverPhotoUrl?: string
-    isPublic?: boolean
-  }>()
+    slug: string;
+    title: string;
+    description?: string;
+    coverPhotoUrl?: string;
+    isPublic?: boolean;
+  }>();
 
-  const { slug, title, description, coverPhotoUrl, isPublic = true } = body
+  const { slug, title, description, coverPhotoUrl, isPublic = true } = body;
 
   // Validate required fields
   if (!slug || !isValidSlug(slug)) {
     return c.json(
       {
-        error: 'Bad Request',
+        error: "Bad Request",
         message:
-          'Invalid slug format. Use lowercase letters, numbers, and hyphens only.',
+          "Invalid slug format. Use lowercase letters, numbers, and hyphens only.",
       },
-      400
-    )
+      400,
+    );
   }
 
   if (!title || !isValidTitle(title)) {
     return c.json(
       {
-        error: 'Bad Request',
+        error: "Bad Request",
         message: `Title is required and must be ${MAX_TITLE_LENGTH} characters or less.`,
       },
-      400
-    )
+      400,
+    );
   }
 
   if (!isValidDescription(description)) {
     return c.json(
       {
-        error: 'Bad Request',
+        error: "Bad Request",
         message: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`,
       },
-      400
-    )
+      400,
+    );
   }
 
   if (!isValidUrl(coverPhotoUrl)) {
     return c.json(
-      { error: 'Bad Request', message: 'Invalid cover photo URL.' },
-      400
-    )
+      { error: "Bad Request", message: "Invalid cover photo URL." },
+      400,
+    );
   }
 
-  const db = getDbClient()
+  const db = getDbClient();
 
   try {
     const [trip] = await db<DbTrip[]>`
       INSERT INTO trips (slug, title, description, cover_photo_url, is_public)
       VALUES (${slug}, ${title.trim()}, ${description?.trim() || null}, ${coverPhotoUrl || null}, ${isPublic})
       RETURNING id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
-    `
+    `;
 
     // New trip has no photos yet
-    const photoCount = 0
+    const photoCount = 0;
     const dateRange = {
       start: trip.created_at.toISOString(),
       end: trip.created_at.toISOString(),
-    }
+    };
 
-    return c.json(toTripResponse(trip, photoCount, dateRange), 201)
+    return c.json(toTripResponse(trip, photoCount, dateRange), 201);
   } catch (error) {
     if (isUniqueViolation(error)) {
       return c.json(
-        { error: 'Conflict', message: 'A trip with this slug already exists.' },
-        409
-      )
+        { error: "Conflict", message: "A trip with this slug already exists." },
+        409,
+      );
     }
-    throw error
+    throw error;
   }
-})
+});
 
 // =============================================================================
 // PATCH /api/trips/:id - Update trip (admin only)
 // =============================================================================
-trips.patch('/:id', requireAdmin, async (c) => {
-  const id = c.req.param('id')
+trips.patch("/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
   const body = await c.req.json<{
-    slug?: string
-    title?: string
-    description?: string | null
-    coverPhotoUrl?: string | null
-    isPublic?: boolean
-  }>()
+    slug?: string;
+    title?: string;
+    description?: string | null;
+    coverPhotoUrl?: string | null;
+    isPublic?: boolean;
+  }>();
 
-  const { slug, title, description, coverPhotoUrl, isPublic } = body
+  const { slug, title, description, coverPhotoUrl, isPublic } = body;
 
   // Validate UUID format
   if (!UUID_REGEX.test(id)) {
-    return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
+    return c.json(
+      { error: "Bad Request", message: "Invalid trip ID format." },
+      400,
+    );
   }
 
   // Validate optional fields if provided
   if (slug !== undefined && !isValidSlug(slug)) {
     return c.json(
       {
-        error: 'Bad Request',
+        error: "Bad Request",
         message:
-          'Invalid slug format. Use lowercase letters, numbers, and hyphens only.',
+          "Invalid slug format. Use lowercase letters, numbers, and hyphens only.",
       },
-      400
-    )
+      400,
+    );
   }
 
   if (title !== undefined && !isValidTitle(title)) {
     return c.json(
       {
-        error: 'Bad Request',
+        error: "Bad Request",
         message: `Title must be non-empty and ${MAX_TITLE_LENGTH} characters or less.`,
       },
-      400
-    )
+      400,
+    );
   }
 
   if (description !== undefined && !isValidDescription(description)) {
     return c.json(
       {
-        error: 'Bad Request',
+        error: "Bad Request",
         message: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`,
       },
-      400
-    )
+      400,
+    );
   }
 
   if (coverPhotoUrl !== undefined && !isValidUrl(coverPhotoUrl)) {
     return c.json(
-      { error: 'Bad Request', message: 'Invalid cover photo URL.' },
-      400
-    )
+      { error: "Bad Request", message: "Invalid cover photo URL." },
+      400,
+    );
   }
 
-  const db = getDbClient()
+  const db = getDbClient();
 
   // Check if trip exists
   const existing = await db<{ id: string }[]>`
     SELECT id FROM trips WHERE id = ${id}
-  `
+  `;
 
   if (existing.length === 0) {
-    return c.json({ error: 'Not Found', message: 'Trip not found' }, 404)
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
   }
 
   // Build dynamic update - only update provided fields
-  const updates: Record<string, unknown> = {}
-  if (slug !== undefined) updates.slug = slug
-  if (title !== undefined) updates.title = title.trim()
+  const updates: Record<string, unknown> = {};
+  if (slug !== undefined) updates.slug = slug;
+  if (title !== undefined) updates.title = title.trim();
   if (description !== undefined)
-    updates.description = description?.trim() || null
+    updates.description = description?.trim() || null;
   if (coverPhotoUrl !== undefined)
-    updates.cover_photo_url = coverPhotoUrl || null
-  if (isPublic !== undefined) updates.is_public = isPublic
+    updates.cover_photo_url = coverPhotoUrl || null;
+  if (isPublic !== undefined) updates.is_public = isPublic;
 
   if (Object.keys(updates).length === 0) {
-    return c.json({ error: 'Bad Request', message: 'No fields to update.' }, 400)
+    return c.json(
+      { error: "Bad Request", message: "No fields to update." },
+      400,
+    );
   }
 
   try {
@@ -475,7 +489,7 @@ trips.patch('/:id', requireAdmin, async (c) => {
       SET ${db(updates)}
       WHERE id = ${id}
       RETURNING id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
-    `
+    `;
 
     // Fetch photo metadata for this trip
     const [stats] = await db<PhotoStats[]>`
@@ -485,71 +499,89 @@ trips.patch('/:id', requireAdmin, async (c) => {
         MAX(taken_at) as max_taken_at
       FROM photos
       WHERE trip_id = ${id}
-    `
+    `;
 
-    const { photoCount, dateRange } = getMetadataFromStats(stats, trip.created_at)
-    return c.json(toTripResponse(trip, photoCount, dateRange))
+    const { photoCount, dateRange } = getMetadataFromStats(
+      stats,
+      trip.created_at,
+    );
+    return c.json(toTripResponse(trip, photoCount, dateRange));
   } catch (error) {
     if (isUniqueViolation(error)) {
       return c.json(
-        { error: 'Conflict', message: 'A trip with this slug already exists.' },
-        409
-      )
+        { error: "Conflict", message: "A trip with this slug already exists." },
+        409,
+      );
     }
-    throw error
+    throw error;
   }
-})
+});
 
 // =============================================================================
 // DELETE /api/trips/:id - Delete trip (admin only)
 // =============================================================================
-trips.delete('/:id', requireAdmin, async (c) => {
-  const id = c.req.param('id')
+trips.delete("/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
 
   // Validate UUID format
   if (!UUID_REGEX.test(id)) {
-    return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
+    return c.json(
+      { error: "Bad Request", message: "Invalid trip ID format." },
+      400,
+    );
   }
 
-  const db = getDbClient()
+  const db = getDbClient();
 
   const result = await db`
     DELETE FROM trips
     WHERE id = ${id}
     RETURNING id
-  `
+  `;
 
   if (result.length === 0) {
-    return c.json({ error: 'Not Found', message: 'Trip not found' }, 404)
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
   }
 
+  // Clean up photo files on disk
+  const photosDir = getPhotosDir();
+  const tripDir = `${photosDir}/${id}`;
+
+  await rm(tripDir, { recursive: true, force: true }).catch((error) => {
+    // Log but don't fail the request - DB transaction already committed
+    console.error(`Failed to delete photos for trip ${id}:`, error);
+  });
+
   // 204 No Content
-  return c.body(null, 204)
-})
+  return c.body(null, 204);
+});
 
 // =============================================================================
 // PATCH /api/trips/:id/protection - Update protection settings (admin only)
 // =============================================================================
-trips.patch('/:id/protection', requireAdmin, async (c) => {
-  const id = c.req.param('id')
+trips.patch("/:id/protection", requireAdmin, async (c) => {
+  const id = c.req.param("id");
   const body = await c.req.json<{
-    isPublic: boolean
-    token?: string
-  }>()
+    isPublic: boolean;
+    token?: string;
+  }>();
 
-  const { isPublic, token } = body
+  const { isPublic, token } = body;
 
   // Validate UUID format
   if (!UUID_REGEX.test(id)) {
-    return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
+    return c.json(
+      { error: "Bad Request", message: "Invalid trip ID format." },
+      400,
+    );
   }
 
   // Validate isPublic is a boolean
-  if (typeof isPublic !== 'boolean') {
+  if (typeof isPublic !== "boolean") {
     return c.json(
-      { error: 'Bad Request', message: 'isPublic must be a boolean.' },
-      400
-    )
+      { error: "Bad Request", message: "isPublic must be a boolean." },
+      400,
+    );
   }
 
   // If making private, token is recommended (but not required - can set later)
@@ -557,28 +589,29 @@ trips.patch('/:id/protection', requireAdmin, async (c) => {
   if (token !== undefined && token.length < 8) {
     return c.json(
       {
-        error: 'Bad Request',
-        message: 'Token must be at least 8 characters long.',
+        error: "Bad Request",
+        message: "Token must be at least 8 characters long.",
       },
-      400
-    )
+      400,
+    );
   }
 
-  const db = getDbClient()
+  const db = getDbClient();
 
   // Check if trip exists
   const existing = await db<{ id: string }[]>`
     SELECT id FROM trips WHERE id = ${id}
-  `
+  `;
 
   if (existing.length === 0) {
-    return c.json({ error: 'Not Found', message: 'Trip not found' }, 404)
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
   }
 
   // Hash token if provided and making private
-  const accessTokenHash = !isPublic && token
-    ? await Bun.password.hash(token, { algorithm: 'bcrypt', cost: 14 })
-    : null
+  const accessTokenHash =
+    !isPublic && token
+      ? await Bun.password.hash(token, { algorithm: "bcrypt", cost: 14 })
+      : null;
 
   // Update trip protection settings in a single query:
   // - If making public: clear the token hash
@@ -594,41 +627,47 @@ trips.patch('/:id/protection', requireAdmin, async (c) => {
         ELSE access_token_hash
       END
     WHERE id = ${id}
-  `
+  `;
 
-  return c.json({ success: true })
-})
+  return c.json({ success: true });
+});
 
 // =============================================================================
 // POST /api/trips/:id/photos - Add photos to trip (admin only)
 // =============================================================================
-trips.post('/:id/photos', requireAdmin, async (c) => {
-  const tripId = c.req.param('id')
+trips.post("/:id/photos", requireAdmin, async (c) => {
+  const tripId = c.req.param("id");
   const body = await c.req.json<{
     photos: Array<{
-      cloudinaryPublicId: string
-      url: string
-      thumbnailUrl: string
-      latitude: number | null
-      longitude: number | null
-      takenAt: string
-      caption: string | null
-    }>
-  }>()
+      cloudinaryPublicId: string;
+      url: string;
+      thumbnailUrl: string;
+      latitude: number | null;
+      longitude: number | null;
+      takenAt: string;
+      caption: string | null;
+    }>;
+  }>();
 
-  const { photos } = body
+  const { photos } = body;
 
   // Validate UUID format
   if (!UUID_REGEX.test(tripId)) {
-    return c.json({ error: 'Bad Request', message: 'Invalid trip ID format.' }, 400)
+    return c.json(
+      { error: "Bad Request", message: "Invalid trip ID format." },
+      400,
+    );
   }
 
   // Validate photos array
   if (!Array.isArray(photos) || photos.length === 0) {
     return c.json(
-      { error: 'Bad Request', message: 'Photos array is required and must not be empty.' },
-      400
-    )
+      {
+        error: "Bad Request",
+        message: "Photos array is required and must not be empty.",
+      },
+      400,
+    );
   }
 
   // Validate individual photo objects
@@ -641,43 +680,46 @@ trips.post('/:id/photos', requireAdmin, async (c) => {
     ) {
       return c.json(
         {
-          error: 'Bad Request',
+          error: "Bad Request",
           message:
-            'Each photo must include cloudinaryPublicId, url, thumbnailUrl, and takenAt.',
+            "Each photo must include cloudinaryPublicId, url, thumbnailUrl, and takenAt.",
         },
-        400
-      )
+        400,
+      );
     }
 
     // Validate date format
     if (isNaN(Date.parse(photo.takenAt))) {
       return c.json(
         {
-          error: 'Bad Request',
+          error: "Bad Request",
           message: `Invalid date format for takenAt: ${photo.takenAt}`,
         },
-        400
-      )
+        400,
+      );
     }
 
     // Validate URLs
     if (!isValidUrl(photo.url) || !isValidUrl(photo.thumbnailUrl)) {
       return c.json(
-        { error: 'Bad Request', message: 'Invalid URL format for photo url or thumbnailUrl.' },
-        400
-      )
+        {
+          error: "Bad Request",
+          message: "Invalid URL format for photo url or thumbnailUrl.",
+        },
+        400,
+      );
     }
   }
 
-  const db = getDbClient()
+  const db = getDbClient();
 
   // Check if trip exists
   const existing = await db<{ id: string }[]>`
     SELECT id FROM trips WHERE id = ${tripId}
-  `
+  `;
 
   if (existing.length === 0) {
-    return c.json({ error: 'Not Found', message: 'Trip not found' }, 404)
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
   }
 
   // Insert all photos
@@ -692,12 +734,12 @@ trips.post('/:id/photos', requireAdmin, async (c) => {
         longitude: p.longitude,
         taken_at: p.takenAt,
         caption: p.caption,
-      }))
+      })),
     )}
     RETURNING *
-  `
+  `;
 
-  return c.json({ photos: insertedPhotos.map(toPhotoResponse) }, 201)
-})
+  return c.json({ photos: insertedPhotos.map(toPhotoResponse) }, 201);
+});
 
-export { trips }
+export { trips };
