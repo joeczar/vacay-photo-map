@@ -2,7 +2,9 @@
   <MainLayout>
     <!-- Header with link to Manage Trips -->
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-foreground">Upload Trip</h1>
+      <h1 class="text-2xl font-bold text-foreground">
+        {{ isEditMode ? 'Edit Draft Trip' : 'Upload Trip' }}
+      </h1>
       <Button as-child variant="outline" size="sm" class="btn-gradient-primary">
         <router-link to="/admin/trips">Manage Trips</router-link>
       </Button>
@@ -38,12 +40,26 @@
       <!-- Step 1: Trip Details -->
       <div v-if="currentStep === 1">
         <CardHeader>
-          <CardTitle>Trip Details</CardTitle>
-          <CardDescription>Upload your vacation photos with location data</CardDescription>
+          <CardTitle>{{ isEditMode ? 'Edit Trip' : 'Trip Details' }}</CardTitle>
+          <CardDescription>
+            {{
+              isEditMode
+                ? 'Update trip details and add more photos'
+                : 'Upload your vacation photos with location data'
+            }}
+          </CardDescription>
         </CardHeader>
 
         <CardContent class="space-y-6">
-          <form @submit.prevent="onSubmit" class="space-y-6">
+          <!-- Loading State -->
+          <div v-if="isLoadingTrip" class="flex items-center justify-center py-8">
+            <div class="flex flex-col items-center gap-3">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <p class="text-sm text-muted-foreground">Loading trip...</p>
+            </div>
+          </div>
+
+          <form v-else @submit.prevent="onSubmit" class="space-y-6">
             <FormField v-slot="{ componentField }" name="tripTitle">
               <FormItem>
                 <FormLabel>Trip Title *</FormLabel>
@@ -68,11 +84,53 @@
               </FormItem>
             </FormField>
 
+            <!-- Existing Photos (Edit Mode) -->
+            <div v-if="isEditMode && existingPhotos.length > 0" class="space-y-2">
+              <label class="text-sm font-medium leading-none">
+                Existing Photos ({{ existingPhotos.length }})
+              </label>
+              <div
+                class="flex md:grid md:grid-cols-4 gap-2 overflow-x-auto md:overflow-visible pb-2 snap-x"
+              >
+                <div
+                  v-for="photo in existingPhotos"
+                  :key="photo.id"
+                  class="relative aspect-square w-28 h-28 md:w-auto md:h-auto shrink-0 snap-start"
+                >
+                  <img
+                    :src="photo.thumbnail_url"
+                    :alt="photo.caption || 'Photo'"
+                    class="w-full h-full object-cover rounded border"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    class="absolute top-1 right-1 bg-white/80 dark:bg-slate-800/80 hover:bg-white text-foreground h-7 w-7 rounded-full"
+                    :aria-label="`Delete photo`"
+                    title="Delete photo"
+                    @click.stop="deletePhotoFromDraft(photo.id)"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             <div class="space-y-2">
               <label
                 class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                Select Photos *
+                {{ isEditMode ? 'Add More Photos' : 'Select Photos *' }}
               </label>
               <div class="flex items-center gap-3">
                 <Button
@@ -160,13 +218,26 @@
               </div>
             </div>
 
-            <Button
-              type="submit"
-              :disabled="!meta.valid || selectedFiles.length === 0 || isUploading"
-              class="btn-gradient-primary"
-            >
-              {{ isUploading ? 'Processing...' : 'Start Upload' }}
-            </Button>
+            <div class="flex gap-3">
+              <Button
+                type="submit"
+                :disabled="!meta.valid || selectedFiles.length === 0 || isUploading"
+                class="btn-gradient-primary"
+              >
+                {{ isUploading ? 'Processing...' : isEditMode ? 'Add Photos' : 'Start Upload' }}
+              </Button>
+
+              <Button
+                v-if="isEditMode"
+                type="button"
+                variant="outline"
+                :disabled="existingPhotos.length === 0 || isUploading"
+                class="btn-gradient-primary"
+                @click="publishTrip"
+              >
+                Publish Trip
+              </Button>
+            </div>
           </form>
         </CardContent>
       </div>
@@ -235,16 +306,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 import { extractExifBatch } from '@/utils/exif'
 import { resizeFiles } from '@/utils/resize'
-import { createTrip, createPhotos, updateTrip } from '@/utils/database'
+import { createTrip, createPhotos, updateTrip, getTripById, deletePhoto } from '@/utils/database'
 import { generateUniqueSlug } from '@/utils/slug'
 import type { PhotoMetadata } from '@/utils/exif'
+import type { TablesRow } from '@/lib/database.types'
 import { useAuth } from '@/composables/useAuth'
+
+type Photo = TablesRow<'photos'>
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -254,6 +329,9 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { uploadMultipleFiles, uploadPhoto, type UploadError, type UploadResult } from '@/lib/upload'
+
+const router = useRouter()
+const route = useRoute()
 
 // Form validation schema
 const formSchema = toTypedSchema(
@@ -296,6 +374,11 @@ const tripSlug = ref('')
 const failedUploads = ref<UploadError[]>([])
 const currentTripId = ref<string | null>(null)
 const uploadResults = ref<(UploadResult | null)[]>([])
+
+// Edit mode state
+const isEditMode = ref(false)
+const existingPhotos = ref<Photo[]>([])
+const isLoadingTrip = ref(false)
 
 // File selection
 function handleFileSelect(event: Event) {
@@ -351,18 +434,32 @@ const onSubmit = handleSubmit(async formValues => {
     uploadProgress.value = 20
     const optimizedFiles = await resizeFiles(selectedFiles.value, { maxSize: 1600, quality: 0.85 })
 
-    // Step 3: Create trip as draft FIRST
-    uploadStatus.value = 'Creating trip...'
-    uploadProgress.value = 25
+    // Step 3: Create trip as draft FIRST (skip if in edit mode)
+    let tripId: string
+    let slug: string
 
-    const slug = generateUniqueSlug(formValues.tripTitle)
-    const trip = await createTrip({
-      title: formValues.tripTitle,
-      description: formValues.tripDescription || null,
-      slug,
-      is_public: false, // Draft state
-      cover_photo_url: null
-    })
+    if (currentTripId.value) {
+      // Edit mode - use existing trip
+      uploadStatus.value = 'Adding photos to trip...'
+      uploadProgress.value = 25
+      tripId = currentTripId.value
+      slug = tripSlug.value
+    } else {
+      // Create mode - create new trip
+      uploadStatus.value = 'Creating trip...'
+      uploadProgress.value = 25
+
+      slug = generateUniqueSlug(formValues.tripTitle)
+      const trip = await createTrip({
+        title: formValues.tripTitle,
+        description: formValues.tripDescription || null,
+        slug,
+        is_public: false, // Draft state
+        cover_photo_url: null
+      })
+      tripId = trip.id
+      currentTripId.value = trip.id
+    }
 
     // Step 4: Upload photos to our API
     uploadStatus.value = 'Uploading photos...'
@@ -376,10 +473,9 @@ const onSubmit = handleSubmit(async formValues => {
 
     // Initialize per-file progress
     perFileProgress.value = new Array(optimizedFiles.length).fill(0)
-    currentTripId.value = trip.id
 
     const { results, errors } = await uploadMultipleFiles(
-      trip.id,
+      tripId,
       optimizedFiles,
       token,
       (fileIndex, progress) => {
@@ -411,7 +507,7 @@ const onSubmit = handleSubmit(async formValues => {
 
         const metadata = exifData.get(file) as PhotoMetadata
         return {
-          trip_id: trip.id,
+          trip_id: tripId,
           cloudinary_public_id: uploadResult.publicId,
           url: uploadResult.url,
           thumbnail_url: uploadResult.thumbnailUrl,
@@ -424,18 +520,27 @@ const onSubmit = handleSubmit(async formValues => {
       .filter((p): p is NonNullable<typeof p> => p !== null)
 
     if (photoInserts.length > 0) {
-      await createPhotos(photoInserts)
+      const createdPhotos = await createPhotos(photoInserts)
+      // Add newly created photos to existing photos list (for edit mode)
+      existingPhotos.value = [...existingPhotos.value, ...createdPhotos]
     }
 
-    // Step 6: Set cover photo and update trip to public
+    // Step 6: Set cover photo and update trip to public (only if not in edit mode)
     uploadStatus.value = 'Finalizing trip...'
     uploadProgress.value = 95
 
-    if (photoInserts.length > 0) {
+    if (!isEditMode.value && photoInserts.length > 0) {
       const coverPhoto = photoInserts.find(p => p.latitude && p.longitude) || photoInserts[0]
-      await updateTrip(trip.id, {
+      await updateTrip(tripId, {
         coverPhotoUrl: coverPhoto?.thumbnail_url,
         isPublic: true
+      })
+    } else if (isEditMode.value && photoInserts.length > 0) {
+      // In edit mode, just update the cover photo but keep draft status
+      const allPhotos = [...existingPhotos.value]
+      const coverPhoto = allPhotos.find(p => p.latitude && p.longitude) || allPhotos[0]
+      await updateTrip(tripId, {
+        coverPhotoUrl: coverPhoto?.thumbnail_url
       })
     }
 
@@ -530,4 +635,78 @@ async function retryFailedUploads() {
     uploadStatus.value = `${filesToRetry.length - newErrors.length} recovered, ${newErrors.length} still failed`
   }
 }
+
+// Delete a photo from the draft trip
+async function deletePhotoFromDraft(photoId: string) {
+  try {
+    await deletePhoto(photoId)
+    // Remove from UI
+    existingPhotos.value = existingPhotos.value.filter(p => p.id !== photoId)
+  } catch (err) {
+    console.error('Failed to delete photo:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to delete photo'
+  }
+}
+
+// Publish the draft trip
+async function publishTrip() {
+  if (!currentTripId.value || !tripSlug.value) return
+
+  try {
+    // Recalculate cover photo from remaining photos
+    if (existingPhotos.value.length > 0) {
+      const coverPhoto =
+        existingPhotos.value.find(p => p.latitude && p.longitude) || existingPhotos.value[0]
+      await updateTrip(currentTripId.value, {
+        coverPhotoUrl: coverPhoto?.thumbnail_url,
+        isPublic: true
+      })
+    } else {
+      // No photos, just publish
+      await updateTrip(currentTripId.value, { isPublic: true })
+    }
+
+    // Redirect to trip view
+    router.push(`/trip/${tripSlug.value}`)
+  } catch (err) {
+    console.error('Failed to publish trip:', err)
+    error.value = err instanceof Error ? err.message : 'Failed to publish trip'
+  }
+}
+
+// Load trip in edit mode if tripId query param present
+onMounted(async () => {
+  const tripIdQuery = route.query.tripId
+  const tripId = (Array.isArray(tripIdQuery) ? tripIdQuery[0] : tripIdQuery) as string | undefined
+
+  if (tripId) {
+    isEditMode.value = true
+    isLoadingTrip.value = true
+
+    try {
+      const trip = await getTripById(tripId)
+
+      if (trip) {
+        currentTripId.value = trip.id
+        tripSlug.value = trip.slug
+        existingPhotos.value = trip.photos
+
+        // Populate form with existing data
+        resetVeeForm({
+          values: {
+            tripTitle: trip.title,
+            tripDescription: trip.description || ''
+          }
+        })
+      } else {
+        error.value = 'Trip not found'
+      }
+    } catch (err) {
+      console.error('Failed to load trip:', err)
+      error.value = err instanceof Error ? err.message : 'Failed to load trip'
+    } finally {
+      isLoadingTrip.value = false
+    }
+  }
+})
 </script>

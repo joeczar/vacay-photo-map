@@ -35,21 +35,20 @@ interface TripListResponse {
   trips: TripResponse[];
 }
 
-// Unused but kept for reference in integration tests
-// interface TripWithPhotosResponse extends TripResponse {
-//   photos: Array<{
-//     id: string
-//     cloudinaryPublicId: string
-//     url: string
-//     thumbnailUrl: string
-//     latitude: number | null
-//     longitude: number | null
-//     takenAt: string
-//     caption: string | null
-//     album: string | null
-//     createdAt: string
-//   }>
-// }
+interface TripWithPhotosResponse extends TripResponse {
+  photos: Array<{
+    id: string;
+    cloudinaryPublicId: string;
+    url: string;
+    thumbnailUrl: string;
+    latitude: number | null;
+    longitude: number | null;
+    takenAt: string;
+    caption: string | null;
+    album: string | null;
+    createdAt: string;
+  }>;
+}
 
 // interface SuccessResponse {
 //   success: boolean
@@ -531,6 +530,209 @@ describe("Trip Routes", () => {
       // Cleanup
       await db`DELETE FROM trips WHERE id = ${olderTrip.id}`;
       await db`DELETE FROM trips WHERE id = ${newerTrip.id}`;
+    });
+  });
+
+  // ==========================================================================
+  // GET /api/trips/:id - Get trip by ID (UUID)
+  // ==========================================================================
+  describe("GET /api/trips/:id (UUID)", () => {
+    it("returns trip with photos for valid UUID (admin)", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create test trip
+      const slug = "test-trip-by-id-" + crypto.randomUUID();
+      const [trip] = await db`
+        INSERT INTO trips (title, slug, is_public, description)
+        VALUES ('Test Trip By ID', ${slug}, true, 'Test description')
+        RETURNING id, title, slug, description
+      `;
+
+      // Create test photo
+      const [photo] = await db`
+        INSERT INTO photos (
+          trip_id, cloudinary_public_id, url, thumbnail_url,
+          latitude, longitude, taken_at
+        )
+        VALUES (
+          ${trip.id}, 'test-public-id', 'https://example.com/photo.jpg',
+          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060,
+          NOW()
+        )
+        RETURNING id, url, thumbnail_url, latitude, longitude
+      `;
+
+      // Fetch trip by UUID
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${trip.id}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripWithPhotosResponse;
+
+      expect(data.id).toBe(trip.id);
+      expect(data.title).toBe("Test Trip By ID");
+      expect(data.slug).toBe(slug);
+      expect(data.description).toBe("Test description");
+      expect(Array.isArray(data.photos)).toBe(true);
+      expect(data.photos.length).toBe(1);
+      expect(data.photos[0].id).toBe(photo.id);
+      expect(data.photos[0].latitude).toBe(40.7128);
+
+      // Cleanup
+      await db`DELETE FROM photos WHERE id = ${photo.id}`;
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+    });
+
+    it("returns 403 for non-admin user", async () => {
+      const app = createTestApp();
+      const authHeader = await getUserAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${validUuid}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(403);
+    });
+
+    it("returns 404 for non-existent trip", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${validUuid}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Not Found");
+    });
+  });
+
+  // ==========================================================================
+  // DELETE /api/trips/photos/:id - Delete individual photo
+  // ==========================================================================
+  describe("DELETE /api/trips/photos/:id", () => {
+    it("deletes photo and returns 204 (admin)", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create test trip and photo
+      const slug = "test-trip-delete-photo-" + crypto.randomUUID();
+      const [trip] = await db`
+        INSERT INTO trips (title, slug, is_public)
+        VALUES ('Test Trip for Photo Delete', ${slug}, true)
+        RETURNING id
+      `;
+
+      const [photo] = await db`
+        INSERT INTO photos (
+          trip_id, cloudinary_public_id, url, thumbnail_url,
+          latitude, longitude, taken_at
+        )
+        VALUES (
+          ${trip.id}, 'test-delete-photo', 'https://example.com/delete.jpg',
+          'https://example.com/delete-thumb.jpg', 40.7128, -74.0060,
+          NOW()
+        )
+        RETURNING id
+      `;
+
+      // Delete photo
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "DELETE",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(204);
+
+      // Verify photo is deleted from database
+      const [deletedPhoto] = await db`
+        SELECT * FROM photos WHERE id = ${photo.id}
+      `;
+      expect(deletedPhoto).toBeUndefined();
+
+      // Cleanup trip
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+    });
+
+    it("returns 401 without authentication", async () => {
+      const app = createTestApp();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "DELETE",
+        }),
+      );
+
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 403 for non-admin user", async () => {
+      const app = createTestApp();
+      const authHeader = await getUserAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "DELETE",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+    });
+
+    it("returns 404 for non-existent photo", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "DELETE",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Not Found");
+    });
+
+    it("returns 400 for invalid UUID format", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/photos/not-a-uuid", {
+          method: "DELETE",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("Invalid photo ID format");
     });
   });
 

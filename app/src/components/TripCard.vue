@@ -3,7 +3,7 @@
     class="group relative h-full flex flex-col overflow-hidden rounded-xl bg-card border border-border shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1 card-soft"
     :class="featured ? 'ring-1 ring-primary/20' : ''"
   >
-    <router-link :to="`/trip/${trip.slug}`" class="block h-full">
+    <router-link :to="cardDestination" class="block h-full">
       <!-- Cover Photo -->
       <div
         class="aspect-video relative bg-muted overflow-hidden"
@@ -126,6 +126,15 @@ const coverSrcset = computed(() => '')
 const coverFallback = computed(() =>
   props.trip.cover_photo_url ? getImageUrl(props.trip.cover_photo_url) : ''
 )
+
+const cardDestination = computed(() => {
+  // Draft trips navigate to edit mode in AdminView
+  if (props.isDraft) {
+    return `/admin?tripId=${props.trip.id}`
+  }
+  // Published trips navigate to trip view
+  return `/trip/${props.trip.slug}`
+})
 
 function handleDelete() {
   if (!props.onDelete) return

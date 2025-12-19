@@ -293,13 +293,78 @@ trips.get("/admin", requireAdmin, async (c) => {
 });
 
 // =============================================================================
-// GET /api/trips/:slug - Get trip by slug with access control
+// GET /api/trips/:identifier - Get trip by UUID or slug
 // =============================================================================
-trips.get("/:slug", optionalAuth, async (c) => {
-  const slug = c.req.param("slug");
+// This route handles both:
+// - UUID (admin only): GET /api/trips/550e8400-e29b-41d4-a716-446655440000
+// - Slug (public with access control): GET /api/trips/my-trip-slug
+//
+// If the identifier is a valid UUID, treat it as an ID and require admin auth.
+// Otherwise, treat it as a slug and apply standard access control.
+trips.get("/:identifier", optionalAuth, async (c) => {
+  const identifier = c.req.param("identifier");
   const token = c.req.query("token");
   const user = c.var.user;
   const db = getDbClient();
+
+  // Check if identifier is a UUID
+  const isUuid = UUID_REGEX.test(identifier);
+
+  if (isUuid) {
+    // UUID path - admin only
+    if (!user?.isAdmin) {
+      return c.json(
+        { error: "Forbidden", message: "Admin access required" },
+        403,
+      );
+    }
+
+    // Find trip by UUID
+    const tripResults = await db<DbTrip[]>`
+      SELECT id, slug, title, description, cover_photo_url, is_public,
+             access_token_hash, created_at, updated_at
+      FROM trips
+      WHERE id = ${identifier}
+    `;
+
+    if (tripResults.length === 0) {
+      return c.json({ error: "Not Found", message: "Trip not found" }, 404);
+    }
+
+    const trip = tripResults[0];
+
+    // Fetch photos for this trip
+    const photos = await db<DbPhoto[]>`
+      SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
+             latitude, longitude, taken_at, caption, album, created_at
+      FROM photos
+      WHERE trip_id = ${trip.id}
+      ORDER BY taken_at ASC
+    `;
+
+    // Compute photo metadata
+    const photoCount = photos.length;
+    const dateRange = {
+      start:
+        photos.length > 0
+          ? photos[0].taken_at.toISOString()
+          : trip.created_at.toISOString(),
+      end:
+        photos.length > 0
+          ? photos[photos.length - 1].taken_at.toISOString()
+          : trip.created_at.toISOString(),
+    };
+
+    const response: TripWithPhotosResponse = {
+      ...toTripResponse(trip, photoCount, dateRange),
+      photos: photos.map(toPhotoResponse),
+    };
+
+    return c.json(response);
+  }
+
+  // Slug path - standard access control
+  const slug = identifier;
 
   // Find trip by slug
   const tripResults = await db<DbTrip[]>`
@@ -795,6 +860,64 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
   `;
 
   return c.json({ photos: insertedPhotos.map(toPhotoResponse) }, 201);
+});
+
+// =============================================================================
+// DELETE /api/trips/photos/:id - Delete individual photo (admin only)
+// =============================================================================
+trips.delete("/photos/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid photo ID format." },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Fetch photo to get trip_id and url for disk cleanup
+  const photoResults = await db<DbPhoto[]>`
+    SELECT id, trip_id, url
+    FROM photos
+    WHERE id = ${id}
+  `;
+
+  if (photoResults.length === 0) {
+    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
+  }
+
+  const photo = photoResults[0];
+
+  // Delete photo from database
+  await db`
+    DELETE FROM photos
+    WHERE id = ${id}
+  `;
+
+  // Clean up photo file on disk
+  // URL format: /api/photos/{tripId}/{filename}
+  try {
+    const urlPath = photo.url.replace("/api/photos/", "");
+    const photosDir = getPhotosDir();
+    const photoPath = `${photosDir}/${urlPath}`;
+
+    await rm(photoPath, { force: true }).catch((error) => {
+      // Log but don't fail the request - DB transaction already committed
+      console.error(`Failed to delete photo file at ${photoPath}:`, error);
+    });
+  } catch (error) {
+    // Log parsing errors but don't fail - DB is source of truth
+    console.error(
+      `Failed to parse photo URL for deletion: ${photo.url}`,
+      error,
+    );
+  }
+
+  // 204 No Content
+  return c.body(null, 204);
 });
 
 export { trips };
