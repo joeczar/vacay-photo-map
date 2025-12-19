@@ -5,6 +5,11 @@ import type { UploadResult } from '../types/upload'
 import type { AuthEnv } from '../types/auth'
 import { getDbClient } from '../db/client'
 
+// Photos directory - read at runtime for testing
+function getPhotosDir(): string {
+  return process.env.PHOTOS_DIR || '/data/photos'
+}
+
 const upload = new Hono<AuthEnv>()
 
 // =============================================================================
@@ -42,7 +47,7 @@ upload.post('/trips/:tripId/photos/upload', requireAdmin, async (c) => {
   const ext =
     file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
   const filename = `${uuid}.${ext}`
-  const dirPath = `/data/photos/${tripId}`
+  const dirPath = `${getPhotosDir()}/${tripId}`
   const filePath = `${dirPath}/${filename}`
 
   // Create directory if it doesn't exist
@@ -81,7 +86,7 @@ upload.get('/photos/:tripId/:filename', async (c) => {
     return c.json({ error: 'Invalid filename' }, 400)
   }
 
-  const filePath = `/data/photos/${tripId}/${filename}`
+  const filePath = `${getPhotosDir()}/${tripId}/${filename}`
   const file = Bun.file(filePath)
 
   if (!(await file.exists())) {
