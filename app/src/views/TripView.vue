@@ -144,7 +144,7 @@
                       :class="selectedPhoto?.id === photo.id ? 'border-primary border-4' : ''"
                     >
                       <img
-                        :src="photo.thumbnail_url"
+                        :src="getImageUrl(photo.thumbnail_url)"
                         :alt="photo.caption || 'Photo'"
                         class="w-full h-full object-cover"
                       />
@@ -589,7 +589,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { buildSrcSet, cloudinaryUrlForWidth } from '@/utils/image'
+import { getImageUrl } from '@/utils/image'
 import { useAccentColor } from '@/composables/useAccentColor'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -922,26 +922,25 @@ async function shareViaNative() {
   })
 }
 
-// Responsive image helpers
-function gridSrcset(p: Photo) {
-  return buildSrcSet(p.url, [320, 480, 640, 768])
+// Image URL helpers (srcset empty until we add server-side resizing)
+function gridSrcset(_p: Photo) {
+  return ''
 }
 function gridFallback(p: Photo) {
-  return cloudinaryUrlForWidth(p.url, 640)
+  return getImageUrl(p.url)
 }
-function popupSrcset(p: Photo) {
-  return buildSrcSet(p.url, [320, 480, 600])
+function popupSrcset(_p: Photo) {
+  return ''
 }
 function popupFallback(p: Photo) {
-  return cloudinaryUrlForWidth(p.url, 600)
+  return getImageUrl(p.url)
 }
-function lightboxSrcset(p: Photo | null) {
-  if (!p) return ''
-  return buildSrcSet(p.url, [640, 960, 1280, 1600, 1920])
+function lightboxSrcset(_p: Photo | null) {
+  return ''
 }
 function lightboxFallback(p: Photo | null) {
   if (!p) return ''
-  return cloudinaryUrlForWidth(p.url, 1280)
+  return getImageUrl(p.url)
 }
 
 function selectPhoto(photo: Photo) {

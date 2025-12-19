@@ -263,13 +263,14 @@ const tripSlug = ref('')
 function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.files) {
-    // Revoke any existing previews and reset
-    previews.value.forEach(url => URL.revokeObjectURL(url))
-    previews.value.clear()
-    selectedFiles.value = Array.from(target.files)
-    // Build new previews
-    selectedFiles.value.forEach(f => previews.value.set(f, URL.createObjectURL(f)))
+    const newFiles = Array.from(target.files)
+    // Append new files to existing selection
+    selectedFiles.value = [...selectedFiles.value, ...newFiles]
+    // Build previews for new files only
+    newFiles.forEach(f => previews.value.set(f, URL.createObjectURL(f)))
     perFileProgress.value = new Array(selectedFiles.value.length).fill(0)
+    // Reset input so same file can be selected again
+    target.value = ''
   }
 }
 
