@@ -313,7 +313,8 @@ describe('Upload Routes', () => {
 
       expect(res.status).toBe(400)
       const data = (await res.json()) as ErrorResponse
-      expect(data.error).toBe('Invalid path')
+      // UUID validation catches this before path traversal check
+      expect(data.error).toBe('Invalid trip ID format')
     })
 
     it('rejects invalid filename extension', async () => {
