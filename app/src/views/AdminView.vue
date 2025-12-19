@@ -42,6 +42,7 @@
                 <FormControl>
                   <Input type="text" placeholder="Summer Vacation 2024" v-bind="componentField" />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             </FormField>
 
