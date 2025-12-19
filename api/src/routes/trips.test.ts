@@ -1,19 +1,13 @@
-// Set environment before importing modules
-process.env.JWT_SECRET = "test-secret-key-for-testing-only-32chars";
-process.env.RP_ID = "localhost";
-process.env.RP_NAME = "Test App";
-process.env.RP_ORIGIN = "http://localhost:5173";
-// Mock DATABASE_URL to prevent initialization errors - tests that actually use DB will fail
-process.env.DATABASE_URL = "postgresql://test:test@localhost:5432/test";
+// Environment loaded automatically from .env.test via bunfig.toml preload
 
 import { describe, expect, it } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { Hono } from "hono";
 import { trips } from "./trips";
-import { signToken } from "../utils/jwt";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
 import { getDbClient } from "../db/client";
+import { getAdminAuthHeader, getUserAuthHeader } from "../test-helpers";
 
 // Response types
 interface ErrorResponse {
@@ -66,25 +60,6 @@ function createTestApp() {
   const app = new Hono<AuthEnv>();
   app.route("/api/trips", trips);
   return app;
-}
-
-// Helper to create auth header
-async function getAdminAuthHeader(): Promise<{ Authorization: string }> {
-  const token = await signToken({
-    sub: "admin-user-123",
-    email: "admin@example.com",
-    isAdmin: true,
-  });
-  return { Authorization: `Bearer ${token}` };
-}
-
-async function getUserAuthHeader(): Promise<{ Authorization: string }> {
-  const token = await signToken({
-    sub: "user-123",
-    email: "user@example.com",
-    isAdmin: false,
-  });
-  return { Authorization: `Bearer ${token}` };
 }
 
 describe("Trip Routes", () => {
