@@ -42,7 +42,6 @@
                 <FormControl>
                   <Input type="text" placeholder="Summer Vacation 2024" v-bind="componentField" />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             </FormField>
 
@@ -206,7 +205,6 @@ import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 import { extractExifBatch } from '@/utils/exif'
 import { resizeFiles } from '@/utils/resize'
-import { uploadMultipleFiles } from '@/lib/cloudinary'
 import { createTrip, createPhotos, updateTripCoverPhoto } from '@/utils/database'
 import { generateUniqueSlug } from '@/utils/slug'
 import type { PhotoMetadata } from '@/utils/exif'
