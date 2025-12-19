@@ -31,6 +31,15 @@
           </svg>
         </div>
 
+        <!-- Draft Badge -->
+        <Badge
+          v-if="isDraft"
+          variant="secondary"
+          class="absolute top-2 right-2 z-10 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700"
+        >
+          Draft
+        </Badge>
+
         <!-- Overlay Gradient (Subtle) -->
         <div
           class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
@@ -67,9 +76,31 @@
               {{ trip.photo_count }} photos
             </span>
           </div>
-          <span v-if="trip.date_range">
-            {{ formatDateRange(trip.date_range) }}
-          </span>
+          <div class="flex items-center gap-2">
+            <span v-if="trip.date_range">
+              {{ formatDateRange(trip.date_range) }}
+            </span>
+            <Button
+              v-if="onDelete"
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              @click.prevent.stop="handleDelete"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </Button>
+          </div>
         </div>
       </div>
     </router-link>
@@ -81,16 +112,32 @@ import { computed } from 'vue'
 import type { ApiTrip } from '@/utils/database'
 import { getImageUrl } from '@/utils/image'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 const props = defineProps<{
   trip: ApiTrip & { photo_count: number; date_range: { start: string; end: string } }
   featured?: boolean
+  isDraft?: boolean
+  onDelete?: () => void
 }>()
 
 const coverSrcset = computed(() => '')
 const coverFallback = computed(() =>
   props.trip.cover_photo_url ? getImageUrl(props.trip.cover_photo_url) : ''
 )
+
+function handleDelete() {
+  if (!props.onDelete) return
+
+  const confirmed = confirm(
+    `Are you sure you want to delete "${props.trip.title}"? This action cannot be undone.`
+  )
+
+  if (confirmed) {
+    props.onDelete()
+  }
+}
 
 function formatDateRange(dateRange: { start: string; end: string }): string {
   if (!dateRange || !dateRange.start) return ''
