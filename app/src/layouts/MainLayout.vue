@@ -12,7 +12,7 @@
           <Button variant="ghost" as-child>
             <router-link to="/">Home</router-link>
           </Button>
-          <Button v-if="isAuthenticated" variant="ghost" as-child>
+          <Button v-if="isAdmin" variant="ghost" as-child>
             <router-link to="/admin">Upload</router-link>
           </Button>
           <template v-if="isAuthenticated">
@@ -45,7 +45,7 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 import BottomNav from '@/components/BottomNav.vue'
 
 const router = useRouter()
-const { isAuthenticated, loading, logout } = useAuth()
+const { isAuthenticated, isAdmin, loading, logout } = useAuth()
 
 async function handleLogout() {
   try {

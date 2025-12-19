@@ -206,7 +206,6 @@ import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 import { extractExifBatch } from '@/utils/exif'
 import { resizeFiles } from '@/utils/resize'
-import { uploadMultipleFiles } from '@/lib/cloudinary'
 import { createTrip, createPhotos, updateTripCoverPhoto } from '@/utils/database'
 import { generateUniqueSlug } from '@/utils/slug'
 import type { PhotoMetadata } from '@/utils/exif'
@@ -218,6 +217,7 @@ import { Progress } from '@/components/ui/progress'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { uploadMultipleFiles } from '@/lib/cloudinary'
 
 // Form validation schema
 const formSchema = toTypedSchema(

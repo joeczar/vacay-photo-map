@@ -35,12 +35,7 @@
 
         <!-- Upload/Admin or Login -->
         <li class="flex-1">
-          <RouterLink
-            v-if="isAuthenticated"
-            to="/admin"
-            custom
-            v-slot="{ href, navigate, isActive }"
-          >
+          <RouterLink v-if="isAdmin" to="/admin" custom v-slot="{ href, navigate, isActive }">
             <a
               :href="href"
               @click="navigate"
@@ -67,7 +62,12 @@
               Upload
             </a>
           </RouterLink>
-          <RouterLink v-else to="/login" custom v-slot="{ href, navigate, isActive }">
+          <RouterLink
+            v-else-if="!isAuthenticated"
+            to="/login"
+            custom
+            v-slot="{ href, navigate, isActive }"
+          >
             <a
               :href="href"
               @click="navigate"
@@ -110,5 +110,5 @@ import { RouterLink } from 'vue-router'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import { useAuth } from '@/composables/useAuth'
 
-const { isAuthenticated } = useAuth()
+const { isAuthenticated, isAdmin } = useAuth()
 </script>
