@@ -20,5 +20,21 @@ services:
       retries: 5
       start_period: 10s
 
+  # API service configuration (uncomment when API Dockerfile is ready)
+  # api:
+  #   build:
+  #     context: ./api
+  #   container_name: vacay-api
+  #   restart: unless-stopped
+  #   ports:
+  #     - '3000:3000'
+  #   volumes:
+  #     - ./data/photos:/data/photos
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     DATABASE_URL: postgresql://vacay:vacay@postgres:5432/vacay
+
 volumes:
   postgres_data:
