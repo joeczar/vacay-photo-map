@@ -238,6 +238,61 @@ trips.get("/", async (c) => {
 });
 
 // =============================================================================
+// GET /api/trips/admin - List all trips (admin only)
+// =============================================================================
+/**
+ * Admin endpoint to list all trips regardless of public/private status.
+ * Unlike the public endpoint, this returns ALL trips with photo metadata.
+ */
+trips.get("/admin", requireAdmin, async (c) => {
+  const db = getDbClient();
+
+  const tripList = await db<DbTrip[]>`
+    SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
+    FROM trips
+    ORDER BY created_at DESC
+  `;
+
+  // Get photo metadata for all trips in one query
+  const tripIds = tripList.map((t) => t.id);
+
+  interface PhotoStatsWithTripId extends PhotoStats {
+    trip_id: string;
+  }
+
+  const photoStats =
+    tripIds.length > 0
+      ? await db<PhotoStatsWithTripId[]>`
+        SELECT
+          trip_id,
+          COUNT(*)::text as photo_count,
+          MIN(taken_at) as min_taken_at,
+          MAX(taken_at) as max_taken_at
+        FROM photos
+        WHERE trip_id = ANY(${tripIds})
+        GROUP BY trip_id
+      `
+      : [];
+
+  // Create a map for quick lookup
+  const statsMap = new Map(photoStats.map((s) => [s.trip_id, s]));
+
+  // Combine trips with their photo metadata
+  const tripsWithMetadata = tripList.map((trip) => {
+    const stats = statsMap.get(trip.id);
+    const { photoCount, dateRange } = getMetadataFromStats(
+      stats,
+      trip.created_at,
+    );
+    return toTripResponse(trip, photoCount, dateRange);
+  });
+
+  return c.json({
+    trips: tripsWithMetadata,
+  });
+});
+
+// =============================================================================
 // GET /api/trips/:slug - Get trip by slug with access control
 // =============================================================================
 trips.get("/:slug", optionalAuth, async (c) => {
