@@ -444,7 +444,7 @@ describe("Trip Routes", () => {
       const db = getDbClient();
       const [trip] = await db`
         INSERT INTO trips (title, slug, is_public)
-        VALUES ('Test Trip', ${"test-trip-cleanup-" + Date.now()}, true)
+        VALUES ('Test Trip', ${"test-trip-cleanup-" + crypto.randomUUID()}, true)
         RETURNING id
       `;
 
