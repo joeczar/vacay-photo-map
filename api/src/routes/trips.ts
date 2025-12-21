@@ -4,7 +4,7 @@ import { getDbClient } from "../db/client";
 import { requireAdmin, optionalAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
-import { deleteFromR2, isR2Available } from "../utils/r2";
+import { deleteFromR2, deleteMultipleFromR2, isR2Available } from "../utils/r2";
 
 // =============================================================================
 // Database Types
@@ -640,6 +640,11 @@ trips.delete("/:id", requireAdmin, async (c) => {
 
   const db = getDbClient();
 
+  // Get all photo URLs before deletion (needed for R2 cleanup)
+  const photos = await db<{ url: string; thumbnail_url: string }[]>`
+    SELECT url, thumbnail_url FROM photos WHERE trip_id = ${id}
+  `;
+
   const result = await db`
     DELETE FROM trips
     WHERE id = ${id}
@@ -650,14 +655,26 @@ trips.delete("/:id", requireAdmin, async (c) => {
     return c.json({ error: "Not Found", message: "Trip not found" }, 404);
   }
 
-  // Clean up photo files on disk
-  const photosDir = getPhotosDir();
-  const tripDir = `${photosDir}/${id}`;
-
-  await rm(tripDir, { recursive: true, force: true }).catch((error) => {
+  // Clean up photo files from R2 or local filesystem
+  try {
+    if (isR2Available()) {
+      // Extract R2 keys from URLs and batch delete
+      const keys = new Set<string>();
+      for (const photo of photos) {
+        keys.add(photo.url.replace("/api/photos/", ""));
+        keys.add(photo.thumbnail_url.replace("/api/photos/", ""));
+      }
+      await deleteMultipleFromR2(Array.from(keys));
+    } else {
+      // Fallback: delete local directory
+      const photosDir = getPhotosDir();
+      const tripDir = `${photosDir}/${id}`;
+      await rm(tripDir, { recursive: true, force: true });
+    }
+  } catch (error) {
     // Log but don't fail the request - DB transaction already committed
     console.error(`Failed to delete photos for trip ${id}:`, error);
-  });
+  }
 
   // 204 No Content
   return c.body(null, 204);
