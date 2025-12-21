@@ -13,8 +13,6 @@ export interface PhotoMetadata {
  */
 export async function extractExif(file: File): Promise<PhotoMetadata> {
   try {
-    console.log(`📸 Extracting EXIF from: ${file.name}`)
-
     // Parse with explicit GPS options - need to request GPS data specifically
     const data = await exifr.parse(file, {
       gps: true,
@@ -43,9 +41,7 @@ export async function extractExif(file: File): Promise<PhotoMetadata> {
       if (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) {
         // Check it's not the null island (0,0) which usually indicates invalid data
         if (latitude !== 0 || longitude !== 0) {
-          console.log(
-            `✅ GPS found in ${file.name}: ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-          )
+          // Valid GPS coordinates found
         } else {
           console.warn(`⚠️  GPS coordinates are (0,0) in ${file.name} - likely invalid`)
           return {
@@ -122,7 +118,6 @@ export async function extractGPS(
  * Extract EXIF data from multiple files in parallel
  */
 export async function extractExifBatch(files: File[]): Promise<Map<File, PhotoMetadata>> {
-  console.log(`📦 Extracting EXIF from ${files.length} files...`)
   const results = new Map<File, PhotoMetadata>()
 
   await Promise.all(
@@ -131,9 +126,6 @@ export async function extractExifBatch(files: File[]): Promise<Map<File, PhotoMe
       results.set(file, metadata)
     })
   )
-
-  const withGPS = Array.from(results.values()).filter(m => m.latitude && m.longitude).length
-  console.log(`✅ Extraction complete: ${withGPS}/${files.length} photos have GPS data`)
 
   return results
 }
