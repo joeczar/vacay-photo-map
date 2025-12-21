@@ -1,6 +1,6 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
-import { describe, expect, it, beforeAll, afterAll } from "bun:test";
+import { describe, expect, it, beforeAll, afterAll, mock } from "bun:test";
 import { Hono } from "hono";
 import { upload } from "./upload";
 import { getDbClient } from "../db/client";
@@ -14,6 +14,24 @@ import {
   createWebpFile,
   createFormData,
 } from "../test-helpers";
+
+// Mock R2 to ensure tests use local filesystem fallback
+mock.module("../utils/r2", () => ({
+  uploadToR2: async () => false, // Returns false = R2 not configured, use local
+  getFromR2: async () => null, // Returns null = not found in R2
+  isR2Available: () => false, // R2 not configured in tests
+  deleteFromR2: async () => false,
+  deleteMultipleFromR2: async () => 0,
+}));
+
+// Mock sharp to avoid native module issues in CI
+mock.module("sharp", () => {
+  const sharpMock = () => ({
+    metadata: async () => ({ width: 800, height: 600 }),
+  });
+  sharpMock.default = sharpMock;
+  return sharpMock;
+});
 
 // Response types
 interface ErrorResponse {
