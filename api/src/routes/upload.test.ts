@@ -14,6 +14,30 @@ import {
   createWebpFile,
   createFormData,
 } from "../test-helpers";
+import { mock } from "bun:test";
+
+// Mock R2 utility
+mock.module("../utils/r2", () => ({
+  uploadToR2: async () => ({ $metadata: { httpStatusCode: 200 } }),
+  getFromR2: async (key: string) => {
+    if (key.includes("non-existent")) return { Body: null };
+    return {
+      Body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array([0]));
+          controller.close();
+        },
+      }),
+    };
+  },
+}));
+
+// Mock Sharp
+mock.module("sharp", () => {
+  return (input: Buffer) => ({
+    metadata: async () => ({ width: 800, height: 600 }),
+  });
+});
 
 // Response types
 interface ErrorResponse {
