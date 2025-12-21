@@ -4,6 +4,11 @@ import { getDbClient } from "../db/client";
 import { requireAdmin, optionalAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
+import {
+  deleteMultipleFromR2,
+  isR2Available,
+  PHOTOS_URL_PREFIX,
+} from "../utils/r2";
 
 // =============================================================================
 // Database Types
@@ -101,7 +106,7 @@ function isValidDescription(description: string | undefined | null): boolean {
 function isValidUrl(url: string | undefined | null): boolean {
   if (!url) return true;
   // Accept relative paths for self-hosted photos
-  if (url.startsWith("/api/photos/")) return true;
+  if (url.startsWith(PHOTOS_URL_PREFIX)) return true;
   try {
     new URL(url);
     return true;
@@ -639,6 +644,11 @@ trips.delete("/:id", requireAdmin, async (c) => {
 
   const db = getDbClient();
 
+  // Get all photo URLs before deletion (needed for R2 cleanup)
+  const photos = await db<{ url: string; thumbnail_url: string }[]>`
+    SELECT url, thumbnail_url FROM photos WHERE trip_id = ${id}
+  `;
+
   const result = await db`
     DELETE FROM trips
     WHERE id = ${id}
@@ -649,14 +659,26 @@ trips.delete("/:id", requireAdmin, async (c) => {
     return c.json({ error: "Not Found", message: "Trip not found" }, 404);
   }
 
-  // Clean up photo files on disk
-  const photosDir = getPhotosDir();
-  const tripDir = `${photosDir}/${id}`;
-
-  await rm(tripDir, { recursive: true, force: true }).catch((error) => {
+  // Clean up photo files from R2 or local filesystem
+  try {
+    if (isR2Available()) {
+      // Extract R2 keys from URLs and batch delete
+      const keys = new Set<string>();
+      for (const photo of photos) {
+        keys.add(photo.url.replace(PHOTOS_URL_PREFIX, ""));
+        keys.add(photo.thumbnail_url.replace(PHOTOS_URL_PREFIX, ""));
+      }
+      await deleteMultipleFromR2(Array.from(keys));
+    } else {
+      // Fallback: delete local directory
+      const photosDir = getPhotosDir();
+      const tripDir = `${photosDir}/${id}`;
+      await rm(tripDir, { recursive: true, force: true });
+    }
+  } catch (error) {
     // Log but don't fail the request - DB transaction already committed
     console.error(`Failed to delete photos for trip ${id}:`, error);
-  });
+  }
 
   // 204 No Content
   return c.body(null, 204);
@@ -883,20 +905,34 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
     WHERE id = ${id}
   `;
 
-  // Clean up photo files on disk (both main photo and thumbnail)
+  // Clean up photo files from R2 or local filesystem
   // URL format: /api/photos/{tripId}/{filename}
   try {
-    const photosDir = getPhotosDir();
+    // Extract keys from URLs
+    const photoKey = photo.url.replace(PHOTOS_URL_PREFIX, "");
+    const thumbnailKey = photo.thumbnail_url.replace(PHOTOS_URL_PREFIX, "");
 
-    // Delete main photo
-    const urlPath = photo.url.replace("/api/photos/", "");
-    const photoPath = `${photosDir}/${urlPath}`;
-    await rm(photoPath, { force: true });
+    if (isR2Available()) {
+      // Batch delete from R2
+      const keysToDelete = [photoKey];
+      if (thumbnailKey !== photoKey) {
+        keysToDelete.push(thumbnailKey);
+      }
+      await deleteMultipleFromR2(keysToDelete);
+    } else {
+      // Fallback: local filesystem
+      const photosDir = getPhotosDir();
 
-    // Delete thumbnail
-    const thumbnailPath = photo.thumbnail_url.replace("/api/photos/", "");
-    const thumbnailFilePath = `${photosDir}/${thumbnailPath}`;
-    await rm(thumbnailFilePath, { force: true });
+      // Delete main photo
+      const photoPath = `${photosDir}/${photoKey}`;
+      await rm(photoPath, { force: true });
+
+      // Delete thumbnail if different
+      if (thumbnailKey !== photoKey) {
+        const thumbnailFilePath = `${photosDir}/${thumbnailKey}`;
+        await rm(thumbnailFilePath, { force: true });
+      }
+    }
   } catch (error) {
     // Log any error during file cleanup but don't fail the request.
     // The database is the source of truth, and the photo record is already deleted.

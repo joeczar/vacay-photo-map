@@ -1,6 +1,6 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { Hono } from "hono";
 import { trips } from "./trips";
@@ -8,6 +8,15 @@ import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
 import { getDbClient } from "../db/client";
 import { getAdminAuthHeader, getUserAuthHeader } from "../test-helpers";
+
+// Mock R2 to ensure tests use local filesystem fallback
+mock.module("../utils/r2", () => ({
+  uploadToR2: async () => false,
+  getFromR2: async () => null,
+  isR2Available: () => false,
+  deleteMultipleFromR2: async () => 0,
+  PHOTOS_URL_PREFIX: "/api/photos/",
+}));
 
 // Response types
 interface ErrorResponse {

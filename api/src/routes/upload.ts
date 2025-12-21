@@ -1,10 +1,17 @@
 import { Hono } from "hono";
 import { mkdir } from "node:fs/promises";
+import sharp from "sharp";
 import { requireAdmin } from "../middleware/auth";
 import { validateImageFile } from "../middleware/fileValidation";
 import type { UploadResult } from "../types/upload";
 import type { AuthEnv } from "../types/auth";
 import { getDbClient } from "../db/client";
+import {
+  uploadToR2,
+  getFromR2,
+  isR2Available,
+  PHOTOS_URL_PREFIX,
+} from "../utils/r2";
 
 // Photos directory - read at runtime for testing
 export function getPhotosDir(): string {
@@ -55,7 +62,7 @@ upload.post("/trips/:tripId/photos/upload", requireAdmin, async (c) => {
     return c.json({ error: validation.error }, 400);
   }
 
-  // 5. Generate filename and ensure directory exists
+  // 5. Generate filename
   const uuid = crypto.randomUUID();
   const ext =
     file.type === "image/png"
@@ -64,23 +71,35 @@ upload.post("/trips/:tripId/photos/upload", requireAdmin, async (c) => {
         ? "webp"
         : "jpg";
   const filename = `${uuid}.${ext}`;
-  const dirPath = `${getPhotosDir()}/${tripId}`;
-  const filePath = `${dirPath}/${filename}`;
+  const key = `${tripId}/${filename}`;
 
-  // Create directory if it doesn't exist
-  await mkdir(dirPath, { recursive: true });
-
-  // 6. Write file to disk
+  // 6. Process image and upload
   const arrayBuffer = await file.arrayBuffer();
-  await Bun.write(filePath, arrayBuffer);
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Extract dimensions with sharp
+  const metadata = await sharp(buffer).metadata();
+  const width = metadata.width || 0;
+  const height = metadata.height || 0;
+
+  // Upload to R2 if configured, otherwise fall back to local filesystem
+  const uploadedToR2 = await uploadToR2(key, buffer, file.type);
+
+  if (!uploadedToR2) {
+    // Fallback: local filesystem (for dev without R2)
+    const dirPath = `${getPhotosDir()}/${tripId}`;
+    const filePath = `${dirPath}/${filename}`;
+    await mkdir(dirPath, { recursive: true });
+    await Bun.write(filePath, buffer);
+  }
 
   // 7. Build response
   const result: UploadResult = {
-    publicId: `${tripId}/${filename}`,
-    url: `/api/photos/${tripId}/${filename}`,
-    thumbnailUrl: `/api/photos/${tripId}/${filename}`, // Same until #82
-    width: 0, // TODO: Extract with sharp in #82
-    height: 0,
+    publicId: key,
+    url: `${PHOTOS_URL_PREFIX}${tripId}/${filename}`,
+    thumbnailUrl: `${PHOTOS_URL_PREFIX}${tripId}/${filename}`, // Same until #82
+    width,
+    height,
   };
 
   return c.json(result, 201);
@@ -108,17 +127,49 @@ upload.get("/photos/:tripId/:filename", async (c) => {
     return c.json({ error: "Invalid filename" }, 400);
   }
 
+  // Determine content type
+  const ext = filename.split(".").pop()?.toLowerCase();
+  const contentType =
+    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+
+  const key = `${tripId}/${filename}`;
+
+  // Try R2 first if configured
+  if (isR2Available()) {
+    const r2Object = await getFromR2(key);
+
+    if (!r2Object || !r2Object.Body) {
+      return c.json({ error: "Photo not found" }, 404);
+    }
+
+    // Convert R2 stream to buffer
+    const stream = r2Object.Body as ReadableStream;
+    const chunks: Uint8Array[] = [];
+    const reader = stream.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+
+    const buffer = Buffer.concat(chunks);
+
+    return new Response(buffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  }
+
+  // Fallback: local filesystem
   const filePath = `${getPhotosDir()}/${tripId}/${filename}`;
   const file = Bun.file(filePath);
 
   if (!(await file.exists())) {
     return c.json({ error: "Photo not found" }, 404);
   }
-
-  // Determine content type
-  const ext = filename.split(".").pop()?.toLowerCase();
-  const contentType =
-    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
 
   // Serve with cache headers
   return new Response(file, {
