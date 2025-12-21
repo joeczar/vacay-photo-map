@@ -439,7 +439,11 @@ const onSubmit = handleSubmit(async formValues => {
     let slug: string
 
     if (currentTripId.value) {
-      // Edit mode - use existing trip
+      // Edit mode - update trip details first, then add photos
+      await updateTrip(currentTripId.value, {
+        title: formValues.tripTitle,
+        description: formValues.tripDescription || null
+      })
       uploadStatus.value = 'Adding photos to trip...'
       uploadProgress.value = 25
       tripId = currentTripId.value
@@ -649,22 +653,31 @@ async function deletePhotoFromDraft(photoId: string) {
 }
 
 // Publish the draft trip
-async function publishTrip() {
+const publishTrip = handleSubmit(async formValues => {
   if (!currentTripId.value || !tripSlug.value) return
 
   try {
+    let updatePayload: {
+      title: string
+      description: string | null
+      isPublic: boolean
+      coverPhotoUrl?: string | null
+    } = {
+      title: formValues.tripTitle,
+      description: formValues.tripDescription || null,
+      isPublic: true
+    }
+
     // Recalculate cover photo from remaining photos
     if (existingPhotos.value.length > 0) {
       const coverPhoto =
         existingPhotos.value.find(p => p.latitude && p.longitude) || existingPhotos.value[0]
-      await updateTrip(currentTripId.value, {
-        coverPhotoUrl: coverPhoto?.thumbnail_url,
-        isPublic: true
-      })
+      updatePayload.coverPhotoUrl = coverPhoto?.thumbnail_url
     } else {
-      // No photos, just publish
-      await updateTrip(currentTripId.value, { isPublic: true })
+      updatePayload.coverPhotoUrl = null
     }
+
+    await updateTrip(currentTripId.value, updatePayload)
 
     // Redirect to trip view
     router.push(`/trip/${tripSlug.value}`)
@@ -672,7 +685,7 @@ async function publishTrip() {
     console.error('Failed to publish trip:', err)
     error.value = err instanceof Error ? err.message : 'Failed to publish trip'
   }
-}
+})
 
 // Load trip in edit mode if tripId query param present
 onMounted(async () => {
