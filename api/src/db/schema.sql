@@ -128,32 +128,15 @@ BEGIN
   END IF;
 END $$;
 
--- Drop old permissive policy if it exists, then create hardened policy
+-- Drop old/current policies and recreate to ensure latest definition is applied
 DROP POLICY IF EXISTS "Allow all inserts for trips" ON trips;
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE tablename = 'trips'
-      AND policyname = 'Allow inserts from API user for trips'
-  ) THEN
-    CREATE POLICY "Allow inserts from API user for trips"
-      ON trips FOR INSERT
-      WITH CHECK (current_user = 'vacay');
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "Allow inserts from API user for trips" ON trips;
+CREATE POLICY "Allow inserts from API user for trips"
+  ON trips FOR INSERT
+  WITH CHECK (current_user = 'vacay');
 
--- Drop old permissive policy if it exists, then create hardened policy
 DROP POLICY IF EXISTS "Allow all inserts for photos" ON photos;
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE tablename = 'photos'
-      AND policyname = 'Allow inserts from API user for photos'
-  ) THEN
-    CREATE POLICY "Allow inserts from API user for photos"
-      ON photos FOR INSERT
-      WITH CHECK (current_user = 'vacay');
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "Allow inserts from API user for photos" ON photos;
+CREATE POLICY "Allow inserts from API user for photos"
+  ON photos FOR INSERT
+  WITH CHECK (current_user = 'vacay');
