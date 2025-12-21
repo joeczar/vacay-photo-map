@@ -6,7 +6,7 @@ import { validateImageFile } from "../middleware/fileValidation";
 import type { UploadResult } from "../types/upload";
 import type { AuthEnv } from "../types/auth";
 import { getDbClient } from "../db/client";
-import { uploadToR2 } from "../utils/r2";
+import { uploadToR2, getFromR2, isR2Available } from "../utils/r2";
 
 // Photos directory - read at runtime for testing
 export function getPhotosDir(): string {
@@ -122,17 +122,49 @@ upload.get("/photos/:tripId/:filename", async (c) => {
     return c.json({ error: "Invalid filename" }, 400);
   }
 
+  // Determine content type
+  const ext = filename.split(".").pop()?.toLowerCase();
+  const contentType =
+    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+
+  const key = `${tripId}/${filename}`;
+
+  // Try R2 first if configured
+  if (isR2Available()) {
+    const r2Object = await getFromR2(key);
+
+    if (!r2Object || !r2Object.Body) {
+      return c.json({ error: "Photo not found" }, 404);
+    }
+
+    // Convert R2 stream to buffer
+    const stream = r2Object.Body as ReadableStream;
+    const chunks: Uint8Array[] = [];
+    const reader = stream.getReader();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+
+    const buffer = Buffer.concat(chunks);
+
+    return new Response(buffer, {
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  }
+
+  // Fallback: local filesystem
   const filePath = `${getPhotosDir()}/${tripId}/${filename}`;
   const file = Bun.file(filePath);
 
   if (!(await file.exists())) {
     return c.json({ error: "Photo not found" }, 404);
   }
-
-  // Determine content type
-  const ext = filename.split(".").pop()?.toLowerCase();
-  const contentType =
-    ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
 
   // Serve with cache headers
   return new Response(file, {
