@@ -4,6 +4,7 @@ import { getDbClient } from "../db/client";
 import { requireAdmin, optionalAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
+import { deleteFromR2, isR2Available } from "../utils/r2";
 
 // =============================================================================
 // Database Types
@@ -883,20 +884,35 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
     WHERE id = ${id}
   `;
 
-  // Clean up photo files on disk (both main photo and thumbnail)
+  // Clean up photo files from R2 or local filesystem
   // URL format: /api/photos/{tripId}/{filename}
   try {
-    const photosDir = getPhotosDir();
+    if (isR2Available()) {
+      // Extract R2 key from URL: /api/photos/{tripId}/{filename} -> {tripId}/{filename}
+      const photoKey = photo.url.replace("/api/photos/", "");
+      const thumbnailKey = photo.thumbnail_url.replace("/api/photos/", "");
 
-    // Delete main photo
-    const urlPath = photo.url.replace("/api/photos/", "");
-    const photoPath = `${photosDir}/${urlPath}`;
-    await rm(photoPath, { force: true });
+      // Delete from R2 (both main and thumbnail)
+      await deleteFromR2(photoKey);
 
-    // Delete thumbnail
-    const thumbnailPath = photo.thumbnail_url.replace("/api/photos/", "");
-    const thumbnailFilePath = `${photosDir}/${thumbnailPath}`;
-    await rm(thumbnailFilePath, { force: true });
+      // Only delete thumbnail if different from photo (will be same until #82)
+      if (thumbnailKey !== photoKey) {
+        await deleteFromR2(thumbnailKey);
+      }
+    } else {
+      // Fallback: local filesystem
+      const photosDir = getPhotosDir();
+
+      // Delete main photo
+      const urlPath = photo.url.replace("/api/photos/", "");
+      const photoPath = `${photosDir}/${urlPath}`;
+      await rm(photoPath, { force: true });
+
+      // Delete thumbnail
+      const thumbnailPath = photo.thumbnail_url.replace("/api/photos/", "");
+      const thumbnailFilePath = `${photosDir}/${thumbnailPath}`;
+      await rm(thumbnailFilePath, { force: true });
+    }
   } catch (error) {
     // Log any error during file cleanup but don't fail the request.
     // The database is the source of truth, and the photo record is already deleted.
