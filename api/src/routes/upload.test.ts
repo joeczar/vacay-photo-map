@@ -20,8 +20,8 @@ mock.module("../utils/r2", () => ({
   uploadToR2: async () => false, // Returns false = R2 not configured, use local
   getFromR2: async () => null, // Returns null = not found in R2
   isR2Available: () => false, // R2 not configured in tests
-  deleteFromR2: async () => false,
   deleteMultipleFromR2: async () => 0,
+  PHOTOS_URL_PREFIX: "/api/photos/",
 }));
 
 // Mock sharp to avoid native module issues in CI

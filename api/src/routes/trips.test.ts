@@ -14,8 +14,8 @@ mock.module("../utils/r2", () => ({
   uploadToR2: async () => false,
   getFromR2: async () => null,
   isR2Available: () => false,
-  deleteFromR2: async () => false,
   deleteMultipleFromR2: async () => 0,
+  PHOTOS_URL_PREFIX: "/api/photos/",
 }));
 
 // Response types

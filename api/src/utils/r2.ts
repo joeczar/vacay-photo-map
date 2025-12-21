@@ -15,6 +15,9 @@ import {
   type GetObjectCommandOutput,
 } from "@aws-sdk/client-s3";
 
+// URL prefix for photo serving - used to extract R2 keys from URLs
+export const PHOTOS_URL_PREFIX = "/api/photos/";
+
 // Environment validation
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -56,19 +59,26 @@ export async function uploadToR2(
   contentType: string,
 ): Promise<boolean> {
   if (!r2Client || !R2_BUCKET_NAME) {
-    console.warn("R2 not configured, skipping upload");
     return false;
   }
 
-  const command = new PutObjectCommand({
-    Bucket: R2_BUCKET_NAME,
-    Key: key,
-    Body: body,
-    ContentType: contentType,
-  });
+  try {
+    const command = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    });
 
-  await r2Client.send(command);
-  return true;
+    await r2Client.send(command);
+    return true;
+  } catch (error) {
+    console.error(
+      `R2 upload failed for key "${key}". Falling back to local storage.`,
+      error,
+    );
+    return false;
+  }
 }
 
 /**
@@ -80,7 +90,6 @@ export async function getFromR2(
   key: string,
 ): Promise<GetObjectCommandOutput | null> {
   if (!r2Client || !R2_BUCKET_NAME) {
-    console.warn("R2 not configured, cannot retrieve file");
     return null;
   }
 
@@ -106,7 +115,6 @@ export async function getFromR2(
  */
 export async function deleteFromR2(key: string): Promise<boolean> {
   if (!r2Client || !R2_BUCKET_NAME) {
-    console.warn("R2 not configured, skipping deletion");
     return false;
   }
 
@@ -133,9 +141,6 @@ export async function deleteFromR2(key: string): Promise<boolean> {
  */
 export async function deleteMultipleFromR2(keys: string[]): Promise<number> {
   if (!r2Client || !R2_BUCKET_NAME || keys.length === 0) {
-    if (keys.length > 0) {
-      console.warn("R2 not configured, skipping batch deletion");
-    }
     return 0;
   }
 

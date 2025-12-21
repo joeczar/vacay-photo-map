@@ -6,7 +6,12 @@ import { validateImageFile } from "../middleware/fileValidation";
 import type { UploadResult } from "../types/upload";
 import type { AuthEnv } from "../types/auth";
 import { getDbClient } from "../db/client";
-import { uploadToR2, getFromR2, isR2Available } from "../utils/r2";
+import {
+  uploadToR2,
+  getFromR2,
+  isR2Available,
+  PHOTOS_URL_PREFIX,
+} from "../utils/r2";
 
 // Photos directory - read at runtime for testing
 export function getPhotosDir(): string {
@@ -91,8 +96,8 @@ upload.post("/trips/:tripId/photos/upload", requireAdmin, async (c) => {
   // 7. Build response
   const result: UploadResult = {
     publicId: key,
-    url: `/api/photos/${tripId}/${filename}`,
-    thumbnailUrl: `/api/photos/${tripId}/${filename}`, // Same until #82
+    url: `${PHOTOS_URL_PREFIX}${tripId}/${filename}`,
+    thumbnailUrl: `${PHOTOS_URL_PREFIX}${tripId}/${filename}`, // Same until #82
     width,
     height,
   };

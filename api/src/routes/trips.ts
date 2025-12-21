@@ -4,7 +4,11 @@ import { getDbClient } from "../db/client";
 import { requireAdmin, optionalAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
-import { deleteFromR2, deleteMultipleFromR2, isR2Available } from "../utils/r2";
+import {
+  deleteMultipleFromR2,
+  isR2Available,
+  PHOTOS_URL_PREFIX,
+} from "../utils/r2";
 
 // =============================================================================
 // Database Types
@@ -102,7 +106,7 @@ function isValidDescription(description: string | undefined | null): boolean {
 function isValidUrl(url: string | undefined | null): boolean {
   if (!url) return true;
   // Accept relative paths for self-hosted photos
-  if (url.startsWith("/api/photos/")) return true;
+  if (url.startsWith(PHOTOS_URL_PREFIX)) return true;
   try {
     new URL(url);
     return true;
@@ -661,8 +665,8 @@ trips.delete("/:id", requireAdmin, async (c) => {
       // Extract R2 keys from URLs and batch delete
       const keys = new Set<string>();
       for (const photo of photos) {
-        keys.add(photo.url.replace("/api/photos/", ""));
-        keys.add(photo.thumbnail_url.replace("/api/photos/", ""));
+        keys.add(photo.url.replace(PHOTOS_URL_PREFIX, ""));
+        keys.add(photo.thumbnail_url.replace(PHOTOS_URL_PREFIX, ""));
       }
       await deleteMultipleFromR2(Array.from(keys));
     } else {
@@ -904,31 +908,30 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
   // Clean up photo files from R2 or local filesystem
   // URL format: /api/photos/{tripId}/{filename}
   try {
+    // Extract keys from URLs
+    const photoKey = photo.url.replace(PHOTOS_URL_PREFIX, "");
+    const thumbnailKey = photo.thumbnail_url.replace(PHOTOS_URL_PREFIX, "");
+
     if (isR2Available()) {
-      // Extract R2 key from URL: /api/photos/{tripId}/{filename} -> {tripId}/{filename}
-      const photoKey = photo.url.replace("/api/photos/", "");
-      const thumbnailKey = photo.thumbnail_url.replace("/api/photos/", "");
-
-      // Delete from R2 (both main and thumbnail)
-      await deleteFromR2(photoKey);
-
-      // Only delete thumbnail if different from photo (will be same until #82)
+      // Batch delete from R2
+      const keysToDelete = [photoKey];
       if (thumbnailKey !== photoKey) {
-        await deleteFromR2(thumbnailKey);
+        keysToDelete.push(thumbnailKey);
       }
+      await deleteMultipleFromR2(keysToDelete);
     } else {
       // Fallback: local filesystem
       const photosDir = getPhotosDir();
 
       // Delete main photo
-      const urlPath = photo.url.replace("/api/photos/", "");
-      const photoPath = `${photosDir}/${urlPath}`;
+      const photoPath = `${photosDir}/${photoKey}`;
       await rm(photoPath, { force: true });
 
-      // Delete thumbnail
-      const thumbnailPath = photo.thumbnail_url.replace("/api/photos/", "");
-      const thumbnailFilePath = `${photosDir}/${thumbnailPath}`;
-      await rm(thumbnailFilePath, { force: true });
+      // Delete thumbnail if different
+      if (thumbnailKey !== photoKey) {
+        const thumbnailFilePath = `${photosDir}/${thumbnailKey}`;
+        await rm(thumbnailFilePath, { force: true });
+      }
     }
   } catch (error) {
     // Log any error during file cleanup but don't fail the request.
