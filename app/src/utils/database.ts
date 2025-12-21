@@ -216,7 +216,7 @@ export async function updateTrip(
   tripId: string,
   updates: {
     isPublic?: boolean
-    coverPhotoUrl?: string
+    coverPhotoUrl?: string | null
     title?: string
     description?: string | null
   }

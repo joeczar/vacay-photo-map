@@ -179,6 +179,42 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
   };
 }
 
+/**
+ * Fetches photos for a trip and builds the complete trip response
+ * with photos and metadata
+ */
+async function buildTripWithPhotosResponse(
+  trip: DbTrip,
+  db: ReturnType<typeof getDbClient>,
+): Promise<TripWithPhotosResponse> {
+  // Fetch photos for this trip
+  const photos = await db<DbPhoto[]>`
+    SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
+           latitude, longitude, taken_at, caption, album, created_at
+    FROM photos
+    WHERE trip_id = ${trip.id}
+    ORDER BY taken_at ASC
+  `;
+
+  // Compute photo metadata
+  const photoCount = photos.length;
+  const dateRange = {
+    start:
+      photos.length > 0
+        ? photos[0].taken_at.toISOString()
+        : trip.created_at.toISOString(),
+    end:
+      photos.length > 0
+        ? photos[photos.length - 1].taken_at.toISOString()
+        : trip.created_at.toISOString(),
+  };
+
+  return {
+    ...toTripResponse(trip, photoCount, dateRange),
+    photos: photos.map(toPhotoResponse),
+  };
+}
+
 // =============================================================================
 // Routes
 // =============================================================================
@@ -333,33 +369,8 @@ trips.get("/:identifier", optionalAuth, async (c) => {
 
     const trip = tripResults[0];
 
-    // Fetch photos for this trip
-    const photos = await db<DbPhoto[]>`
-      SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
-             latitude, longitude, taken_at, caption, album, created_at
-      FROM photos
-      WHERE trip_id = ${trip.id}
-      ORDER BY taken_at ASC
-    `;
-
-    // Compute photo metadata
-    const photoCount = photos.length;
-    const dateRange = {
-      start:
-        photos.length > 0
-          ? photos[0].taken_at.toISOString()
-          : trip.created_at.toISOString(),
-      end:
-        photos.length > 0
-          ? photos[photos.length - 1].taken_at.toISOString()
-          : trip.created_at.toISOString(),
-    };
-
-    const response: TripWithPhotosResponse = {
-      ...toTripResponse(trip, photoCount, dateRange),
-      photos: photos.map(toPhotoResponse),
-    };
-
+    // Build response with photos and metadata
+    const response = await buildTripWithPhotosResponse(trip, db);
     return c.json(response);
   }
 
@@ -402,33 +413,8 @@ trips.get("/:identifier", optionalAuth, async (c) => {
     }
   }
 
-  // Fetch photos for this trip
-  const photos = await db<DbPhoto[]>`
-    SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
-           latitude, longitude, taken_at, caption, album, created_at
-    FROM photos
-    WHERE trip_id = ${trip.id}
-    ORDER BY taken_at ASC
-  `;
-
-  // Compute photo metadata
-  const photoCount = photos.length;
-  const dateRange = {
-    start:
-      photos.length > 0
-        ? photos[0].taken_at.toISOString()
-        : trip.created_at.toISOString(),
-    end:
-      photos.length > 0
-        ? photos[photos.length - 1].taken_at.toISOString()
-        : trip.created_at.toISOString(),
-  };
-
-  const response: TripWithPhotosResponse = {
-    ...toTripResponse(trip, photoCount, dateRange),
-    photos: photos.map(toPhotoResponse),
-  };
-
+  // Build response with photos and metadata
+  const response = await buildTripWithPhotosResponse(trip, db);
   return c.json(response);
 });
 
@@ -904,14 +890,12 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
     const photosDir = getPhotosDir();
     const photoPath = `${photosDir}/${urlPath}`;
 
-    await rm(photoPath, { force: true }).catch((error) => {
-      // Log but don't fail the request - DB transaction already committed
-      console.error(`Failed to delete photo file at ${photoPath}:`, error);
-    });
+    await rm(photoPath, { force: true });
   } catch (error) {
-    // Log parsing errors but don't fail - DB is source of truth
+    // Log any error during file cleanup but don't fail the request.
+    // The database is the source of truth, and the photo record is already deleted.
     console.error(
-      `Failed to parse photo URL for deletion: ${photo.url}`,
+      `Failed to clean up file for photo ${id} with URL ${photo.url}:`,
       error,
     );
   }

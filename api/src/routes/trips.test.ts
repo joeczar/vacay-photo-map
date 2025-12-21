@@ -1,7 +1,7 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
 import { describe, expect, it } from "bun:test";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { Hono } from "hono";
 import { trips } from "./trips";
 import type { AuthEnv } from "../types/auth";
@@ -631,7 +631,7 @@ describe("Trip Routes", () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
 
-      // Create test trip and photo
+      // Create test trip
       const slug = "test-trip-delete-photo-" + crypto.randomUUID();
       const [trip] = await db`
         INSERT INTO trips (title, slug, is_public)
@@ -639,20 +639,33 @@ describe("Trip Routes", () => {
         RETURNING id
       `;
 
+      // Create a dummy photo file to be deleted
+      const photosDir = getPhotosDir();
+      const tripDir = `${photosDir}/${trip.id}`;
+      await mkdir(tripDir, { recursive: true });
+      const photoFilename = "test-delete.jpg";
+      const photoPath = `${tripDir}/${photoFilename}`;
+      await Bun.write(photoPath, "fake-photo-data");
+      expect(await Bun.file(photoPath).exists()).toBe(true);
+
+      const photoUrl = `/api/photos/${trip.id}/${photoFilename}`;
+      const thumbnailUrl = `/api/photos/${trip.id}/thumb-${photoFilename}`;
+
+      // Create test photo record
       const [photo] = await db`
         INSERT INTO photos (
           trip_id, cloudinary_public_id, url, thumbnail_url,
           latitude, longitude, taken_at
         )
         VALUES (
-          ${trip.id}, 'test-delete-photo', 'https://example.com/delete.jpg',
-          'https://example.com/delete-thumb.jpg', 40.7128, -74.0060,
+          ${trip.id}, 'test-delete-photo', ${photoUrl},
+          ${thumbnailUrl}, 40.7128, -74.0060,
           NOW()
         )
         RETURNING id
       `;
 
-      // Delete photo
+      // Delete photo via API
       const res = await app.fetch(
         new Request(`http://localhost/api/trips/photos/${photo.id}`, {
           method: "DELETE",
@@ -667,6 +680,9 @@ describe("Trip Routes", () => {
         SELECT * FROM photos WHERE id = ${photo.id}
       `;
       expect(deletedPhoto).toBeUndefined();
+
+      // Verify photo file is deleted from disk
+      expect(await Bun.file(photoPath).exists()).toBe(false);
 
       // Cleanup trip
       await db`DELETE FROM trips WHERE id = ${trip.id}`;
