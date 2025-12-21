@@ -310,5 +310,94 @@ describe("Auth Routes", () => {
       expect(statuses.filter((s) => s === 200).length).toBe(10);
       expect(statuses.filter((s) => s === 429).length).toBe(1);
     });
+
+    describe("Proxy Configuration", () => {
+      describe("with TRUSTED_PROXY=true (default in tests)", () => {
+        it("trusts X-Forwarded-For header - different IPs have separate limits", async () => {
+          // Test environment has TRUSTED_PROXY=true
+          const app = createTestApp();
+
+          // Each unique IP should have its own rate limit
+          const ip1 = uniqueIp();
+          const ip2 = uniqueIp();
+
+          // Make 10 requests from ip1 (should all succeed)
+          const requests1 = Array.from({ length: 10 }, () =>
+            app.fetch(
+              new Request("http://localhost/api/auth/logout", {
+                method: "POST",
+                headers: { "X-Forwarded-For": ip1 },
+              }),
+            ),
+          );
+
+          const responses1 = await Promise.all(requests1);
+          const statuses1 = responses1.map((r) => r.status);
+          expect(statuses1.filter((s) => s === 200).length).toBe(10);
+
+          // Make 10 requests from ip2 (should also all succeed - separate limit)
+          const requests2 = Array.from({ length: 10 }, () =>
+            app.fetch(
+              new Request("http://localhost/api/auth/logout", {
+                method: "POST",
+                headers: { "X-Forwarded-For": ip2 },
+              }),
+            ),
+          );
+
+          const responses2 = await Promise.all(requests2);
+          const statuses2 = responses2.map((r) => r.status);
+          expect(statuses2.filter((s) => s === 200).length).toBe(10);
+
+          // 11th request from ip1 should be rate limited
+          const response11 = await app.fetch(
+            new Request("http://localhost/api/auth/logout", {
+              method: "POST",
+              headers: { "X-Forwarded-For": ip1 },
+            }),
+          );
+          expect(response11.status).toBe(429);
+
+          // 11th request from ip2 should also be rate limited
+          const response12 = await app.fetch(
+            new Request("http://localhost/api/auth/logout", {
+              method: "POST",
+              headers: { "X-Forwarded-For": ip2 },
+            }),
+          );
+          expect(response12.status).toBe(429);
+        });
+
+        it("falls back to X-Real-IP if X-Forwarded-For missing", async () => {
+          // Test environment has TRUSTED_PROXY=true
+          const app = createTestApp();
+
+          const testIp = uniqueIp();
+
+          // Make 10 requests using X-Real-IP instead of X-Forwarded-For
+          const requests = Array.from({ length: 10 }, () =>
+            app.fetch(
+              new Request("http://localhost/api/auth/logout", {
+                method: "POST",
+                headers: { "X-Real-IP": testIp },
+              }),
+            ),
+          );
+
+          const responses = await Promise.all(requests);
+          const statuses = responses.map((r) => r.status);
+          expect(statuses.filter((s) => s === 200).length).toBe(10);
+
+          // 11th request should be rate limited
+          const response11 = await app.fetch(
+            new Request("http://localhost/api/auth/logout", {
+              method: "POST",
+              headers: { "X-Real-IP": testIp },
+            }),
+          );
+          expect(response11.status).toBe(429);
+        });
+      });
+    });
   });
 });
