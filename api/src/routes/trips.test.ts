@@ -639,17 +639,22 @@ describe("Trip Routes", () => {
         RETURNING id
       `;
 
-      // Create a dummy photo file to be deleted
+      // Create dummy photo and thumbnail files to be deleted
       const photosDir = getPhotosDir();
       const tripDir = `${photosDir}/${trip.id}`;
       await mkdir(tripDir, { recursive: true });
       const photoFilename = "test-delete.jpg";
+      const thumbnailFilename = "thumb-test-delete.jpg";
       const photoPath = `${tripDir}/${photoFilename}`;
+      const thumbnailPath = `${tripDir}/${thumbnailFilename}`;
+
       await Bun.write(photoPath, "fake-photo-data");
+      await Bun.write(thumbnailPath, "fake-thumbnail-data");
       expect(await Bun.file(photoPath).exists()).toBe(true);
+      expect(await Bun.file(thumbnailPath).exists()).toBe(true);
 
       const photoUrl = `/api/photos/${trip.id}/${photoFilename}`;
-      const thumbnailUrl = `/api/photos/${trip.id}/thumb-${photoFilename}`;
+      const thumbnailUrl = `/api/photos/${trip.id}/${thumbnailFilename}`;
 
       // Create test photo record
       const [photo] = await db`
@@ -681,8 +686,9 @@ describe("Trip Routes", () => {
       `;
       expect(deletedPhoto).toBeUndefined();
 
-      // Verify photo file is deleted from disk
+      // Verify both photo and thumbnail files are deleted from disk
       expect(await Bun.file(photoPath).exists()).toBe(false);
+      expect(await Bun.file(thumbnailPath).exists()).toBe(false);
 
       // Cleanup trip
       await db`DELETE FROM trips WHERE id = ${trip.id}`;

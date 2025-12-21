@@ -864,9 +864,9 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
 
   const db = getDbClient();
 
-  // Fetch photo to get trip_id and url for disk cleanup
+  // Fetch photo to get trip_id, url, and thumbnail_url for disk cleanup
   const photoResults = await db<DbPhoto[]>`
-    SELECT id, trip_id, url
+    SELECT id, trip_id, url, thumbnail_url
     FROM photos
     WHERE id = ${id}
   `;
@@ -883,19 +883,25 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
     WHERE id = ${id}
   `;
 
-  // Clean up photo file on disk
+  // Clean up photo files on disk (both main photo and thumbnail)
   // URL format: /api/photos/{tripId}/{filename}
   try {
-    const urlPath = photo.url.replace("/api/photos/", "");
     const photosDir = getPhotosDir();
-    const photoPath = `${photosDir}/${urlPath}`;
 
+    // Delete main photo
+    const urlPath = photo.url.replace("/api/photos/", "");
+    const photoPath = `${photosDir}/${urlPath}`;
     await rm(photoPath, { force: true });
+
+    // Delete thumbnail
+    const thumbnailPath = photo.thumbnail_url.replace("/api/photos/", "");
+    const thumbnailFilePath = `${photosDir}/${thumbnailPath}`;
+    await rm(thumbnailFilePath, { force: true });
   } catch (error) {
     // Log any error during file cleanup but don't fail the request.
     // The database is the source of truth, and the photo record is already deleted.
     console.error(
-      `Failed to clean up file for photo ${id} with URL ${photo.url}:`,
+      `Failed to clean up files for photo ${id} (url: ${photo.url}, thumbnail: ${photo.thumbnail_url}):`,
       error,
     );
   }
