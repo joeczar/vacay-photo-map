@@ -93,9 +93,9 @@ ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photos ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies (idempotent)
--- WARNING: These INSERT policies are permissive for local development only.
--- In production, replace with proper user-based policies that check auth.
--- TODO: Create separate production RLS policies that verify JWT user claims.
+-- INSERT policies restrict to the API database user ('vacay') for defense-in-depth.
+-- Application layer enforces JWT-based admin auth via requireAdmin middleware.
+-- Direct database access (e.g., psql, scripts) must connect as the 'vacay' user.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -128,28 +128,32 @@ BEGIN
   END IF;
 END $$;
 
+-- Drop old permissive policy if it exists, then create hardened policy
+DROP POLICY IF EXISTS "Allow all inserts for trips" ON trips;
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE tablename = 'trips'
-      AND policyname = 'Allow all inserts for trips'
+      AND policyname = 'Allow inserts from API user for trips'
   ) THEN
-    CREATE POLICY "Allow all inserts for trips"
+    CREATE POLICY "Allow inserts from API user for trips"
       ON trips FOR INSERT
-      WITH CHECK (true);
+      WITH CHECK (current_user = 'vacay');
   END IF;
 END $$;
 
+-- Drop old permissive policy if it exists, then create hardened policy
+DROP POLICY IF EXISTS "Allow all inserts for photos" ON photos;
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE tablename = 'photos'
-      AND policyname = 'Allow all inserts for photos'
+      AND policyname = 'Allow inserts from API user for photos'
   ) THEN
-    CREATE POLICY "Allow all inserts for photos"
+    CREATE POLICY "Allow inserts from API user for photos"
       ON photos FOR INSERT
-      WITH CHECK (true);
+      WITH CHECK (current_user = 'vacay');
   END IF;
 END $$;
