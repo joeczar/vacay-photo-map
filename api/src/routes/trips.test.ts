@@ -1,7 +1,7 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
 import { describe, expect, it } from "bun:test";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { Hono } from "hono";
 import { trips } from "./trips";
 import type { AuthEnv } from "../types/auth";
