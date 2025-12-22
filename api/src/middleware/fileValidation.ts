@@ -29,15 +29,15 @@ const FILE_SIGNATURES = {
 
 /**
  * Read file signature bytes from file
+ * Uses slice() to avoid loading entire file into memory
  */
 async function readFileSignature(
   file: File,
   byteCount: number,
 ): Promise<Uint8Array> {
-  // For small files, read full buffer; for large files, use stream
-  // This is efficient enough for signature detection (12 bytes)
-  const buffer = await file.arrayBuffer();
-  return new Uint8Array(buffer, 0, Math.min(byteCount, buffer.byteLength));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const blob = (file as any).slice(0, byteCount) as Blob;
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
 /**
