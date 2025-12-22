@@ -241,16 +241,12 @@ export async function updateTripCoverPhoto(tripId: string, coverPhotoUrl: string
  * Backend handles cascade deletion
  */
 export async function deleteTrip(tripId: string): Promise<void> {
-  console.log(`🗑️  Deleting trip ${tripId} and all associated photos...`)
-
   const { getToken } = useAuth()
   const token = getToken()
   if (!token) throw new Error('Authentication required')
 
   api.setToken(token)
   await api.delete(`/api/trips/${tripId}`)
-
-  console.log(`✅ Trip ${tripId} and all photos deleted successfully`)
 }
 
 /**

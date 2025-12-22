@@ -57,7 +57,7 @@ upload.post("/trips/:tripId/photos/upload", requireAdmin, async (c) => {
   }
 
   // 4. Validate file
-  const validation = validateImageFile(file);
+  const validation = await validateImageFile(file);
   if (!validation.valid) {
     return c.json({ error: validation.error }, 400);
   }

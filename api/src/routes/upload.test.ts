@@ -191,6 +191,55 @@ describe("Upload Routes", () => {
       expect(data.error).toContain("not allowed");
     });
 
+    it("returns 400 for file with spoofed MIME type", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      // Create file with plain text bytes but claims to be JPEG
+      const textBytes = new TextEncoder().encode("This is not an image");
+      const spoofedFile = new File([textBytes], "fake.jpg", {
+        type: "image/jpeg",
+      });
+      const formData = createFormData(spoofedFile);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${testTripId}/photos/upload`, {
+          method: "POST",
+          headers: authHeader,
+          body: formData,
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toContain("signature");
+    });
+
+    it("returns 400 for file with wrong magic numbers", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      // Create file with JPEG magic numbers but claims to be PNG
+      const jpegBytes = new Uint8Array([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+        0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+      ]);
+      const mismatchedFile = new File([jpegBytes], "fake.png", {
+        type: "image/png",
+      });
+      const formData = createFormData(mismatchedFile);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${testTripId}/photos/upload`, {
+          method: "POST",
+          headers: authHeader,
+          body: formData,
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toContain("signature");
+    });
+
     it("uploads valid JPEG and returns 201", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
