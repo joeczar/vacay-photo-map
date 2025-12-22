@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { getConnInfo } from "hono/bun";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -195,14 +196,37 @@ auth.use("*", async (c, next) => {
   let ip: string;
   if (trustedProxy) {
     // Trust X-Forwarded-For when behind known proxy
-    ip =
-      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
-      c.req.header("x-real-ip") ||
-      "unknown";
+    const forwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+    const realIp = c.req.header("x-real-ip");
+
+    if (forwardedFor) {
+      ip = forwardedFor;
+    } else if (realIp) {
+      ip = realIp;
+    } else {
+      // SECURITY: Fail closed - if proxy headers missing, reject request
+      // This indicates misconfiguration when TRUSTED_PROXY=true
+      console.warn(
+        "[RATE_LIMIT] Missing proxy headers with TRUSTED_PROXY=true",
+      );
+      return c.json(
+        { error: "Bad Request", message: "Missing required proxy headers" },
+        400,
+      );
+    }
   } else {
-    // Development/direct access - don't trust proxy headers
-    // Use a consistent identifier for all direct connections
-    ip = "direct-connection";
+    // Direct access - use actual client IP from connection
+    // Falls back to 'unknown' only in test environments where connInfo unavailable
+    try {
+      const connInfo = getConnInfo(c);
+      ip = connInfo.remote.address || "unknown";
+    } catch {
+      // In test environment, getConnInfo may not work - use header or fallback
+      ip =
+        c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+        c.req.header("x-real-ip") ||
+        "unknown";
+    }
   }
 
   if (!checkRateLimit(ip)) {

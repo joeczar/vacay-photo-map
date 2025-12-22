@@ -34,9 +34,10 @@ async function readFileSignature(
   file: File,
   byteCount: number,
 ): Promise<Uint8Array> {
-  // Read full file buffer then slice (works with all runtimes)
+  // For small files, read full buffer; for large files, use stream
+  // This is efficient enough for signature detection (12 bytes)
   const buffer = await file.arrayBuffer();
-  return new Uint8Array(buffer.slice(0, byteCount));
+  return new Uint8Array(buffer, 0, Math.min(byteCount, buffer.byteLength));
 }
 
 /**

@@ -31,6 +31,7 @@ jobs:
       RP_NAME: Test App
       RP_ORIGIN: http://localhost:5173
       PHOTOS_DIR: ./data/photos-test
+      TRUSTED_PROXY: "true"
 
     steps:
       - name: Checkout
