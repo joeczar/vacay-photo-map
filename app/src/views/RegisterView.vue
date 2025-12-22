@@ -146,7 +146,7 @@ const onSubmit = handleSubmit(async values => {
 
     // Step 4: Set auth state and redirect
     setAuthState(token, user)
-    await router.push('/admin')
+    await router.push('/trips')
   } catch (err) {
     console.error('Registration failed:', err)
 

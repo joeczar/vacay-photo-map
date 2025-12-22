@@ -365,6 +365,7 @@ auth.post("/register/verify", async (c) => {
       expectedChallenge: entry.challenge,
       expectedOrigin: config.origin,
       expectedRPID: config.rpID,
+      requireUserVerification: false, // Match "preferred" setting in options
     });
 
     if (!verification.verified || !verification.registrationInfo) {
@@ -558,6 +559,7 @@ auth.post("/passkeys/verify", requireAuth, async (c) => {
       expectedChallenge: entry.challenge,
       expectedOrigin: config.origin,
       expectedRPID: config.rpID,
+      requireUserVerification: false, // Match "preferred" setting in options
     });
 
     if (!verification.verified || !verification.registrationInfo) {
@@ -755,6 +757,7 @@ auth.post("/login/verify", async (c) => {
       expectedChallenge: entry.challenge,
       expectedOrigin: config.origin,
       expectedRPID: config.rpID,
+      requireUserVerification: false, // Match "preferred" setting in options
       credential: {
         id: result.credential_id,
         publicKey: Buffer.from(result.public_key, "base64url"),
