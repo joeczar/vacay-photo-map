@@ -290,10 +290,7 @@ auth.post("/register/options", async (c) => {
     // User exists but has no authenticators - recovery mode
     // Use their existing webauthn_user_id for consistency
     webauthnUserIdBase64 = user.webauthn_user_id;
-    const buffer = Buffer.from(webauthnUserIdBase64, "base64url");
-    const arrayBuffer = new ArrayBuffer(buffer.length);
-    webauthnUserIdBytes = new Uint8Array(arrayBuffer);
-    buffer.copy(webauthnUserIdBytes);
+    webauthnUserIdBytes = Buffer.from(webauthnUserIdBase64, "base64url");
     existingUserId = user.id;
   } else {
     // New user - generate fresh webauthn user ID
@@ -398,16 +395,29 @@ auth.post("/register/verify", async (c) => {
       }
 
       // Add the new authenticator
-      await db`
-        INSERT INTO authenticators (credential_id, user_id, public_key, counter, transports)
-        VALUES (
-          ${verifiedCredential.id},
-          ${existingUser.id},
-          ${Buffer.from(verifiedCredential.publicKey).toString("base64url")},
-          ${verifiedCredential.counter},
-          ${credential.response.transports || null}
-        )
-      `;
+      try {
+        await db`
+          INSERT INTO authenticators (credential_id, user_id, public_key, counter, transports)
+          VALUES (
+            ${verifiedCredential.id},
+            ${existingUser.id},
+            ${Buffer.from(verifiedCredential.publicKey).toString("base64url")},
+            ${verifiedCredential.counter},
+            ${credential.response.transports || null}
+          )
+        `;
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          return c.json(
+            {
+              error: "Conflict",
+              message: "This passkey is already registered.",
+            },
+            409,
+          );
+        }
+        throw error;
+      }
 
       result = existingUser;
     } else {

@@ -75,8 +75,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { getAllTripsAdmin, type ApiTrip } from '@/utils/database'
+import { ref, onMounted } from 'vue'
+import { getAllTrips, type ApiTrip } from '@/utils/database'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -85,20 +85,17 @@ import TripCard from '@/components/TripCard.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
-const allTrips = ref<
+const trips = ref<
   (ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]
 >([])
 const loading = ref(true)
 const error = ref('')
 
-// Only show published trips - the beautiful gallery
-const trips = computed(() => allTrips.value.filter(t => t.is_public))
-
 async function loadTrips() {
   loading.value = true
   error.value = ''
   try {
-    allTrips.value = await getAllTripsAdmin()
+    trips.value = await getAllTrips()
   } catch (err) {
     console.error('Error loading trips:', err)
     error.value = 'Failed to load trips'
