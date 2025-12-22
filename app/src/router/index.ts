@@ -29,6 +29,12 @@ const router = createRouter({
       }
     },
     {
+      path: '/trips',
+      name: 'trips',
+      component: () => import('../views/TripsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: () => import('../views/AdminView.vue'),
@@ -48,21 +54,31 @@ const router = createRouter({
   ]
 })
 
-// Auth guard - redirect to login if not authenticated, check admin status
+// Auth guard - protected routes and redirects
 router.beforeEach((to, _from, next) => {
   const { isAuthenticated, isAdmin, loading } = useAuth()
 
   // Wait for auth to initialize before making decisions
   if (loading.value) {
-    // Auth still initializing - allow navigation, initializeAuth() will complete first
-    // This is a safety check for edge cases like hot reload
     return next()
   }
 
+  // Redirect authenticated users away from login/register to trips
+  if (isAuthenticated.value && (to.name === 'login' || to.name === 'register')) {
+    return next({ name: 'trips' })
+  }
+
+  // Redirect authenticated users from home to trips
+  if (isAuthenticated.value && to.name === 'home') {
+    return next({ name: 'trips' })
+  }
+
+  // Protected routes - require auth
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 
+  // Admin routes - require admin role
   if (to.meta.requiresAdmin && !isAdmin.value) {
     return next({ name: 'home' })
   }

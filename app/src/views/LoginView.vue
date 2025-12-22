@@ -133,7 +133,7 @@ const onSubmit = handleSubmit(async values => {
     // Validate redirect path to prevent open redirect attacks
     const redirectQuery = route.query.redirect
     const redirect = Array.isArray(redirectQuery) ? redirectQuery[0] : redirectQuery
-    const redirectPath = redirect && redirect.startsWith('/') ? redirect : '/admin'
+    const redirectPath = redirect && redirect.startsWith('/') ? redirect : '/trips'
     await router.push(redirectPath)
   } catch (err) {
     console.error('Login failed:', err)

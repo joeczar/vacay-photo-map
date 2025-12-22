@@ -262,22 +262,44 @@ auth.post("/register/options", async (c) => {
   const config = getConfig();
 
   // Check if email already exists
-  const existing = await db<DbUser[]>`
-    SELECT id FROM user_profiles WHERE email = ${email.toLowerCase()}
+  const existing = await db<(DbUser & { authenticator_count: number })[]>`
+    SELECT u.id, u.webauthn_user_id, u.display_name, u.is_admin,
+           COUNT(a.credential_id)::int as authenticator_count
+    FROM user_profiles u
+    LEFT JOIN authenticators a ON a.user_id = u.id
+    WHERE u.email = ${email.toLowerCase()}
+    GROUP BY u.id
   `;
+
+  let webauthnUserIdBytes: Uint8Array<ArrayBuffer>;
+  let webauthnUserIdBase64: string;
+  let existingUserId: string | undefined;
+
   if (existing.length > 0) {
-    return c.json(
-      { error: "Conflict", message: "Email already registered" },
-      409,
-    );
+    const user = existing[0];
+    if (user.authenticator_count > 0) {
+      // User exists and has authenticators - must use login
+      return c.json(
+        {
+          error: "Conflict",
+          message: "Email already registered. Please use login.",
+        },
+        409,
+      );
+    }
+    // User exists but has no authenticators - recovery mode
+    // Use their existing webauthn_user_id for consistency
+    webauthnUserIdBase64 = user.webauthn_user_id;
+    webauthnUserIdBytes = Buffer.from(webauthnUserIdBase64, "base64url");
+    existingUserId = user.id;
+  } else {
+    // New user - generate fresh webauthn user ID
+    webauthnUserIdBytes = generateWebAuthnUserId();
+    webauthnUserIdBase64 =
+      Buffer.from(webauthnUserIdBytes).toString("base64url");
   }
 
   const sanitizedDisplayName = sanitizeDisplayName(displayName);
-
-  // Generate a stable WebAuthn user ID for this user
-  const webauthnUserIdBytes = generateWebAuthnUserId();
-  const webauthnUserIdBase64 =
-    Buffer.from(webauthnUserIdBytes).toString("base64url");
 
   // Generate registration options with the stable userID
   const options = await generateRegistrationOptions({
@@ -285,7 +307,7 @@ auth.post("/register/options", async (c) => {
     rpID: config.rpID,
     userID: webauthnUserIdBytes,
     userName: email,
-    userDisplayName: sanitizedDisplayName || email,
+    userDisplayName: sanitizedDisplayName || existing[0]?.display_name || email,
     attestationType: "none",
     authenticatorSelection: {
       residentKey: "preferred",
@@ -293,9 +315,10 @@ auth.post("/register/options", async (c) => {
     },
   });
 
-  // Store challenge with webauthn user ID for later persistence
+  // Store challenge with webauthn user ID and existing user ID (if recovery)
   storeChallenge(email, options.challenge, {
     webauthnUserId: webauthnUserIdBase64,
+    userId: existingUserId,
   });
 
   return c.json({ options });
@@ -339,6 +362,7 @@ auth.post("/register/verify", async (c) => {
       expectedChallenge: entry.challenge,
       expectedOrigin: config.origin,
       expectedRPID: config.rpID,
+      requireUserVerification: false, // Match "preferred" setting in options
     });
 
     if (!verification.verified || !verification.registrationInfo) {
@@ -356,30 +380,71 @@ auth.post("/register/verify", async (c) => {
 
     const db = getDbClient();
 
-    // Use transaction to ensure atomicity
-    const result = await db.begin(async (tx) => {
-      // Create user with stable WebAuthn user ID
-      const [user] = await tx<DbUser[]>`
-        INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
-        VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, FALSE)
-        RETURNING id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
+    let result: DbUser;
+
+    if (entry.userId) {
+      // Recovery mode - add passkey to existing user
+      const [existingUser] = await db<DbUser[]>`
+        SELECT id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
+        FROM user_profiles
+        WHERE id = ${entry.userId}
       `;
 
-      // Store authenticator
-      // Note: In SimpleWebAuthn v10+, credential.id is already a Base64URLString
-      await tx`
-        INSERT INTO authenticators (credential_id, user_id, public_key, counter, transports)
-        VALUES (
-          ${verifiedCredential.id},
-          ${user.id},
-          ${Buffer.from(verifiedCredential.publicKey).toString("base64url")},
-          ${verifiedCredential.counter},
-          ${credential.response.transports || null}
-        )
-      `;
+      if (!existingUser) {
+        return c.json({ error: "Not Found", message: "User not found" }, 404);
+      }
 
-      return user;
-    });
+      // Add the new authenticator
+      try {
+        await db`
+          INSERT INTO authenticators (credential_id, user_id, public_key, counter, transports)
+          VALUES (
+            ${verifiedCredential.id},
+            ${existingUser.id},
+            ${Buffer.from(verifiedCredential.publicKey).toString("base64url")},
+            ${verifiedCredential.counter},
+            ${credential.response.transports || null}
+          )
+        `;
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          return c.json(
+            {
+              error: "Conflict",
+              message: "This passkey is already registered.",
+            },
+            409,
+          );
+        }
+        throw error;
+      }
+
+      result = existingUser;
+    } else {
+      // New user - create user and authenticator in transaction
+      result = await db.begin(async (tx) => {
+        const [user] = await tx<DbUser[]>`
+          INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
+          VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, FALSE)
+          RETURNING id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
+        `;
+
+        // Store authenticator
+        // Note: In SimpleWebAuthn v10+, credential.id is already a Base64URLString
+        await tx`
+          INSERT INTO authenticators (credential_id, user_id, public_key, counter, transports)
+          VALUES (
+            ${verifiedCredential.id},
+            ${user.id},
+            ${Buffer.from(verifiedCredential.publicKey).toString("base64url")},
+            ${verifiedCredential.counter},
+            ${credential.response.transports || null}
+          )
+        `;
+
+        return user;
+      });
+    }
 
     // Generate JWT
     const token = await signToken({
@@ -504,6 +569,7 @@ auth.post("/passkeys/verify", requireAuth, async (c) => {
       expectedChallenge: entry.challenge,
       expectedOrigin: config.origin,
       expectedRPID: config.rpID,
+      requireUserVerification: false, // Match "preferred" setting in options
     });
 
     if (!verification.verified || !verification.registrationInfo) {
@@ -701,6 +767,7 @@ auth.post("/login/verify", async (c) => {
       expectedChallenge: entry.challenge,
       expectedOrigin: config.origin,
       expectedRPID: config.rpID,
+      requireUserVerification: false, // Match "preferred" setting in options
       credential: {
         id: result.credential_id,
         publicKey: Buffer.from(result.public_key, "base64url"),
