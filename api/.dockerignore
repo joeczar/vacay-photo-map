@@ -1,0 +1,40 @@
+# Dependencies
+node_modules
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test files and coverage
+*.test.ts
+coverage/
+.nyc_output/
+
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+dist/
+build/
+
+# Development files
+bunfig.toml
+
+# Local data
+data/
+
+# Documentation
+README.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
