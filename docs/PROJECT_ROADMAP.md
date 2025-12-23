@@ -112,29 +112,36 @@ Built comprehensive trip management with token-based access control.
 
 ## Planned Milestones
 
-### Milestone 5: Admin Spaces MVP
+### Milestone 5a: Darkroom
 **Status**: Planned
 **Target**: Q1 2025
-**Issues**: [#117](https://github.com/joeczar/vacay-photo-map/issues/117), [#118](https://github.com/joeczar/vacay-photo-map/issues/118), [#119](https://github.com/joeczar/vacay-photo-map/issues/119)
+**Issue**: [#117](https://github.com/joeczar/vacay-photo-map/issues/117)
 
-The admin area reimagined as three distinct "spaces" for different modes of work:
+Photo processing space with darkroom aesthetic (warm red glow).
 
-| Space | Purpose | Aesthetic |
-|-------|---------|-----------|
-| **Gallery** | View collection, manage trips | Photographer's studio — cool, clean |
-| **Darkroom** | Process photos — rotate, crop | Darkroom — warm red glow |
-| **Workshop** | Design trips — descriptions, sections, themes | Woodworker's bench — warm wood |
-
-**MVP Features:**
-
-*Darkroom:*
-- [ ] Photo rotation (metadata + CSS transform)
+**Features:**
+- [ ] Photo rotation (CSS transform, metadata storage)
 - [ ] Contact sheet view for batch review
+- [ ] Darkroom view with rotation controls
 
-*Workshop:*
-- [ ] Photo descriptions/captions
+**Implementation Plan:** See `docs/plans/admin-spaces-mvp-plan.md`
+
+---
+
+### Milestone 5b: Workshop
+**Status**: Planned
+**Target**: Q1 2025
+**Issues**: [#118](https://github.com/joeczar/vacay-photo-map/issues/118), [#119](https://github.com/joeczar/vacay-photo-map/issues/119)
+
+Trip design space with workshop aesthetic (warm wood, brass accents).
+
+**Features:**
+- [ ] Photo descriptions (Markdown support)
 - [ ] Trip sections/chapters
 - [ ] Section management UI
+- [ ] Display sections in public trip view
+
+**Implementation Plan:** See `docs/plans/admin-spaces-mvp-plan.md`
 
 **Design Reference:** See `docs/ADMIN_SPACES_DESIGN.md`
 
