@@ -72,11 +72,11 @@ import { useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import {
-  startRegistration,
-  type PublicKeyCredentialCreationOptionsJSON,
-  type RegistrationResponseJSON
-} from '@simplewebauthn/browser'
+import { startRegistration } from '@simplewebauthn/browser'
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  RegistrationResponseJSON
+} from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'

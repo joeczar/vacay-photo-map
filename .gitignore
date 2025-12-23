@@ -53,9 +53,11 @@ docs/research/*.html
 # Environment variables
 .env
 .env.local
+.env.production
 .env.production.local
 .env.development.local
 .env.test.local
+**/.env.production
 
 # Netlify
 .netlify
