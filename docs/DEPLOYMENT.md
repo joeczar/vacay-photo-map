@@ -87,10 +87,10 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d
 docker compose -f docker-compose.prod.yml ps
 
 # Check API health
-curl http://localhost:3000/api/health
+curl http://localhost:3000/health
 
 # Check database connectivity
-curl http://localhost:3000/api/health/ready
+curl http://localhost:3000/health/ready
 
 # View logs
 docker compose -f docker-compose.prod.yml logs -f api
@@ -123,8 +123,8 @@ docker compose -f docker-compose.prod.yml up -d api
 
 ### Health Endpoints
 
-- `GET /api/health` - Basic health check (always returns 200 if API is running)
-- `GET /api/health/ready` - Readiness check (verifies database connection)
+- `GET /health` - Basic health check (always returns 200 if API is running)
+- `GET /health/ready` - Readiness check (verifies database connection)
 
 ### Logs
 
