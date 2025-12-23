@@ -865,4 +865,20 @@ auth.post("/logout", (_c) => {
   return _c.json({ success: true });
 });
 
+// =============================================================================
+// GET /registration-status - Check if registration is open (first-user-only)
+// =============================================================================
+auth.get("/registration-status", async (c) => {
+  const db = getDbClient();
+
+  const [{ exists }] = await db<{ exists: boolean }[]>`
+    SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
+  `;
+
+  return c.json({
+    registrationOpen: !exists,
+    reason: exists ? "first_user_registered" : "no_users_yet",
+  });
+});
+
 export { auth };
