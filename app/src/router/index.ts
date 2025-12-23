@@ -45,6 +45,11 @@ const router = createRouter({
       }
     },
     {
+      path: '/recover',
+      name: 'recover',
+      component: () => import('../views/RecoveryView.vue')
+    },
+    {
       path: '/trips',
       name: 'trips',
       component: () => import('../views/TripsView.vue'),

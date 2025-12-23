@@ -47,6 +47,13 @@
           Need an account?
           <router-link to="/register" class="text-primary hover:underline"> Register </router-link>
         </div>
+
+        <!-- Recovery link -->
+        <div class="mt-2 text-center text-sm text-muted-foreground">
+          <router-link to="/recover" class="text-primary hover:underline">
+            Lost access? Recover account
+          </router-link>
+        </div>
       </CardContent>
     </Card>
   </AuthLayout>
