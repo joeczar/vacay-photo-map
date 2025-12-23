@@ -142,18 +142,8 @@ upload.get("/photos/:tripId/:filename", async (c) => {
       return c.json({ error: "Photo not found" }, 404);
     }
 
-    // Convert R2 stream to buffer
-    const stream = r2Object.Body as ReadableStream;
-    const chunks: Uint8Array[] = [];
-    const reader = stream.getReader();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) chunks.push(value);
-    }
-
-    const buffer = Buffer.concat(chunks);
+    // Convert R2 stream to buffer using SDK helper
+    const buffer = Buffer.from(await r2Object.Body.transformToByteArray());
 
     return new Response(buffer, {
       headers: {
