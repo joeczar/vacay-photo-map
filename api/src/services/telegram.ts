@@ -28,5 +28,9 @@ export async function sendTelegramMessage(text: string): Promise<boolean> {
 }
 
 export function generateRecoveryCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // Use cryptographically secure random number generator
+  const buffer = new Uint8Array(4);
+  crypto.getRandomValues(buffer);
+  const randomNum = new DataView(buffer.buffer).getUint32(0, false);
+  return ((randomNum % 900000) + 100000).toString();
 }

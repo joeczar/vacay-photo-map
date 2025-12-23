@@ -265,18 +265,6 @@ auth.post("/register/options", async (c) => {
   const db = getDbClient();
   const config = getConfig();
 
-  // Check if registration is open (first-user-only)
-  const [{ exists: usersExist }] = await db<{ exists: boolean }[]>`
-    SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
-  `;
-
-  if (usersExist) {
-    return c.json(
-      { error: "Forbidden", message: "Registration is closed" },
-      403,
-    );
-  }
-
   // Check if email already exists
   const existing = await db<(DbUser & { authenticator_count: number })[]>`
     SELECT u.id, u.webauthn_user_id, u.display_name, u.is_admin,
@@ -917,28 +905,41 @@ auth.post("/recovery/request", async (c) => {
     SELECT id, email FROM user_profiles WHERE email = ${email.toLowerCase()}
   `;
 
-  // Always return success to prevent user enumeration
-  if (!user) {
-    return c.json({
-      success: true,
-      message: "If account exists, recovery code sent",
-    });
-  }
-
-  // Generate code and expiry
+  // Generate code and expiry ALWAYS to prevent timing attacks
   const code = generateRecoveryCode();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-  // Store token
-  await db`
-    INSERT INTO recovery_tokens (user_id, code, expires_at)
-    VALUES (${user.id}, ${code}, ${expiresAt})
-  `;
+  if (user) {
+    // Delete any existing unused tokens for this user (enforces one active token)
+    await db`
+      DELETE FROM recovery_tokens
+      WHERE user_id = ${user.id}
+        AND used_at IS NULL
+        AND locked_at IS NULL
+    `;
 
-  // Send via Telegram
-  await sendTelegramMessage(
-    `🔐 <b>Recovery Code</b>\n\nAccount: ${user.email}\nCode: <code>${code}</code>\n\nExpires in 10 minutes.`,
-  );
+    // Store token
+    await db`
+      INSERT INTO recovery_tokens (user_id, code, expires_at)
+      VALUES (${user.id}, ${code}, ${expiresAt})
+    `;
+
+    // Send via Telegram with ISO timestamp
+    const success = await sendTelegramMessage(
+      `🔐 <b>Recovery Code</b>\n\nAccount: ${user.email}\nCode: <code>${code}</code>\n\nExpires at: ${expiresAt.toISOString()}\n(10 minutes from now)`,
+    );
+
+    if (!success) {
+      // Log failure for monitoring
+      console.error(
+        `[RECOVERY] Failed to send Telegram notification for ${user.email}`,
+      );
+    }
+  }
+
+  // Always return success to prevent user enumeration
+  // Add small random delay to mask timing differences
+  await new Promise((resolve) => setTimeout(resolve, Math.random() * 100 + 50));
 
   return c.json({
     success: true,
@@ -962,12 +963,18 @@ auth.post("/recovery/verify", async (c) => {
   const db = getDbClient();
 
   // Find valid token
-  const [token] = await db<{ id: string; user_id: string }[]>`
-    SELECT rt.id, rt.user_id
+  const [token] = await db<
+    {
+      id: string;
+      user_id: string;
+      attempts: number;
+      locked_at: Date | null;
+    }[]
+  >`
+    SELECT rt.id, rt.user_id, rt.attempts, rt.locked_at
     FROM recovery_tokens rt
     JOIN user_profiles u ON rt.user_id = u.id
     WHERE u.email = ${email.toLowerCase()}
-      AND rt.code = ${code}
       AND rt.expires_at > NOW()
       AND rt.used_at IS NULL
     ORDER BY rt.created_at DESC
@@ -981,13 +988,71 @@ auth.post("/recovery/verify", async (c) => {
     );
   }
 
-  // Mark token as used
-  await db`UPDATE recovery_tokens SET used_at = NOW() WHERE id = ${token.id}`;
+  // Check if locked due to too many attempts
+  if (token.locked_at) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Too many failed attempts. Please request a new recovery code.",
+      },
+      400,
+    );
+  }
 
-  // Delete user's authenticators (allows re-registration)
-  await db`DELETE FROM authenticators WHERE user_id = ${token.user_id}`;
+  // Verify code matches
+  const [codeMatch] = await db<{ code: string }[]>`
+    SELECT code FROM recovery_tokens WHERE id = ${token.id}
+  `;
 
-  // Send confirmation via Telegram
+  if (!codeMatch || codeMatch.code !== code) {
+    // Increment attempt counter
+    const newAttempts = token.attempts + 1;
+
+    if (newAttempts >= 5) {
+      // Lock after 5 failed attempts
+      await db`
+        UPDATE recovery_tokens
+        SET attempts = ${newAttempts}, locked_at = NOW()
+        WHERE id = ${token.id}
+      `;
+
+      return c.json(
+        {
+          error: "Bad Request",
+          message:
+            "Too many failed attempts. Please request a new recovery code.",
+        },
+        400,
+      );
+    } else {
+      // Just increment
+      await db`
+        UPDATE recovery_tokens
+        SET attempts = ${newAttempts}
+        WHERE id = ${token.id}
+      `;
+
+      return c.json(
+        {
+          error: "Bad Request",
+          message: `Invalid code. ${5 - newAttempts} attempts remaining.`,
+        },
+        400,
+      );
+    }
+  }
+
+  // Code is valid - perform recovery in transaction
+  await db.begin(async (tx) => {
+    // Mark token as used
+    await tx`UPDATE recovery_tokens SET used_at = NOW() WHERE id = ${token.id}`;
+
+    // Delete user's authenticators (allows re-registration)
+    await tx`DELETE FROM authenticators WHERE user_id = ${token.user_id}`;
+  });
+
+  // Send confirmation via Telegram (outside transaction)
   await sendTelegramMessage(
     `✅ Recovery successful for ${email}. Passkeys cleared.`,
   );
