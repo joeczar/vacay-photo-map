@@ -30,6 +30,7 @@ jobs:
       RP_ID: localhost
       RP_NAME: Test App
       RP_ORIGIN: http://localhost:5173
+      FRONTEND_URL: http://localhost:5173
       PHOTOS_DIR: ./data/photos-test
       TRUSTED_PROXY: "true"
 
