@@ -28,6 +28,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Copy lockfile to app directory
+        run: cp pnpm-lock.yaml app/
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
