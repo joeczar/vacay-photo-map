@@ -2,8 +2,6 @@
 .git
 .gitignore
 node_modules
-pnpm-lock.yaml
-pnpm-workspace.yaml
 
 # App/API build outputs
 **/dist
