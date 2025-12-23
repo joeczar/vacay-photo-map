@@ -768,6 +768,196 @@ describe("Trip Routes", () => {
   });
 
   // ==========================================================================
+  // PATCH /api/trips/photos/:id - Update photo rotation
+  // ==========================================================================
+  describe("PATCH /api/trips/photos/:id - Update photo rotation", () => {
+    const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+
+    it("returns 401 without authentication", async () => {
+      const app = createTestApp();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rotation: 90 }),
+        }),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 403 for non-admin users", async () => {
+      const app = createTestApp();
+      const authHeader = await getUserAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: 90 }),
+        }),
+      );
+      expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+    });
+
+    it("returns 400 for invalid UUID format", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/photos/not-a-uuid", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: 90 }),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("Invalid photo ID format");
+    });
+
+    it("returns 400 when request body is empty", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({}),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("Rotation field is required.");
+    });
+
+    it("returns 400 for invalid rotation value: 45", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: 45 }),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
+    });
+
+    it("returns 400 for invalid rotation value: 360", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: 360 }),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
+    });
+
+    it("returns 400 for string rotation value", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: "90" }),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
+    });
+
+    it("returns 400 for null rotation value", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: null }),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
+    });
+
+    it("returns 404 for non-existent photo", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: 90 }),
+        }),
+      );
+      expect(res.status).toBe(404);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Not Found");
+    });
+
+    it("successfully updates photo rotation", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create test trip
+      const slug = "test-trip-rotation-" + crypto.randomUUID();
+      const [trip] = await db`
+        INSERT INTO trips (title, slug, is_public)
+        VALUES ('Test Trip for Rotation', ${slug}, true)
+        RETURNING id
+      `;
+
+      // Create test photo with default rotation (0)
+      const [photo] = await db`
+        INSERT INTO photos (
+          trip_id, cloudinary_public_id, url, thumbnail_url,
+          latitude, longitude, taken_at, rotation
+        )
+        VALUES (
+          ${trip.id}, 'test-rotation-photo', 'https://example.com/photo.jpg',
+          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060,
+          NOW(), 0
+        )
+        RETURNING id
+      `;
+
+      // Update rotation to 90
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ rotation: 90 }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.rotation).toBe(90);
+
+      // Verify rotation was updated in database
+      const [updatedPhoto] = await db`
+        SELECT rotation FROM photos WHERE id = ${photo.id}
+      `;
+      expect(updatedPhoto.rotation).toBe(90);
+
+      // Cleanup
+      await db`DELETE FROM photos WHERE id = ${photo.id}`;
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+    });
+  });
+
+  // ==========================================================================
   // DELETE /api/trips/:id - File cleanup integration tests
   // ==========================================================================
   describe("DELETE /api/trips/:id - file cleanup", () => {
