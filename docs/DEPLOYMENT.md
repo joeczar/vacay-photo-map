@@ -26,6 +26,24 @@ Server (Surface Book 2)
 - Cloudflare Tunnel configured (or other reverse proxy)
 - GitHub account with access to the repository
 
+### GitHub Repository Variables
+
+For the frontend CI/CD to build with correct production URLs, configure these repository variables:
+
+1. Go to GitHub → Repository Settings → Secrets and variables → Actions → Variables tab
+2. Add the following variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_API_URL` | Production API URL | `https://photos.joeczar.com` |
+| `VITE_APP_URL` | Production frontend URL | `https://photos.joeczar.com` |
+| `VITE_WEBAUTHN_RP_ID` | Domain for WebAuthn | `photos.joeczar.com` |
+| `VITE_WEBAUTHN_RP_NAME` | Display name for passkeys | `Vacay Photo Map` |
+| `VITE_CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name (optional) | `your-cloud-name` |
+| `VITE_CLOUDINARY_UPLOAD_PRESET` | Cloudinary preset (optional) | `your-preset` |
+
+**Note:** These are repository **variables** (not secrets) since they're not sensitive and will be embedded in the frontend JavaScript bundle.
+
 ## Initial Server Setup
 
 ### 1. Clone the Repository
