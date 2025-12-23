@@ -47,6 +47,7 @@ interface ApiPhotoResponse {
   takenAt: string
   caption: string | null
   album: string | null
+  rotation: number
   createdAt: string
 }
 
@@ -63,6 +64,7 @@ interface ApiPhotoInsert {
   longitude: number | null
   takenAt: string
   caption: string | null
+  rotation?: number
 }
 
 // Transform database types (snake_case) to API format (camelCase)
@@ -74,7 +76,8 @@ function transformPhotoToApi(photo: PhotoInsert): ApiPhotoInsert {
     latitude: photo.latitude ?? null,
     longitude: photo.longitude ?? null,
     takenAt: photo.taken_at,
-    caption: photo.caption ?? null
+    caption: photo.caption ?? null,
+    rotation: photo.rotation ?? 0
   }
 }
 
@@ -109,6 +112,7 @@ function transformApiPhoto(apiPhoto: ApiPhotoResponse): Photo {
     taken_at: apiPhoto.takenAt,
     caption: apiPhoto.caption,
     album: apiPhoto.album,
+    rotation: apiPhoto.rotation,
     created_at: apiPhoto.createdAt
   }
 }
