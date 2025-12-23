@@ -4,7 +4,7 @@
 - Framework: Vue 3, Vite, Pinia, Vue Router, Tailwind, shadcn-vue UI. Dark mode via class strategy.
 - Screens: `HomeView` (trip grid), `TripView` (map + photos + share/manage), `AdminView` (upload flow), `LoginView`.
 - Layouts: `MainLayout` (top bar + container), `TripLayout` (floating menu + sheet).
-- Media: Cloudinary uploads used directly; no responsive `srcset/sizes`.
+- Media: R2/self-hosted uploads; responsive `srcset/sizes` implemented.
 - Map: Leaflet map uses a fixed inline height of 600px.
 - Strengths: Solid state handling, skeletons, empty/error states, auth guards, share controls, dark theme support.
 
@@ -38,7 +38,7 @@
   - Subtle elevation and pressed states; unify radii via tokens.
   - Warmer light neutrals; keep current cozy dark theme.
 - Performance
-  - Cloudinary width transforms + `srcset/sizes` for covers, thumbs, and lightbox.
+  - Use `srcset/sizes` for covers, thumbs, and lightbox.
   - `content-visibility: auto` on long grids; respect `prefers-reduced-data` where possible.
   - Keep route-level code splitting for map.
 - Accessibility

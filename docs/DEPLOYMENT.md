@@ -7,14 +7,15 @@ This guide covers deploying the Vacay Photo Map to a self-hosted server using Do
 ```
 GitHub Actions (on push to main)
        │
-       ├── Build API Docker image
-       └── Push to ghcr.io/joeczar/vacay-photo-map/api:latest
+       ├── Build API Docker image → ghcr.io/joeczar/vacay-photo-map/api:latest
+       └── Build Frontend Docker image → ghcr.io/joeczar/vacay-photo-map/frontend:latest
               │
               ▼
 Server (Surface Book 2)
        │
        ├── Watchtower polls ghcr.io every 5 minutes
-       ├── Detects new image → pulls → restarts API container
+       ├── Detects new images → pulls → restarts containers
+       │   (monitors both vacay-api and vacay-frontend)
        │
        └── Cloudflare Tunnel → Internet
 ```
@@ -24,6 +25,22 @@ Server (Surface Book 2)
 - Docker and Docker Compose installed
 - Cloudflare Tunnel configured (or other reverse proxy)
 - GitHub account with access to the repository
+
+### GitHub Repository Variables
+
+For the frontend CI/CD to build with correct production URLs, configure these repository variables:
+
+1. Go to GitHub → Repository Settings → Secrets and variables → Actions → Variables tab
+2. Add the following variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_API_URL` | Production API URL | `https://photos.joeczar.com` |
+| `VITE_APP_URL` | Production frontend URL | `https://photos.joeczar.com` |
+| `VITE_WEBAUTHN_RP_ID` | Domain for WebAuthn | `photos.joeczar.com` |
+| `VITE_WEBAUTHN_RP_NAME` | Display name for passkeys | `Vacay Photo Map` |
+
+**Note:** These are repository **variables** (not secrets) since they're not sensitive and will be embedded in the frontend JavaScript bundle.
 
 ## Initial Server Setup
 
@@ -96,6 +113,9 @@ curl http://localhost:3000/health
 # Check database connectivity
 curl http://localhost:3000/health/ready
 
+# Check frontend health
+curl http://localhost:80/health
+
 # View logs
 docker compose -f docker-compose.prod.yml logs -f api
 ```
@@ -105,22 +125,31 @@ docker compose -f docker-compose.prod.yml logs -f api
 ### Automatic (via Watchtower)
 
 1. Push code to `main` branch
-2. GitHub Actions builds new Docker image
-3. Image pushed to `ghcr.io/joeczar/vacay-photo-map/api:latest`
-4. Watchtower detects new image (polls every 5 minutes)
-5. Watchtower pulls new image and restarts API container
-6. Old image cleaned up automatically
+2. GitHub Actions builds Docker images:
+   - Changes in `api/**` trigger API build → `ghcr.io/joeczar/vacay-photo-map/api:latest`
+   - Changes in `app/**` trigger frontend build → `ghcr.io/joeczar/vacay-photo-map/frontend:latest`
+3. Watchtower detects new images (polls every 5 minutes)
+4. Watchtower pulls new images and restarts affected containers
+5. Old images cleaned up automatically
+
+**Note:** Frontend and API deploy independently based on path triggers. Watchtower monitors both `vacay-api` and `vacay-frontend` containers.
 
 ### Manual Deployment
 
 If you need to deploy immediately without waiting for Watchtower:
 
 ```bash
-# Pull latest image
+# Pull latest API image
 docker compose -f docker-compose.prod.yml pull api
 
-# Restart with new image
+# Restart API with new image
 docker compose -f docker-compose.prod.yml up -d api
+
+# Pull latest frontend image
+docker compose -f docker-compose.prod.yml pull frontend
+
+# Restart frontend with new image
+docker compose -f docker-compose.prod.yml up -d frontend
 ```
 
 ## Monitoring
@@ -181,16 +210,17 @@ To rollback to a previous version:
 
 ```bash
 # Find previous image SHA from GitHub Actions
-# Go to: Actions → Build and Push API → select previous run → see image tag
+# Go to: Actions → Build and Push API/Frontend → select previous run → see image tag
 
-# Pull specific version
+# Rollback API
 docker pull ghcr.io/joeczar/vacay-photo-map/api:COMMIT_SHA
-
-# Retag as latest (docker-compose uses :latest)
 docker tag ghcr.io/joeczar/vacay-photo-map/api:COMMIT_SHA ghcr.io/joeczar/vacay-photo-map/api:latest
-
-# Restart with the retagged image
 docker compose -f docker-compose.prod.yml up -d api
+
+# Rollback Frontend
+docker pull ghcr.io/joeczar/vacay-photo-map/frontend:COMMIT_SHA
+docker tag ghcr.io/joeczar/vacay-photo-map/frontend:COMMIT_SHA ghcr.io/joeczar/vacay-photo-map/frontend:latest
+docker compose -f docker-compose.prod.yml up -d frontend
 ```
 
 ## Security Notes
@@ -198,4 +228,4 @@ docker compose -f docker-compose.prod.yml up -d api
 - Never commit `.env.production` files to git
 - Rotate `JWT_SECRET` periodically
 - Keep GitHub PAT secure and with minimal scope (`read:packages` only)
-- Watchtower only restarts containers it's configured to watch (`vacay-api`)
+- Watchtower only restarts containers it's configured to watch (`vacay-api`, `vacay-frontend`)

@@ -9,7 +9,7 @@ function isSelfHostedPhoto(url: string) {
 /**
  * Resolve image URL for display
  * - Self-hosted photos: prepends API_URL (needed for local dev)
- * - Other URLs (legacy Cloudinary): returned as-is
+ * - External URLs: returned as-is
  */
 export function getImageUrl(url: string): string {
   if (!url) return ''

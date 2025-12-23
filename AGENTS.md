@@ -27,5 +27,5 @@
 - Before opening a PR: ensure lint, type-check, and tests pass; include a brief summary, linked issue (if any), and relevant screenshots or request logs for UI/API changes.
 
 ## Security & Configuration Tips
-- Copy `app/.env.example` to `app/.env` and `api/.env.example` to `api/.env`; never commit secrets. Keep Cloudinary presets, JWT secrets, and RP settings scoped to environment.
+- Copy `app/.env.example` to `app/.env` and `api/.env.example` to `api/.env`; never commit secrets. Keep JWT secrets and RP settings scoped to environment.
 - Run `pnpm migrate:api` to apply database migrations. Use `docker-compose up` for local PostgreSQL. Confirm `netlify.toml` env vars in deployment.
