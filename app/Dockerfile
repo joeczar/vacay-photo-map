@@ -1,20 +1,21 @@
 # Multi-stage Dockerfile for production frontend deployment
+# Build context must be the monorepo root (not ./app)
+
 # Stage 1: Builder - install dependencies and build
 FROM node:20-alpine AS builder
 
-# Enable corepack for pnpm
 RUN corepack enable
-
 WORKDIR /app
 
-# Copy dependency manifests
-COPY package.json pnpm-lock.yaml ./
+# Copy workspace config first (for layer caching)
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY app/package.json ./app/
 
-# Install dependencies with frozen lockfile for reproducibility
-RUN pnpm install --frozen-lockfile
+# Install dependencies with cache mount
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
-# Copy application source (uses .dockerignore to exclude node_modules, dist, .env*)
-COPY . .
+# Copy app source
+COPY app ./app
 
 # Build-time environment variables for Vite
 ARG VITE_API_URL
@@ -28,6 +29,7 @@ ENV VITE_WEBAUTHN_RP_NAME=$VITE_WEBAUTHN_RP_NAME
 ENV VITE_WEBAUTHN_RP_ID=$VITE_WEBAUTHN_RP_ID
 
 # Build the application
+WORKDIR /app/app
 RUN pnpm build
 
 # Stage 2: Runtime - minimal production image with nginx
@@ -37,10 +39,10 @@ FROM nginx:alpine
 RUN apk add --no-cache wget
 
 # Copy built files from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/app/dist /usr/share/nginx/html
 
-# Copy nginx configuration (will be created in next commit)
-COPY nginx.conf /etc/nginx/nginx.conf
+# Copy nginx configuration
+COPY app/nginx.conf /etc/nginx/nginx.conf
 
 # Expose HTTP port
 EXPOSE 80
