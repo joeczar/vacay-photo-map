@@ -261,6 +261,18 @@ auth.post("/register/options", async (c) => {
   const db = getDbClient();
   const config = getConfig();
 
+  // Check if registration is open (first-user-only)
+  const [{ exists: usersExist }] = await db<{ exists: boolean }[]>`
+    SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
+  `;
+
+  if (usersExist) {
+    return c.json(
+      { error: "Forbidden", message: "Registration is closed" },
+      403,
+    );
+  }
+
   // Check if email already exists
   const existing = await db<(DbUser & { authenticator_count: number })[]>`
     SELECT u.id, u.webauthn_user_id, u.display_name, u.is_admin,
