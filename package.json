@@ -7,6 +7,7 @@
     "dev": "pnpm --filter vacay-photo-map-app dev",
     "dev:api": "pnpm --filter vacay-photo-map-api dev",
     "dev:docker": "concurrently -n docker,app,api -c blue,green,yellow \"docker-compose up\" \"pnpm dev\" \"pnpm dev:api\"",
+    "dev:prod": "concurrently -n app,api -c green,yellow \"pnpm dev\" \"pnpm --filter vacay-photo-map-api dev:prod\"",
     "build": "pnpm --filter vacay-photo-map-app build",
     "preview": "pnpm --filter vacay-photo-map-app preview",
     "lint": "pnpm --filter vacay-photo-map-app lint",

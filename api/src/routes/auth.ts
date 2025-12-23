@@ -423,9 +423,15 @@ auth.post("/register/verify", async (c) => {
     } else {
       // New user - create user and authenticator in transaction
       result = await db.begin(async (tx) => {
+        // Check if this is the first user - they become admin automatically
+        const [{ count }] = await tx<{ count: number }[]>`
+          SELECT COUNT(*)::int as count FROM user_profiles
+        `;
+        const isFirstUser = count === 0;
+
         const [user] = await tx<DbUser[]>`
           INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
-          VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, FALSE)
+          VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, ${isFirstUser})
           RETURNING id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
         `;
 
