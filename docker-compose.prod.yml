@@ -46,7 +46,10 @@ services:
       - internal
 
   watchtower:
-    image: containrrr/watchtower
+    # Using nicholas-fedor's maintained fork - containrrr/watchtower was archived Dec 2025
+    # and is incompatible with Docker 29+ (requires API v1.44+)
+    # See: https://github.com/containrrr/watchtower/issues/2122
+    image: ghcr.io/nicholas-fedor/watchtower:v1.13.1
     container_name: watchtower
     restart: unless-stopped
     volumes:
