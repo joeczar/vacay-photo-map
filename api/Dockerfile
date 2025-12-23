@@ -17,6 +17,9 @@ COPY tsconfig.json ./
 # Stage 2: Runtime - minimal production image
 FROM oven/bun:1.3-alpine
 
+# Install wget for health check (must be before USER bun)
+RUN apk add --no-cache wget
+
 WORKDIR /app
 
 # Copy installed dependencies from builder

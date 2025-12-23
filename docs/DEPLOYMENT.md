@@ -65,7 +65,7 @@ Create a GitHub Personal Access Token (PAT):
 
 Login to ghcr.io on your server:
 ```bash
-docker login ghcr.io -u YOUR_GITHUB_USERNAME -p YOUR_PAT
+echo YOUR_PAT | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
 ```
 
 ### 5. Create External Network
@@ -157,7 +157,7 @@ docker compose -f docker-compose.prod.yml ps
 
 1. Check Watchtower logs: `docker compose -f docker-compose.prod.yml logs watchtower`
 2. Verify ghcr.io authentication: `docker pull ghcr.io/joeczar/vacay-photo-map/api:latest`
-3. If auth fails, re-run: `docker login ghcr.io -u USERNAME -p PAT`
+3. If auth fails, re-run: `echo PAT | docker login ghcr.io -u USERNAME --password-stdin`
 
 ### Database Connection Failed
 
@@ -182,7 +182,10 @@ To rollback to a previous version:
 # Pull specific version
 docker pull ghcr.io/joeczar/vacay-photo-map/api:COMMIT_SHA
 
-# Update and restart
+# Retag as latest (docker-compose uses :latest)
+docker tag ghcr.io/joeczar/vacay-photo-map/api:COMMIT_SHA ghcr.io/joeczar/vacay-photo-map/api:latest
+
+# Restart with the retagged image
 docker compose -f docker-compose.prod.yml up -d api
 ```
 
