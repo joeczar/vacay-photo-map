@@ -1,202 +1,293 @@
 # Vacay Photo Map - Project Roadmap
 
 ## Overview
-This document outlines the development roadmap for adding dark mode, authentication, and comments to the Vacay Photo Map application.
+This document tracks the development progress of Vacay Photo Map, a self-hosted photo map application with WebAuthn authentication and Cloudflare R2 storage.
 
 ## Project Links
 - **GitHub Project Board**: https://github.com/users/joeczar/projects/5
 - **Repository**: https://github.com/joeczar/vacay-photo-map
 - **Issues**: https://github.com/joeczar/vacay-photo-map/issues
 
-## Milestones
+## Current Status
 
-### Milestone 1: Dark Mode
-**Due Date**: January 9, 2025
-**Issues**: #1-5 (5 issues)
+**Latest Version:** 1.0.0 (Core Features Complete)
+**Tech Stack:** Vue 3 + Bun + Hono + PostgreSQL + WebAuthn + Cloudflare R2
 
-Implement dark mode with system preference detection and user toggle.
+## Completed Milestones
 
-**Key Features:**
-- Dark mode store/composable with localStorage persistence
-- Tailwind dark mode configuration
-- Dark mode styles across all components
-- Theme toggle UI component in header
-- System preference detection
+### Milestone 1: Dark Mode ✅
+**Completed**: December 2024
+
+Implemented dark mode with system preference detection and smooth transitions.
+
+**Delivered:**
+- Dark mode composable with localStorage persistence
+- Tailwind dark mode configuration with CSS variables
+- Dark mode styles across all components (map, forms, admin UI)
+- Theme toggle in header
+- System preference detection on load
 
 ---
 
-### Milestone 2: Authentication & WebAuthn
-**Due Date**: January 16, 2025
-**Issues**: #6-11 (6 issues)
+### Milestone 2: Self-Hosted Backend & Authentication ✅
+**Completed**: December 2024
 
-Implement invite-only WebAuthn authentication system.
+Built self-hosted Bun + Hono API with WebAuthn authentication.
 
-**Key Features:**
-- Supabase Auth setup with WebAuthn/Passkey
-- User profiles database schema
+**Delivered:**
+- PostgreSQL database with migrations and seeding
+- WebAuthn/Passkey authentication (passwordless)
+- JWT-based session management
+- User profiles and authenticators tables
 - Login and registration views
-- Auth state management
-- Header auth button with user menu
-- Invite-only registration flow
+- Protected admin routes
+- First-user bootstrap (auto-admin)
 
 **Database Schema:**
 ```sql
 CREATE TABLE user_profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  id UUID PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  webauthn_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
-  invited_by UUID REFERENCES auth.users(id),
   is_admin BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE authenticators (
+  credential_id TEXT PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(id),
+  public_key TEXT NOT NULL,
+  counter BIGINT DEFAULT 0,
+  transports TEXT[]
+);
 ```
+
+### Milestone 3: Photo Upload & Storage ✅
+**Completed**: December 2024
+
+Implemented photo upload with Cloudflare R2 storage and local fallback.
+
+**Delivered:**
+- Self-hosted photo upload endpoint
+- Cloudflare R2 integration (S3-compatible)
+- Sharp image processing (thumbnails)
+- Local filesystem fallback
+- Photo serving endpoint (`/api/photos/:key`)
+- EXIF extraction with GPS validation
+- Draft trip management
+- Photo deletion with cleanup
+
+**Technical Details:**
+- Multipart/form-data upload handling
+- Automatic thumbnail generation (800px wide)
+- R2 fallback to local `PHOTOS_DIR`
+- Trip drafts (unpublished until finalized)
 
 ---
 
-### Milestone 3: Comments System
-**Due Date**: January 23, 2025
-**Issues**: #12-16 (5 issues)
+### Milestone 4: Trip Management & Protection ✅
+**Completed**: December 2024
+
+Built comprehensive trip management with token-based access control.
+
+**Delivered:**
+- Full CRUD operations for trips
+- Public/private trip toggle
+- Token-protected sharing system
+- Admin management UI
+- Trip list view
+- Trip detail view with map
+- Photo grid display
+- Cover photo selection
+- Slug generation
+
+**Security Features:**
+- Bcrypt-hashed access tokens
+- Admin bypass for all trips
+- Token validation on fetch
+- Regenerate token to revoke access
+
+---
+
+## Planned Milestones
+
+### Milestone 5: Admin Spaces MVP
+**Status**: Planned
+**Target**: Q1 2025
+**Issues**: [#117](https://github.com/joeczar/vacay-photo-map/issues/117), [#118](https://github.com/joeczar/vacay-photo-map/issues/118), [#119](https://github.com/joeczar/vacay-photo-map/issues/119)
+
+The admin area reimagined as three distinct "spaces" for different modes of work:
+
+| Space | Purpose | Aesthetic |
+|-------|---------|-----------|
+| **Gallery** | View collection, manage trips | Photographer's studio — cool, clean |
+| **Darkroom** | Process photos — rotate, crop | Darkroom — warm red glow |
+| **Workshop** | Design trips — descriptions, sections, themes | Woodworker's bench — warm wood |
+
+**MVP Features:**
+
+*Darkroom:*
+- [ ] Photo rotation (metadata + CSS transform)
+- [ ] Contact sheet view for batch review
+
+*Workshop:*
+- [ ] Photo descriptions/captions
+- [ ] Trip sections/chapters
+- [ ] Section management UI
+
+**Design Reference:** See `docs/ADMIN_SPACES_DESIGN.md`
+
+---
+
+### Milestone 6: Comments System
+**Status**: Planned
+**Target**: Q2 2025
 
 Add photo comments visible to all, postable by authenticated users.
 
-**Key Features:**
+**Planned Features:**
 - Comments database schema with RLS policies
-- CommentList, CommentForm, and CommentItem components
-- Integration into photo viewer
-- Comment counts on thumbnails
+- Comment display in photo viewer
+- Comment form for authenticated users
 - Edit/delete for own comments
+- Comment counts on photo thumbnails
 
 **Database Schema:**
 ```sql
 CREATE TABLE photo_comments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY,
   photo_id UUID REFERENCES photos(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id),
+  user_id UUID REFERENCES user_profiles(id),
   comment TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-**RLS Policies:**
-- Everyone can read comments
-- Only authenticated users can create
-- Users can edit/delete own comments
-
 ---
 
-### Milestone 4: Invite System & Polish
-**Due Date**: January 30, 2025
-**Issues**: #17-22 (6 issues)
+### Milestone 7: Invite System
+**Status**: Planned
+**Target**: Q2 2025
 
-Admin invite management and UI polish.
+Admin invite management for controlled user registration.
 
-**Key Features:**
+**Planned Features:**
 - Invites database schema
 - Admin invite management UI
-- Invite registration flow
-- Admin-only route protection
-- Quick UI improvements from review
-- Testing and bug fixes
+- Invite-based registration flow
+- Email invite links
+- Expiration handling
 
 **Database Schema:**
 ```sql
 CREATE TABLE invites (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  invited_by UUID REFERENCES auth.users(id),
-  used BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days')
+  invited_by UUID REFERENCES user_profiles(id),
+  used_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
-**Polish Items:**
-- Fix title repetition on home page
-- Add loading spinners
-- Improve "no location" warning visibility
-- Add hover effects to photos
-- Better photo grid layout
-
 ---
 
-## Labels
+### Milestone 8: Polish & Enhancements
+**Status**: Ongoing
 
-- `dark-mode` - Dark mode related
-- `authentication` - Auth related
-- `comments` - Comments system
-- `admin` - Admin features
-- `polish` - UI/UX improvements
-- `database` - Database schema changes
+Continuous improvements and refinements.
 
----
-
-## Dependencies to Add
-
-```json
-{
-  "dependencies": {
-    "@simplewebauthn/browser": "^9.0.0",
-    "pinia": "^2.1.7"
-  }
-}
-```
-
----
-
-## Implementation Strategy
-
-### Week 1: Dark Mode Foundation
-Focus on Milestone 1 - Get dark mode working perfectly before moving to authentication.
-
-### Week 2: Authentication Core
-Set up Supabase Auth, create database schemas, and build login/register flows.
-
-### Week 3: Comments System
-Build comment functionality on top of the authentication system.
-
-### Week 4: Invites & Polish
-Complete the invite-only system and polish the UI.
-
----
+**Items:**
+- Mobile responsiveness improvements
+- Loading states and spinners
+- Error handling and user feedback
+- Performance optimizations
+- Accessibility enhancements
+- PWA features (offline support)
 
 ## Success Criteria
 
-### Dark Mode
-- [x] Toggle works across all pages
+### ✅ Core Features (Complete)
+- [x] Dark mode toggle works across all pages
 - [x] System preference detected
 - [x] User preference persists
-- [x] All components readable in both modes
+- [x] WebAuthn/Passkey authentication works
+- [x] Auth state persists across sessions
+- [x] Admin routes protected
+- [x] First user becomes admin automatically
+- [x] Photo upload with R2/local storage
+- [x] Trip CRUD operations
+- [x] Public/private trip toggle
+- [x] Token-protected sharing
+- [x] Map view with photo markers
+- [x] Photo grid display
+- [x] Draft trip management
 
-### Authentication
-- [ ] Users can register with valid invite
-- [ ] WebAuthn/Passkey login works
-- [ ] Email magic link fallback works
-- [ ] Auth state persists across sessions
-- [ ] Admin users can manage system
+### 🔄 In Progress
+- [ ] Mobile responsiveness optimization
+- [ ] Comprehensive test coverage
+- [ ] Performance monitoring
 
-### Comments
-- [ ] Anyone can read comments
-- [ ] Authenticated users can comment
-- [ ] Users can edit/delete own comments
-- [ ] Comments display in photo viewer
-- [ ] Comment counts visible
+### 📋 Planned Features
 
-### Invites & Admin
-- [ ] Admins can create invites
-- [ ] Invite links work correctly
-- [ ] Used/expired invites handled properly
-- [ ] Admin-only routes protected
-- [ ] UI polished and professional
+*Admin Spaces MVP (Milestone 5):*
+- [ ] Photo rotation (Darkroom)
+- [ ] Photo descriptions (Workshop)
+- [ ] Trip sections/chapters (Workshop)
+
+*Future:*
+- [ ] Photo comments (Milestone 6)
+- [ ] Invite system (Milestone 7)
+- [ ] Photo cropping
+- [ ] Presentation styles (postcard, polaroid)
+- [ ] Trip theming (color schemes)
+- [ ] Animated trip playthrough
+
+---
+
+## Technical Debt & Known Issues
+
+### High Priority
+- None currently blocking features
+
+### Medium Priority
+- Improve error messages for WebAuthn failures
+- Add retry logic for R2 uploads
+- Optimize thumbnail generation for large batches
+
+### Low Priority
+- Refactor auth composable to use Pinia store
+- Extract shared trip components
+- Add E2E tests with Playwright
+
+---
+
+## Deployment Status
+
+### Production Environment
+- **Frontend**: Ready for Netlify deployment
+- **API**: Ready for self-hosted deployment
+- **Database**: PostgreSQL 15+ required
+- **Storage**: R2 recommended, local fallback available
+
+### Environment Requirements
+- Bun 1.0+ runtime
+- Node 20+ for frontend build
+- PostgreSQL 15+ database
+- Cloudflare R2 (optional but recommended)
 
 ---
 
 ## Notes
 
-- **Invite-Only System**: Only users with valid invite codes can register
-- **WebAuthn**: Passkey authentication with email magic link fallback
-- **Comment Visibility**: Everyone can see comments, only logged-in users can post
-- **Admin Control**: First user (you) is admin, can invite others and manage system
+- **Authentication**: Passwordless WebAuthn only (no email/password fallback)
+- **Storage**: R2 is optional - local filesystem works fine for development
+- **Admin**: First registered user automatically becomes admin
+- **Trip Protection**: Tokens are bcrypt-hashed, secure for sharing
+- **Testing**: Comprehensive API test coverage, frontend tests in progress
 
 ---
 
-**Last Updated**: November 2, 2025
+**Last Updated**: December 23, 2025

@@ -1,29 +1,32 @@
 # Vacay Photo Map
 
-An interactive web application for viewing vacation photos on a map with timeline visualization. Share trips via password-protected links with WebAuthn-secured admin upload capabilities.
+An interactive web application for viewing vacation photos on a map with timeline visualization. Share trips via token-protected links with WebAuthn/passkey-secured admin upload capabilities.
 
 ## Features
 
 - **Interactive Map View**: View photos plotted on an interactive Leaflet map
 - **Timeline Visualization**: Chronological photo timeline with playback mode
 - **EXIF Extraction**: Automatic GPS and timestamp extraction from photos
-- **Trip Protection**: Share trips with token-protected links
-- **User Authentication**: Secure email/password authentication via Supabase Auth
-- **Cloud Storage**: Images hosted on Cloudinary CDN
+- **Trip Protection**: Share trips with secure token-protected links
+- **WebAuthn Authentication**: Passwordless authentication using passkeys/biometrics
+- **Cloud Storage**: Images stored in Cloudflare R2 (S3-compatible) with local filesystem fallback
 - **Responsive Design**: Works seamlessly on desktop and mobile devices
 - **Dark Mode**: Full dark mode support with smooth transitions
+- **Draft Management**: Save and resume trip uploads with draft functionality
 
 ## Tech Stack
 
 - **Frontend**: Vue 3 (Composition API), TypeScript, Vite
-- **UI Components**: shadcn-vue (New York style)
+- **UI Components**: shadcn-vue (New York style, Slate theme)
 - **Styling**: TailwindCSS with CSS variables
 - **State Management**: Pinia
-- **Map**: Leaflet + vue3-leaflet
-- **Backend**: Self-hosted Bun/Hono API or Supabase (PostgreSQL, Auth)
-- **Storage**: Cloudinary
-- **Hosting**: Netlify (frontend), Docker/VPS (API)
-- **Authentication**: JWT (self-hosted) or Supabase Auth
+- **Map**: Leaflet + @vue-leaflet/vue-leaflet
+- **Backend**: Bun + Hono API
+- **Database**: PostgreSQL 15+ with postgres.js
+- **Storage**: Cloudflare R2 (with local filesystem fallback)
+- **Authentication**: WebAuthn/Passkeys (@simplewebauthn) + JWT (jose)
+- **Image Processing**: Sharp (thumbnails and optimization)
+- **Hosting**: Netlify (frontend), self-hosted (API)
 
 ## Project Structure
 
@@ -58,12 +61,13 @@ vacay-photo-map/
 
 ## Prerequisites
 
-- Node.js >= 18.0.0
-- pnpm >= 8.0.0 (Install with `npm install -g pnpm` or use Corepack)
-- Docker (for local Postgres via Docker Compose)
-- A Supabase account and project
-- A Cloudinary account
-- A Netlify account (for deployment)
+- **Bun** >= 1.0 (for API runtime)
+- **Node.js** >= 20.0.0 (for frontend build)
+- **pnpm** >= 9.15.0 (install with `corepack enable` or `npm install -g pnpm`)
+- **Docker** & Docker Compose (for local Postgres)
+- **PostgreSQL** 15+ (if not using Docker)
+- **Cloudflare R2** account (optional - falls back to local storage)
+- **Netlify** account (optional - for deployment)
 
 ## Getting Started
 
@@ -84,23 +88,18 @@ This will install dependencies for both the root workspace and the app.
 
 ### 3. Set Up Environment Variables
 
-Copy the example environment file:
+Copy the example environment files:
 
 ```bash
 cp app/.env.example app/.env
 cp api/.env.example api/.env
 ```
 
-Edit `app/.env` and fill in your credentials:
+#### Frontend Configuration (`app/.env`)
 
 ```env
-# Supabase Configuration
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-
-# Cloudinary Configuration
-VITE_CLOUDINARY_CLOUD_NAME=your-cloud-name
-VITE_CLOUDINARY_UPLOAD_PRESET=your-unsigned-preset
+# API Backend
+VITE_API_URL=http://localhost:3000
 
 # Application Configuration
 VITE_APP_URL=http://localhost:5173
@@ -110,161 +109,254 @@ VITE_WEBAUTHN_RP_NAME="Vacay Photo Map"
 VITE_WEBAUTHN_RP_ID=localhost
 ```
 
-For the self-hosted API, see [api/README.md](./api/README.md) for all environment variables.
+#### API Configuration (`api/.env`)
 
-### 4. Set Up Supabase (Optional - for hosted version)
+**Required:**
+```env
+# Database (local Docker Compose default)
+DATABASE_URL=postgresql://vacay:vacay@localhost:5432/vacay
 
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Copy your project URL and anon key to `.env`
-3. Run the database migrations:
-   - In Supabase Dashboard → SQL Editor
-   - Run the contents of `supabase-schema.sql`
-4. **Configure Authentication** (required for Milestone 2):
-   - Follow the detailed guide: [docs/SUPABASE_AUTH_SETUP.md](./docs/SUPABASE_AUTH_SETUP.md)
-   - Enable email provider, configure templates, set redirect URLs
+# JWT Configuration
+JWT_SECRET=<generate with: openssl rand -hex 32>
+JWT_EXPIRATION=1h
 
-### 5. Self-Hosted API (Alternative to Supabase)
+# WebAuthn Configuration
+RP_ID=localhost
+RP_NAME=Vacay Photo Map
+RP_ORIGIN=http://localhost:5173
 
-For self-hosted deployments, see [api/README.md](./api/README.md) for complete setup:
-
-```bash
-# Quick start
-docker compose up -d postgres    # Start local Postgres
-cd api && bun install            # Install API dependencies
-bun run scripts/migrate.ts       # Apply schema
-bun run scripts/seed.ts          # Seed sample data
-bun run dev                      # Start API server
+# Frontend URL (for CORS)
+FRONTEND_URL=http://localhost:5173
 ```
 
-The API runs at `http://localhost:3000` with health checks at `/health` and `/health/ready`.
+**Optional (Cloudflare R2):**
+```env
+# Cloudflare R2 Storage (optional - falls back to local filesystem)
+R2_ACCOUNT_ID=your_account_id
+R2_ACCESS_KEY_ID=your_access_key
+R2_SECRET_ACCESS_KEY=your_secret_key
+R2_BUCKET_NAME=vacay-photos
+```
 
-### 6. Set Up Cloudinary
+If R2 is not configured, photos will be stored locally in `/data/photos` (or `PHOTOS_DIR` if set).
 
-1. Create a free account at [cloudinary.com](https://cloudinary.com)
-2. In your Cloudinary dashboard:
-   - Go to Settings > Upload
-   - Create an unsigned upload preset
-   - Enable the preset and note its name
-3. Copy your cloud name and preset to `.env`
+For complete environment variable documentation, see [api/README.md](./api/README.md).
 
-### 7. Run the Development Server
+### 4. Start the Database
+
+Using Docker Compose (recommended):
 
 ```bash
-pnpm dev
+docker compose up -d postgres
+```
+
+This starts PostgreSQL 15 with the default credentials from `.env.example`.
+
+### 5. Initialize the Database
+
+```bash
+# Run migrations (creates schema)
+pnpm migrate:api
+
+# Seed sample data (creates admin user)
+pnpm seed:api
+```
+
+Default admin credentials:
+- **Email**: `admin@example.com`
+- **Passkey**: Register your device on first login
+
+### 6. Set Up Cloudflare R2 (Optional)
+
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → R2
+2. Create a bucket (e.g., `vacay-photos`)
+3. Go to **Manage R2 API Tokens** → Create API Token
+4. Copy credentials to `api/.env`
+5. Restart API server
+
+If R2 is not configured, photos will be stored locally.
+
+### 7. Run the Development Servers
+
+**Option 1: Run both frontend and API:**
+```bash
+pnpm dev         # Frontend (localhost:5173)
+pnpm dev:api     # API (localhost:3000) - in separate terminal
+```
+
+**Option 2: Run everything with Docker:**
+```bash
+pnpm dev:docker  # Starts Postgres, frontend, and API
 ```
 
 The app will be available at `http://localhost:5173`
 
 ## Available Scripts
 
-From the root directory:
+The following `pnpm` scripts are available from the repository root, grouped by area.
 
-- `pnpm dev` - Start development server
-- `pnpm build` - Build for production
+### Frontend
+
+- `pnpm dev` - Start frontend dev server (localhost:5173)
+- `pnpm build` - Build frontend for production
 - `pnpm preview` - Preview production build
-- `pnpm lint` - Lint code with ESLint
+- `pnpm lint` - Lint and fix code with ESLint
+- `pnpm lint:check` - Check lint without fixing
 - `pnpm format` - Format code with Prettier
-- `pnpm type-check` - Run TypeScript type checking
-- `pnpm test` - Run tests with Vitest
+- `pnpm format:check` - Check formatting
+- `pnpm test` - Run frontend tests (Vitest)
+- `pnpm type-check` - TypeScript type checking
+
+### API (`pnpm` commands from root)
+
+- `pnpm dev:api` - Start API dev server with watch mode
+- `pnpm test:api` - Run API tests (Bun test)
+- `pnpm type-check:api` - TypeScript type checking for API
+- `pnpm migrate:api` - Run database migrations
+- `pnpm seed:api` - Seed database with sample data
+
+### Combined
+
+- `pnpm dev:docker` - Start Postgres, frontend, and API together
+- `pnpm check:all` - Run all checks (type-check, lint, format)
 
 ## Development Workflow
 
-This project follows the milestone-based development plan outlined in `SPEC.md`:
-
-1. **Milestone 1**: Project Setup & Infrastructure ✅
-2. **Milestone 2**: Database Schema & Authentication
-3. **Milestone 3**: Photo Upload System
-4. **Milestone 4**: Map View & Photo Display
-5. **Milestone 5**: Timeline Feature
-6. **Milestone 6**: Polish & Deployment
-
-See [SPEC.md](./SPEC.md) for detailed requirements and acceptance criteria.
+See [docs/PROJECT_ROADMAP.md](./docs/PROJECT_ROADMAP.md) for the development roadmap and GitHub project board.
 
 ## Deployment
 
-### Netlify Deployment
+### Frontend Deployment (Netlify)
 
-1. Install Netlify CLI (optional):
-   ```bash
-   npm install -g netlify-cli
-   ```
+The frontend is configured for Netlify deployment via `netlify.toml`.
 
-2. Connect your repository to Netlify:
-   - Push your code to GitHub
-   - Connect the repository in Netlify dashboard
-   - Netlify will automatically detect `netlify.toml` configuration
+**Environment Variables (Netlify Dashboard):**
+```env
+VITE_API_URL=https://your-api-domain.com
+VITE_APP_URL=https://your-site.netlify.app
+VITE_WEBAUTHN_RP_NAME=Vacay Photo Map
+VITE_WEBAUTHN_RP_ID=your-domain.com
+```
 
-3. Set environment variables in Netlify dashboard:
-   - Go to Site settings > Environment variables
-   - Add all variables from `.env.example`
+**Deploy:**
+```bash
+pnpm build
+netlify deploy --prod --dir=app/dist
+```
 
-4. Deploy:
-   - Pushes to `main` branch will automatically deploy via GitHub Actions
-   - Or manually: `netlify deploy --prod`
+Or connect your GitHub repository to Netlify for automatic deployments on push to `main`.
 
-### Environment Variables for Production
+### API Deployment (Self-Hosted)
 
-Make sure to set these in your Netlify dashboard:
+The API is designed for self-hosted deployment on a VPS, cloud instance, or Docker container.
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_CLOUDINARY_CLOUD_NAME`
-- `VITE_CLOUDINARY_UPLOAD_PRESET`
-- `VITE_APP_URL` (your production URL)
-- `VITE_WEBAUTHN_RP_NAME`
-- `VITE_WEBAUTHN_RP_ID` (your domain without protocol)
+**Requirements:**
+- Bun runtime
+- PostgreSQL 15+ database
+- (Optional) Cloudflare R2 for photo storage
+
+**Environment Variables (Production):**
+```env
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=postgresql://user:pass@host:5432/vacay
+DATABASE_SSL=true
+JWT_SECRET=<secure-random-32-byte-hex>
+RP_ID=your-domain.com
+RP_NAME=Vacay Photo Map
+RP_ORIGIN=https://your-frontend-domain.com
+FRONTEND_URL=https://your-frontend-domain.com
+R2_ACCOUNT_ID=<cloudflare-account-id>
+R2_ACCESS_KEY_ID=<r2-access-key>
+R2_SECRET_ACCESS_KEY=<r2-secret>
+R2_BUCKET_NAME=vacay-photos
+TRUSTED_PROXY=true
+```
+
+**Deploy Steps:**
+1. Set up PostgreSQL database
+2. Run migrations: `pnpm migrate:api`
+3. Seed admin user: `pnpm seed:api`
+4. Start API: `bun run start`
+5. Set up reverse proxy (nginx/Caddy) with SSL
+
+See [api/README.md](./api/README.md) for detailed deployment instructions.
 
 ## Database Schema
 
-**Self-hosted** (see [api/README.md](./api/README.md#schema)):
-- `user_profiles` - Users with email/password auth
-- `trips` - Trip metadata with optional access token protection
-- `photos` - Photo data with GPS coordinates and EXIF metadata
+Current schema (see [api/src/db/schema.sql](./api/src/db/schema.sql)):
 
-**Supabase-hosted** (see `supabase-schema.sql`):
-- `trips` - Trip metadata with optional access token protection
-- `photos` - Photo data with GPS coordinates and EXIF metadata
-- Uses Supabase Auth for user management
+**`user_profiles`** - User accounts
+- WebAuthn-based authentication (passwordless)
+- Admin flag for access control
+- Email for identification
 
-Upcoming:
+**`authenticators`** - WebAuthn credentials (passkeys)
+- One user can have multiple passkeys
+- Counter for replay attack prevention
+- Transport preferences for device compatibility
+
+**`trips`** - Photo albums/trips
+- Unique slug for URL-friendly access
+- Public/private visibility with optional token protection
+- Cover photo and description
+
+**`photos`** - Individual photos
+- Links to trip, GPS coordinates, timestamps
+- Stored in Cloudflare R2 or local filesystem
+- Thumbnail URLs for optimized loading
+- EXIF metadata (caption, album name)
+
+**Planned:**
 - `photo_comments` - Comments on photos
 - `invites` - Admin invite system
 
 ## Security
 
-**Self-hosted API:**
-- **JWT Auth**: HS256 signed tokens with configurable expiration
-- **Password Hashing**: bcrypt with configurable rounds (default: 14)
+- **WebAuthn/Passkeys**: Passwordless authentication using device biometrics
+- **JWT**: HS256 signed tokens with configurable expiration
+- **Trip Tokens**: Bcrypt-hashed access tokens for private trip sharing
+- **RLS Policies**: Row-level security on trips and photos
+- **Rate Limiting**: Protection against abuse (implemented in routes)
 - **Migration Validation**: DDL-only checks prevent SQL injection
-- **Error Sanitization**: Logs don't expose connection details
-
-**Supabase-hosted:**
-- **Supabase Auth**: User authentication via Supabase Auth with email/password
-- **RLS Policies**: Row-level security prevents unauthorized data access
-- **Edge Functions**: Backend validation logic runs in Supabase Edge Functions
-
-**Both:**
-- **Token Hashing**: Trip access tokens are bcrypt-hashed before storage
-- **Environment Variables**: Sensitive credentials stored in environment variables
-- **HTTPS**: All production traffic encrypted
+- **Error Sanitization**: Production logs don't expose sensitive details
+- **CORS**: Configured to only allow frontend origin
+- **Trusted Proxy**: Production-only setting for correct IP forwarding
 
 ## Testing
 
-Run tests with:
-
+### Frontend Tests (Vitest)
 ```bash
-npm test
+pnpm test          # Run all frontend tests
+pnpm test:watch    # Watch mode
 ```
 
-Tests will be added throughout development for:
-- Utility functions (EXIF extraction, slugification, etc.)
-- Upload flow
-- Authentication
-- Critical user paths
+### API Tests (Bun Test)
+```bash
+pnpm test:api      # Run all API tests
+bun test --watch   # Watch mode (from api/ directory)
+```
+
+**Test Coverage:**
+- Authentication endpoints (WebAuthn registration/login)
+- Trip CRUD operations
+- Photo upload and serving
+- Access control and token validation
+- Rate limiting
+- Middleware and utilities
+
+See [.claude/rules/testing.md](./.claude/rules/testing.md) for testing standards and best practices.
 
 ## Contributing
 
 This is a personal project, but suggestions and bug reports are welcome via GitHub issues.
+
+## Project Documentation
+
+- [Project Roadmap](./docs/PROJECT_ROADMAP.md) - Development milestones and progress
+- [API Documentation](./api/README.md) - Complete API reference
+- [CLAUDE.md](./CLAUDE.md) - Development guidelines and patterns
+- [Testing Standards](./.claude/rules/testing.md) - Test-writing guidelines
 
 ## License
 
@@ -276,4 +368,6 @@ For issues and questions, please open a GitHub issue.
 
 ---
 
-Built with Vue 3, Supabase, and Cloudinary
+**Last Updated**: December 23, 2025
+
+Built with Vue 3, Bun, Hono, PostgreSQL, and Cloudflare R2

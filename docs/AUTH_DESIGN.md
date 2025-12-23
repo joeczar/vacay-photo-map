@@ -1,264 +1,252 @@
 # Authentication Design Document
 
-**Status:** DRAFT - Needs Review
-**Last Updated:** 2025-11-04
+**Status:** IMPLEMENTED
+**Last Updated:** December 23, 2025
 
 ---
 
 ## Overview
 
-This document outlines the authentication and authorization strategy for the Vacay Photo Map application. There are TWO distinct use cases that need different approaches:
-
-1. **Admin Authentication** - You (and potentially other admins) need to create/edit trips
-2. **Trip Access Control** - Friends/family need controlled access to view specific trips
+This document outlines the implemented authentication and authorization strategy for the Vacay Photo Map application. The system uses WebAuthn/passkeys for admin authentication and token-based access control for trip sharing.
 
 ---
 
-## Current Issues & Gaps
+## Implemented System
 
-### What GitHub Issues Assume
-- Invite-only registration system
-- WebAuthn/Passkey authentication
-- Email magic link fallback
-- Admin flag in user_profiles table
-- Complex flow: invites → register → login
+### What Was Built
 
-### What's Missing
-- **How does the first admin get created?** (Bootstrap problem)
-- **Is WebAuthn necessary for a personal project?**
-- **Trip token protection** (what we just discussed - not in issues at all!)
-- **Complexity vs. simplicity trade-off**
+- **WebAuthn/Passkey authentication** for admin users
+- **JWT-based session management** with configurable expiration
+- **Token-protected trip sharing** with bcrypt-hashed access tokens
+- **Admin flag** in user_profiles for authorization
+- **First-user bootstrap** - first registered user becomes admin
 
 ---
 
 ## Use Case 1: Admin Authentication
 
-### The Core Question
-**Who are the admins and how do they authenticate?**
+### Implementation: WebAuthn with First-User Bootstrap
 
-### Option A: Single Admin (Simplest) ⭐
-**Assumption:** Only you will ever create trips
+**Approach Chosen:** Modern WebAuthn/passkeys with automatic admin bootstrap
 
 **Flow:**
-1. Manually create your user in Supabase dashboard (one-time)
-2. Set `is_admin = true` in user_profiles
-3. Login with email + password (Supabase built-in)
-4. No invite system needed
+1. First user to register becomes admin automatically
+2. Subsequent users register but are not admin (for future features)
+3. Authentication via WebAuthn/passkeys (fingerprint, Face ID, security key)
+4. JWT tokens for session management
 
-**Pros:**
-- Dead simple
-- No invite management needed
-- Can upgrade later if needed
+**Why This Approach:**
+- Passwordless = more secure, better UX
+- No password management/reset complexity
+- Works across devices (passkeys sync via iCloud/Google Password Manager)
+- Future-proof for invite system
+- Industry standard (used by Google, GitHub, etc.)
 
-**Cons:**
-- Can't easily add other admins
-- Less impressive technically
+### Technical Implementation
 
-### Option B: First Admin Bootstrap + Invites
-**Assumption:** You might want to add other admins later
+**Registration Flow:**
+```
+1. User enters email
+2. Backend generates WebAuthn registration options
+3. Browser prompts for passkey creation (biometric/PIN)
+4. Browser sends credential to backend
+5. Backend stores credential, creates user
+6. If first user, sets is_admin = true
+7. Returns JWT token
+```
 
-**Flow:**
-1. First user to register becomes admin (check if user_profiles is empty)
-2. Admins can send invites to others
-3. WebAuthn/Passkey for modern auth
+**Login Flow:**
+```
+1. User enters email
+2. Backend generates WebAuthn authentication options
+3. Browser prompts for passkey (biometric/PIN)
+4. Browser sends assertion to backend
+5. Backend verifies signature, returns JWT
+```
 
-**Pros:**
-- Scalable to multiple admins
-- Modern auth with passkeys
-- Invite system useful for comments later
-
-**Cons:**
-- Much more complex
-- Overkill for personal project?
-
-### Option C: Hybrid - Simple Now, Upgrade Later
-**Assumption:** Start simple, add complexity when needed
-
-**Flow (Phase 1):**
-1. Email + password login only
-2. Manually create admins in Supabase dashboard
-3. Skip invites, skip WebAuthn
-
-**Flow (Phase 2 - when you need it):**
-4. Add invite system
-5. Add WebAuthn
-
-**Pros:**
-- Unblocks you immediately
-- Learn Supabase auth basics first
-- Add fancy features when needed
-
-**Cons:**
-- Migration work later
-- Less "complete" feeling
+**Session Management:**
+- JWT stored in localStorage
+- Sent in Authorization header: `Bearer <token>`
+- Expiration configurable (default: 1 hour)
+- No refresh tokens (re-authenticate when expired)
 
 ---
 
 ## Use Case 2: Trip Access Control
 
-### The Core Question
-**How do you control who can view specific trips?**
+### Implementation: Token-Protected Share Links
 
-### The Agreed Approach: Share Link Protection
-Based on our discussion and architectural decision (Issue #39):
+**Approach Chosen:** Public/private trips with optional bcrypt-hashed access tokens
 
 **Architecture:**
-- Trips have `is_public` flag (boolean)
-- Private trips have `access_token_hash` (bcrypt)
-- Tokens are cryptographically secure 43-character strings (base64url encoded)
-- Example: `4iWzVn-rN1pC0mYqXzBwE8sF7jH6gA3dK9lO2hJ5kUo`
-- **Admins always bypass token checks**
+- Trips have `is_public` boolean field
+- Private trips have `access_token_hash` (bcrypt hashed)
+- Tokens are cryptographically secure random strings
+- **Admins always bypass token checks** (authenticated via JWT)
 
-**Backend: Supabase Edge Function**
+**Backend Logic (Hono API):**
 ```typescript
-// functions/get-trip/index.ts
-export default async (req: Request) => {
-  const url = new URL(req.url)
-  const slug = url.searchParams.get('slug')
-  const token = url.searchParams.get('token')
+// GET /api/trips/:slug
+async function getTripBySlug(slug: string, token?: string, userIsAdmin?: boolean) {
+  const trip = await db.trips.findBySlug(slug)
 
-  // Check if user is authenticated admin
-  const user = await getUser(req)
-  if (user?.is_admin) {
-    return getTripBySlug(slug) // Bypass checks
+  // Admin bypass
+  if (userIsAdmin) {
+    return trip
   }
 
-  // Check if trip is public
-  const trip = await getTripBySlug(slug)
+  // Public trip
   if (trip.is_public) {
     return trip
   }
 
-  // Validate token with bcrypt
+  // Private trip - validate token
   if (token && await bcrypt.compare(token, trip.access_token_hash)) {
     return trip
   }
 
-  return new Response('Unauthorized', { status: 401 })
+  throw new UnauthorizedError()
 }
 ```
 
 **Frontend: Share Link Flow**
-- Admin generates share link: `/trip/california-roadtrip?token=4iWzVn-rN1pC0mYqXzBwE8sF7jH6gA3dK9lO2hJ5kUo`
-- User clicks link → Token auto-validated on page load
-- Valid token → Trip loads immediately
-- Invalid/missing token → Show "Invalid or expired link" error message
-- No manual entry form needed (simpler UX than manual token entry)
+- Admin generates share link: `/trip/california-roadtrip?token=abc123...`
+- User clicks link → Token extracted from URL query
+- API validates token → returns trip if valid
+- Frontend displays trip if authorized
+- Invalid/missing token → "This trip is private" message
 
 **Admin UI: Trip Protection Management**
-- Offcanvas/Sheet in AdminView (or TripView when authenticated)
-- Public/Private toggle
-- "Generate Share Link" button (creates token, hashes it, builds URL)
-- Copy share link button (with accessible feedback)
-- **Note:** Admin never sees plaintext token (immediately hashed on generation)
-- Regenerate link to revoke access (invalidates old token)
+- Located in AdminView trip management section
+- Public/Private toggle switch
+- "Generate Share Link" button
+  - Creates cryptographically secure random token
+  - Hashes token with bcrypt before storing
+  - Displays shareable URL with plaintext token
+  - Copy button for easy sharing
+- "Regenerate Link" button to revoke access (invalidates old token)
 
----
-
-## The Big Question
-
-### Do we need WebAuthn/Passkeys for admin auth?
-
-**Arguments FOR:**
-- Modern, secure, passwordless
-- Good learning opportunity
-- "Do it right" from the start
-- Already in the GitHub roadmap
-
-**Arguments AGAINST:**
-- Overkill for personal project with 1-2 admins
-- Email + password works fine and is simpler
-- Can add later if needed
-- Supabase makes email auth trivial
-
-**Your call:** What's more important right now?
-- Get unblocked and start creating trips? → Go simple
-- Learn modern auth patterns? → Go WebAuthn
-
----
-
-## Decided Approach
-
-### Simple Supabase Auth (Email/Password)
-
-**Decision:** Use Supabase's built-in email authentication. No WebAuthn, no invite system (for now).
-
-**Implementation:**
-1. Enable Supabase Email auth in dashboard
-2. Manually create admin user in Supabase dashboard
-3. Set `is_admin = true` in user_profiles
-4. Build simple Login view (email + password)
-5. Add auth check to AdminView
-6. **Implement trip token protection** (the actual requirement!)
-
-**Why this approach?**
-- Unblocks trip creation immediately
-- Trip protection is the real security need
-- Supabase handles all the hard parts (sessions, tokens, password reset)
-- Can add WebAuthn/invites later if needed
-- Focus on shipping features, not auth complexity
-
----
+**Security Notes:**
+- Tokens are never stored in plaintext (bcrypt hashed)
+- Admin sees plaintext token only once during generation
+- Regenerating creates new token, invalidates old one
+- bcrypt comparison is constant-time (prevents timing attacks)
 
 ## Database Schema
 
-### Minimal (Phase 1)
+### Implemented Schema
+
 ```sql
--- user_profiles table
+-- User accounts
 CREATE TABLE user_profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  id UUID PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  webauthn_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
   is_admin BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- trips table additions
+-- WebAuthn credentials (passkeys)
+CREATE TABLE authenticators (
+  credential_id TEXT PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  public_key TEXT NOT NULL,
+  counter BIGINT DEFAULT 0,
+  transports TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  last_used_at TIMESTAMPTZ
+);
+
+-- Trip protection
 ALTER TABLE trips
 ADD COLUMN is_public BOOLEAN DEFAULT TRUE,
 ADD COLUMN access_token_hash TEXT;
 ```
 
-### Complete (Phase 2)
+### Future Enhancements (Planned)
+
 ```sql
--- Add invite system
+-- Photo comments (Milestone 6)
+CREATE TABLE photo_comments (
+  id UUID PRIMARY KEY,
+  photo_id UUID REFERENCES photos(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES user_profiles(id),
+  comment TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Admin invite system (Milestone 7)
 CREATE TABLE invites (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT NOT NULL,
-  invited_by UUID REFERENCES auth.users(id),
-  token TEXT UNIQUE NOT NULL,
+  id UUID PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  invited_by UUID REFERENCES user_profiles(id),
   used_at TIMESTAMPTZ,
-  expires_at TIMESTAMPTZ NOT NULL,
+  expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
 ---
 
-## Decisions Made
+## Implementation Summary
 
-1. **Admin auth complexity:** ✓ Simple email/password using Supabase built-in auth
+### What Was Implemented
 
-2. **Number of admins:** Single admin (you) for now, can add more manually if needed
+1. **WebAuthn/Passkey Authentication**
+   - @simplewebauthn/server for backend
+   - @simplewebauthn/browser for frontend
+   - First user becomes admin automatically
+   - Multiple passkeys per user supported
 
-3. **Invite system:** ✓ Not needed - skip entirely
+2. **JWT Session Management**
+   - jose library for JWT signing/verification
+   - Tokens stored in localStorage
+   - Configurable expiration (default: 1h)
+   - Admin middleware for protected routes
 
-## Open Questions
+3. **Trip Token Protection**
+   - Public/private trip toggle
+   - bcrypt-hashed access tokens
+   - Token validation on trip fetch
+   - Admin bypass for all trips
 
-1. **Trip comments:** The existing roadmap has comments by "authenticated users" - should viewers with trip tokens be able to comment, or only admins? (Can decide later when implementing comments)
+4. **Frontend Views**
+   - LoginView - WebAuthn login flow
+   - RegisterView - Passkey registration
+   - AdminView - Trip management with protection controls
+   - TripManagementView - Dedicated trip administration
+
+### What Was Skipped (For Now)
+
+- Invite system (not needed for single admin)
+- Password recovery (no passwords to recover!)
+- Email verification (WebAuthn provides device verification)
+- Refresh tokens (re-auth when JWT expires)
 
 ---
 
-## Next Steps
+## Open Questions for Future Milestones
 
-1. **Review this document** - What matches your vision? What doesn't?
-2. **Answer the open questions** - Helps finalize the approach
-3. **Update GitHub issues** - Align with chosen approach
-4. **Create new issues** - Add trip token protection work
-5. **Start implementation** - Begin with Phase 1
+1. **Photo Comments:** Should viewers with trip tokens be able to comment, or only admins?
+   - **Recommendation:** Only authenticated users (future feature)
+   - Trip tokens are for viewing only
+
+2. **Invite System:** When implementing, should invites grant admin access or just user access?
+   - **Recommendation:** User access by default, manual admin promotion
+   - Maintains security of admin role
 
 ---
 
-## Notes
-- This is a living document - will update as we make decisions
-- Focus on shipping features, not perfect architecture
-- Can always refactor later as needs change
+## References
+
+- [WebAuthn Guide](https://webauthn.guide/)
+- [@simplewebauthn Documentation](https://simplewebauthn.dev/)
+- [JWT Best Practices](https://datatracker.ietf.org/doc/html/rfc8725)
+- [Cloudflare R2 Documentation](https://developers.cloudflare.com/r2/)
+
+---
+
+**Conclusion:** The implemented system provides secure, modern authentication with WebAuthn/passkeys while maintaining simplicity for a personal project. The trip token system enables safe sharing without requiring recipients to authenticate.
