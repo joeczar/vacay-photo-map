@@ -226,3 +226,16 @@ DROP POLICY IF EXISTS "Allow inserts from API user for sections" ON sections;
 CREATE POLICY "Allow inserts from API user for sections"
   ON sections FOR INSERT
   WITH CHECK (current_user = 'vacay');
+
+-- Recovery tokens for account recovery via Telegram
+CREATE TABLE IF NOT EXISTS recovery_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  code TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_recovery_tokens_user_id ON recovery_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_recovery_tokens_code ON recovery_tokens(code);
