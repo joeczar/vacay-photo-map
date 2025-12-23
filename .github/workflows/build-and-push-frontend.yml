@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - 'app/**'
+      - '.dockerignore'
       - '.github/workflows/build-and-push-frontend.yml'
+  workflow_dispatch:
 
 jobs:
   build-and-push:
