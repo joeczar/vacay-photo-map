@@ -962,61 +962,49 @@ auth.post("/recovery/verify", async (c) => {
 
   const db = getDbClient();
 
-  // Find valid token
-  const [token] = await db<
-    {
-      id: string;
-      user_id: string;
-      attempts: number;
-      locked_at: Date | null;
-    }[]
-  >`
-    SELECT rt.id, rt.user_id, rt.attempts, rt.locked_at
-    FROM recovery_tokens rt
-    JOIN user_profiles u ON rt.user_id = u.id
-    WHERE u.email = ${email.toLowerCase()}
-      AND rt.expires_at > NOW()
-      AND rt.used_at IS NULL
-    ORDER BY rt.created_at DESC
-    LIMIT 1
+  // Atomically find valid token AND mark as used (CTE prevents race condition)
+  const [validToken] = await db<{ user_id: string }[]>`
+    WITH valid_token AS (
+      SELECT rt.id
+      FROM recovery_tokens rt
+      JOIN user_profiles u ON rt.user_id = u.id
+      WHERE u.email = ${email.toLowerCase()}
+        AND rt.code = ${code}
+        AND rt.expires_at > NOW()
+        AND rt.used_at IS NULL
+        AND rt.locked_at IS NULL
+      ORDER BY rt.created_at DESC
+      LIMIT 1
+    )
+    UPDATE recovery_tokens
+    SET used_at = NOW()
+    WHERE id = (SELECT id FROM valid_token)
+    RETURNING user_id
   `;
 
-  if (!token) {
-    return c.json(
-      { error: "Bad Request", message: "Invalid or expired code" },
-      400,
-    );
-  }
+  if (!validToken) {
+    // Code didn't match - find token by email only to track attempts
+    const [tokenForAttempts] = await db<
+      { id: string; attempts: number; locked_at: Date | null }[]
+    >`
+      SELECT id, attempts, locked_at
+      FROM recovery_tokens rt
+      JOIN user_profiles u ON rt.user_id = u.id
+      WHERE u.email = ${email.toLowerCase()}
+        AND rt.expires_at > NOW()
+        AND rt.used_at IS NULL
+      ORDER BY rt.created_at DESC
+      LIMIT 1
+    `;
 
-  // Check if locked due to too many attempts
-  if (token.locked_at) {
-    return c.json(
-      {
-        error: "Bad Request",
-        message:
-          "Too many failed attempts. Please request a new recovery code.",
-      },
-      400,
-    );
-  }
+    if (!tokenForAttempts) {
+      return c.json(
+        { error: "Bad Request", message: "Invalid or expired code" },
+        400,
+      );
+    }
 
-  // Verify code matches
-  const [codeMatch] = await db<{ code: string }[]>`
-    SELECT code FROM recovery_tokens WHERE id = ${token.id}
-  `;
-
-  if (!codeMatch || codeMatch.code !== code) {
-    // Increment attempt counter
-    const newAttempts = token.attempts + 1;
-
-    if (newAttempts >= 5) {
-      // Lock after 5 failed attempts
-      await db`
-        UPDATE recovery_tokens
-        SET attempts = ${newAttempts}, locked_at = NOW()
-        WHERE id = ${token.id}
-      `;
-
+    if (tokenForAttempts.locked_at) {
       return c.json(
         {
           error: "Bad Request",
@@ -1025,32 +1013,43 @@ auth.post("/recovery/verify", async (c) => {
         },
         400,
       );
-    } else {
-      // Just increment
+    }
+
+    // Increment attempt counter
+    const newAttempts = tokenForAttempts.attempts + 1;
+
+    if (newAttempts >= 5) {
       await db`
         UPDATE recovery_tokens
-        SET attempts = ${newAttempts}
-        WHERE id = ${token.id}
+        SET attempts = ${newAttempts}, locked_at = NOW()
+        WHERE id = ${tokenForAttempts.id}
       `;
-
       return c.json(
         {
           error: "Bad Request",
-          message: `Invalid code. ${5 - newAttempts} attempts remaining.`,
+          message:
+            "Too many failed attempts. Please request a new recovery code.",
         },
         400,
       );
     }
+
+    await db`
+      UPDATE recovery_tokens
+      SET attempts = ${newAttempts}
+      WHERE id = ${tokenForAttempts.id}
+    `;
+    return c.json(
+      {
+        error: "Bad Request",
+        message: `Invalid code. ${5 - newAttempts} attempts remaining.`,
+      },
+      400,
+    );
   }
 
-  // Code is valid - perform recovery in transaction
-  await db.begin(async (tx) => {
-    // Mark token as used
-    await tx`UPDATE recovery_tokens SET used_at = NOW() WHERE id = ${token.id}`;
-
-    // Delete user's authenticators (allows re-registration)
-    await tx`DELETE FROM authenticators WHERE user_id = ${token.user_id}`;
-  });
+  // Token was atomically claimed - delete authenticators
+  await db`DELETE FROM authenticators WHERE user_id = ${validToken.user_id}`;
 
   // Send confirmation via Telegram (outside transaction)
   await sendTelegramMessage(
