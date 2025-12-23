@@ -52,7 +52,8 @@ CREATE TABLE IF NOT EXISTS sections (
   order_index INTEGER NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  CONSTRAINT sections_order_index_check CHECK (order_index >= 0)
+  CONSTRAINT sections_order_index_check CHECK (order_index >= 0),
+  UNIQUE (trip_id, order_index)
 );
 
 -- Photos
@@ -117,7 +118,6 @@ CREATE INDEX IF NOT EXISTS idx_photos_trip_id ON photos(trip_id);
 CREATE INDEX IF NOT EXISTS idx_photos_taken_at ON photos(taken_at);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_taken ON photos(trip_id, taken_at);
 CREATE INDEX IF NOT EXISTS idx_trips_slug ON trips(slug);
-CREATE INDEX IF NOT EXISTS idx_sections_trip_id ON sections(trip_id);
 CREATE INDEX IF NOT EXISTS idx_sections_trip_order ON sections(trip_id, order_index);
 CREATE INDEX IF NOT EXISTS idx_photos_section_id ON photos(section_id);
 
