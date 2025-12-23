@@ -48,13 +48,17 @@ Key values to configure:
 - `RP_ID` / `RP_ORIGIN` - Your production domain
 - R2 credentials (optional)
 
-### 3. Create Docker Compose Environment File
+### 3. Create Root Environment File (for Docker Compose)
+
+The root `.env.production` provides `POSTGRES_PASSWORD` for Docker Compose:
 
 ```bash
 cp .env.production.example .env.production
 # Edit with your PostgreSQL password
 nano .env.production
 ```
+
+**Note:** This is separate from `api/.env.production` - you need both files.
 
 ### 4. Authenticate with GitHub Container Registry
 
