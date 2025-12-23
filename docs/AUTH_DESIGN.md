@@ -168,7 +168,7 @@ ADD COLUMN access_token_hash TEXT;
 ### Future Enhancements (Planned)
 
 ```sql
--- Photo comments (Milestone 3)
+-- Photo comments (Milestone 6)
 CREATE TABLE photo_comments (
   id UUID PRIMARY KEY,
   photo_id UUID REFERENCES photos(id) ON DELETE CASCADE,
@@ -178,7 +178,7 @@ CREATE TABLE photo_comments (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Admin invite system (Milestone 4)
+-- Admin invite system (Milestone 7)
 CREATE TABLE invites (
   id UUID PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,

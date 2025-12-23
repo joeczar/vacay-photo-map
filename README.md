@@ -193,7 +193,9 @@ The app will be available at `http://localhost:5173`
 
 ## Available Scripts
 
-### Frontend (`pnpm` commands from root)
+The following `pnpm` scripts are available from the repository root, grouped by area.
+
+### Frontend
 
 - `pnpm dev` - Start frontend dev server (localhost:5173)
 - `pnpm build` - Build frontend for production
@@ -273,8 +275,8 @@ TRUSTED_PROXY=true
 
 **Deploy Steps:**
 1. Set up PostgreSQL database
-2. Run migrations: `bun run scripts/migrate.ts`
-3. Seed admin user: `bun run scripts/seed.ts`
+2. Run migrations: `pnpm migrate:api`
+3. Seed admin user: `pnpm seed:api`
 4. Start API: `bun run start`
 5. Set up reverse proxy (nginx/Caddy) with SSL
 
