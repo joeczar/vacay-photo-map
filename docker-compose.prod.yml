@@ -45,6 +45,13 @@ services:
       - proxy
       - internal
 
+  frontend:
+    image: ghcr.io/joeczar/vacay-photo-map/frontend:latest
+    container_name: vacay-frontend
+    restart: unless-stopped
+    networks:
+      - proxy
+
   watchtower:
     # Using nicholas-fedor's maintained fork - containrrr/watchtower was archived Dec 2025
     # and is incompatible with Docker 29+ (requires API v1.44+)
@@ -57,7 +64,7 @@ services:
     environment:
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_LABEL_ENABLE: "false"
-    command: --interval 300 vacay-api
+    command: --interval 300 vacay-api vacay-frontend
     networks:
       - internal
 
