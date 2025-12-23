@@ -19,7 +19,7 @@ Try TDD if you have a difficult feature
 **Always use shadcn-vue components first.** New York style, Slate base, CSS variables for theming.
 
 - Add components: `pnpm dlx shadcn-vue@latest add [component]`
-- Don't use shadcn for: Leaflet maps, EXIF utils, Cloudinary client
+- Don't use shadcn for: Leaflet maps, EXIF utils
 
 ## Development
 

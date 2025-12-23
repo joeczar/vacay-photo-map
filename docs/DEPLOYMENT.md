@@ -39,8 +39,6 @@ For the frontend CI/CD to build with correct production URLs, configure these re
 | `VITE_APP_URL` | Production frontend URL | `https://photos.joeczar.com` |
 | `VITE_WEBAUTHN_RP_ID` | Domain for WebAuthn | `photos.joeczar.com` |
 | `VITE_WEBAUTHN_RP_NAME` | Display name for passkeys | `Vacay Photo Map` |
-| `VITE_CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name (optional) | `your-cloud-name` |
-| `VITE_CLOUDINARY_UPLOAD_PRESET` | Cloudinary preset (optional) | `your-preset` |
 
 **Note:** These are repository **variables** (not secrets) since they're not sensitive and will be embedded in the frontend JavaScript bundle.
 

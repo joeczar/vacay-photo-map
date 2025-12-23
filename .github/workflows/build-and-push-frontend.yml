@@ -39,8 +39,6 @@ jobs:
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL }}
             VITE_APP_URL=${{ vars.VITE_APP_URL }}
-            VITE_CLOUDINARY_CLOUD_NAME=${{ vars.VITE_CLOUDINARY_CLOUD_NAME }}
-            VITE_CLOUDINARY_UPLOAD_PRESET=${{ vars.VITE_CLOUDINARY_UPLOAD_PRESET }}
             VITE_WEBAUTHN_RP_NAME=${{ vars.VITE_WEBAUTHN_RP_NAME }}
             VITE_WEBAUTHN_RP_ID=${{ vars.VITE_WEBAUTHN_RP_ID }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/frontend:buildcache
