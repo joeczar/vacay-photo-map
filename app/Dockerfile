@@ -13,16 +13,8 @@ COPY package.json pnpm-lock.yaml ./
 # Install dependencies with frozen lockfile for reproducibility
 RUN pnpm install --frozen-lockfile
 
-# Copy application source
-COPY src ./src
-COPY public ./public
-COPY index.html ./
-COPY tsconfig.json ./
-COPY tsconfig.node.json ./
-COPY vite.config.ts ./
-COPY tailwind.config.js ./
-COPY postcss.config.js ./
-COPY components.json ./
+# Copy application source (uses .dockerignore to exclude node_modules, dist, .env*)
+COPY . .
 
 # Build-time environment variables for Vite
 ARG VITE_API_URL
@@ -55,7 +47,7 @@ EXPOSE 80
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
