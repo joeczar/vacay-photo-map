@@ -15,6 +15,10 @@ import { getDbClient } from "../db/client";
 import { signToken } from "../utils/jwt";
 import { requireAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
+import {
+  sendTelegramMessage,
+  generateRecoveryCode,
+} from "../services/telegram";
 
 // WebAuthn Relying Party configuration
 const getConfig = () => {
@@ -863,6 +867,200 @@ auth.get("/me", requireAuth, async (c) => {
 // =============================================================================
 auth.post("/logout", (_c) => {
   return _c.json({ success: true });
+});
+
+// =============================================================================
+// GET /registration-status - Check if registration is open (first-user-only)
+// =============================================================================
+auth.get("/registration-status", async (c) => {
+  const db = getDbClient();
+
+  const [{ exists }] = await db<{ exists: boolean }[]>`
+    SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
+  `;
+
+  return c.json({
+    registrationOpen: !exists,
+    reason: exists ? "first_user_registered" : "no_users_yet",
+  });
+});
+
+// =============================================================================
+// POST /recovery/request - Request account recovery via Telegram
+// =============================================================================
+auth.post("/recovery/request", async (c) => {
+  const { email } = await c.req.json<{ email: string }>();
+
+  if (!email || !isValidEmail(email)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid email format" },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Find user by email
+  const [user] = await db<{ id: string; email: string }[]>`
+    SELECT id, email FROM user_profiles WHERE email = ${email.toLowerCase()}
+  `;
+
+  // Generate code and expiry ALWAYS to prevent timing attacks
+  const code = generateRecoveryCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  if (user) {
+    // Delete any existing unused tokens for this user (enforces one active token)
+    await db`
+      DELETE FROM recovery_tokens
+      WHERE user_id = ${user.id}
+        AND used_at IS NULL
+        AND locked_at IS NULL
+    `;
+
+    // Store token
+    await db`
+      INSERT INTO recovery_tokens (user_id, code, expires_at)
+      VALUES (${user.id}, ${code}, ${expiresAt})
+    `;
+
+    // Send via Telegram with ISO timestamp
+    const success = await sendTelegramMessage(
+      `🔐 <b>Recovery Code</b>\n\nAccount: ${user.email}\nCode: <code>${code}</code>\n\nExpires at: ${expiresAt.toISOString()}\n(10 minutes from now)`,
+    );
+
+    if (!success) {
+      // Log failure for monitoring
+      console.error(
+        `[RECOVERY] Failed to send Telegram notification for ${user.email}`,
+      );
+    }
+  }
+
+  // Always return success to prevent user enumeration
+  // Add small random delay to mask timing differences
+  await new Promise((resolve) => setTimeout(resolve, Math.random() * 100 + 50));
+
+  return c.json({
+    success: true,
+    message: "If account exists, recovery code sent",
+  });
+});
+
+// =============================================================================
+// POST /recovery/verify - Verify recovery code and clear authenticators
+// =============================================================================
+auth.post("/recovery/verify", async (c) => {
+  const { email, code } = await c.req.json<{ email: string; code: string }>();
+
+  if (!email || !code) {
+    return c.json(
+      { error: "Bad Request", message: "Email and code required" },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Atomically find valid token AND mark as used (CTE prevents race condition)
+  const [validToken] = await db<{ user_id: string }[]>`
+    WITH valid_token AS (
+      SELECT rt.id
+      FROM recovery_tokens rt
+      JOIN user_profiles u ON rt.user_id = u.id
+      WHERE u.email = ${email.toLowerCase()}
+        AND rt.code = ${code}
+        AND rt.expires_at > NOW()
+        AND rt.used_at IS NULL
+        AND rt.locked_at IS NULL
+      ORDER BY rt.created_at DESC
+      LIMIT 1
+    )
+    UPDATE recovery_tokens
+    SET used_at = NOW()
+    WHERE id = (SELECT id FROM valid_token)
+    RETURNING user_id
+  `;
+
+  if (!validToken) {
+    // Code didn't match - find token by email only to track attempts
+    const [tokenForAttempts] = await db<
+      { id: string; attempts: number; locked_at: Date | null }[]
+    >`
+      SELECT id, attempts, locked_at
+      FROM recovery_tokens rt
+      JOIN user_profiles u ON rt.user_id = u.id
+      WHERE u.email = ${email.toLowerCase()}
+        AND rt.expires_at > NOW()
+        AND rt.used_at IS NULL
+      ORDER BY rt.created_at DESC
+      LIMIT 1
+    `;
+
+    if (!tokenForAttempts) {
+      return c.json(
+        { error: "Bad Request", message: "Invalid or expired code" },
+        400,
+      );
+    }
+
+    if (tokenForAttempts.locked_at) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message:
+            "Too many failed attempts. Please request a new recovery code.",
+        },
+        400,
+      );
+    }
+
+    // Increment attempt counter
+    const newAttempts = tokenForAttempts.attempts + 1;
+
+    if (newAttempts >= 5) {
+      await db`
+        UPDATE recovery_tokens
+        SET attempts = ${newAttempts}, locked_at = NOW()
+        WHERE id = ${tokenForAttempts.id}
+      `;
+      return c.json(
+        {
+          error: "Bad Request",
+          message:
+            "Too many failed attempts. Please request a new recovery code.",
+        },
+        400,
+      );
+    }
+
+    await db`
+      UPDATE recovery_tokens
+      SET attempts = ${newAttempts}
+      WHERE id = ${tokenForAttempts.id}
+    `;
+    return c.json(
+      {
+        error: "Bad Request",
+        message: `Invalid code. ${5 - newAttempts} attempts remaining.`,
+      },
+      400,
+    );
+  }
+
+  // Token was atomically claimed - delete authenticators
+  await db`DELETE FROM authenticators WHERE user_id = ${validToken.user_id}`;
+
+  // Send confirmation via Telegram (outside transaction)
+  await sendTelegramMessage(
+    `✅ Recovery successful for ${email}. Passkeys cleared.`,
+  );
+
+  return c.json({
+    success: true,
+    message: "Recovery successful. Please register a new passkey.",
+    redirectTo: "/register",
+  });
 });
 
 export { auth };

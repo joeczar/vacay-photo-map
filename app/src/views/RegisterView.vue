@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -101,6 +101,31 @@ const error = ref('')
 
 // Check WebAuthn support
 const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthnSupport()
+
+// Check registration status on mount
+onMounted(async () => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
+
+    if (response.ok) {
+      const { registrationOpen } = await response.json()
+
+      if (!registrationOpen) {
+        error.value = 'Registration is closed. The first user has already been registered.'
+
+        // Redirect to login after showing error briefly
+        setTimeout(() => {
+          router.push('/login')
+        }, 2000)
+      }
+    }
+    // If API call fails, let user try - backend will validate
+  } catch (err) {
+    // Network error - let user try to register
+    // Backend will return 409 if user exists
+    console.error('[REGISTER] Failed to fetch registration status:', err)
+  }
+})
 
 // Form validation schema
 const registerSchema = toTypedSchema(
