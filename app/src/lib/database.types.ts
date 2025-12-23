@@ -87,6 +87,7 @@ export interface Database {
           taken_at: string
           caption: string | null
           album: string | null
+          rotation: number
           created_at: string
         }
         Insert: {
@@ -100,6 +101,7 @@ export interface Database {
           taken_at: string
           caption?: string | null
           album?: string | null
+          rotation?: number
           created_at?: string
         }
         Update: {
@@ -113,6 +115,7 @@ export interface Database {
           taken_at?: string
           caption?: string | null
           album?: string | null
+          rotation?: number
           created_at?: string
         }
       }

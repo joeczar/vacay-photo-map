@@ -37,6 +37,7 @@ interface DbPhoto {
   taken_at: Date;
   caption: string | null;
   album: string | null;
+  rotation: number;
   created_at: Date;
 }
 
@@ -74,6 +75,7 @@ interface PhotoResponse {
   takenAt: Date;
   caption: string | null;
   album: string | null;
+  rotation: number;
   createdAt: Date;
 }
 
@@ -180,6 +182,7 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
     takenAt: photo.taken_at,
     caption: photo.caption,
     album: photo.album,
+    rotation: photo.rotation,
     createdAt: photo.created_at,
   };
 }
@@ -195,7 +198,7 @@ async function buildTripWithPhotosResponse(
   // Fetch photos for this trip
   const photos = await db<DbPhoto[]>`
     SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
-           latitude, longitude, taken_at, caption, album, created_at
+           latitude, longitude, taken_at, caption, album, rotation, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
     ORDER BY taken_at ASC
