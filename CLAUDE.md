@@ -25,6 +25,32 @@ Try TDD if you have a difficult feature
 
 Run from root: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm type-check`
 
+### Remote Development (Tailscale + Prod DB)
+
+Develop locally against production database without touching your local `.env`:
+
+**1. Server setup (one-time):**
+```bash
+# Add to server's .env.production
+POSTGRES_HOST=0.0.0.0
+
+# Restart postgres
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d postgres
+```
+
+**2. Local setup (one-time):**
+```bash
+cp api/.env.prod.example api/.env.prod
+# Edit api/.env.prod with your Tailscale IP and prod credentials
+```
+
+**3. Run:**
+```bash
+pnpm dev:prod  # Uses api/.env.prod automatically
+```
+
+**First user registration:** Navigate to localhost:5173/register - first user becomes admin.
+
 ## Git Workflow
 
 - Branch: `feature/issue-{number}-{description}`

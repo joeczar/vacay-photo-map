@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
+    "dev:prod": "bun run --env-file .env.prod --hot src/index.ts",
     "start": "bun run src/index.ts",
     "test": "bun test",
     "type-check": "tsc --noEmit",

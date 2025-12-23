@@ -423,9 +423,18 @@ auth.post("/register/verify", async (c) => {
     } else {
       // New user - create user and authenticator in transaction
       result = await db.begin(async (tx) => {
+        // Lock table to prevent race condition on first user creation
+        await tx`LOCK TABLE user_profiles IN SHARE ROW EXCLUSIVE MODE`;
+
+        // Check if this is the first user - they become admin automatically
+        const [{ exists }] = await tx<{ exists: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
+        `;
+        const isFirstUser = !exists;
+
         const [user] = await tx<DbUser[]>`
           INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
-          VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, FALSE)
+          VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, ${isFirstUser})
           RETURNING id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
         `;
 
