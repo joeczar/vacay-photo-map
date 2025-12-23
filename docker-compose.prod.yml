@@ -38,6 +38,9 @@ services:
       - ./api/.env.production
     environment:
       DATABASE_URL: postgresql://vacay:${POSTGRES_PASSWORD}@postgres:5432/vacay
+    volumes:
+      # Local photo storage fallback (used if R2 not configured)
+      - ./data/photos:/data/photos
     networks:
       - proxy
       - internal
