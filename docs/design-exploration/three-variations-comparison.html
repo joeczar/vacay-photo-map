@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Three Spaces — 3 Variations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Caveat:wght@500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    body {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    /* ============================================
+       COLUMN STRUCTURE
+       ============================================ */
+    .variation {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #222;
+    }
+
+    .variation:last-child {
+      border-right: none;
+    }
+
+    .variation-header {
+      padding: 12px 16px;
+      background: #111;
+      border-bottom: 1px solid #222;
+      text-align: center;
+    }
+
+    .variation-label {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #666;
+    }
+
+    .space {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      gap: 12px;
+    }
+
+    .space-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      opacity: 0.7;
+    }
+
+    .space-ui {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* Shared base button */
+    .btn {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 9px;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+    }
+
+    /* ============================================
+       VARIATION 1: CLEAN MINIMAL (Original)
+       ============================================ */
+    .v1 .gallery {
+      background: #0f0f12;
+      background-image: radial-gradient(ellipse at 50% 0%, rgba(200, 210, 230, 0.04) 0%, transparent 50%);
+      color: #fafafa;
+      border-bottom: 1px solid #27272a;
+    }
+
+    .v1 .gallery .space-title { color: #71717a; }
+
+    .v1 .card {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 8px;
+      width: 70px;
+    }
+
+    .v1 .card-thumb {
+      height: 32px;
+      background: #27272a;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .v1 .card-title {
+      font-size: 8px;
+      font-weight: 500;
+    }
+
+    .v1 .card-status {
+      font-size: 7px;
+      color: #a78bfa;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .v1 .card-status::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      background: #a78bfa;
+      border-radius: 50%;
+    }
+
+    .v1 .darkroom {
+      background: #0a0708;
+      background-image:
+        radial-gradient(ellipse at 80% 20%, rgba(255, 107, 107, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 80%, rgba(245, 158, 11, 0.06) 0%, transparent 40%);
+      color: #f5e6e8;
+      border-bottom: 1px solid #2d1f22;
+    }
+
+    .v1 .darkroom .space-title { color: #9a7a7f; }
+
+    .v1 .contact-sheet {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      background: #000;
+      padding: 2px;
+      border-radius: 3px;
+    }
+
+    .v1 .contact-frame {
+      width: 24px;
+      height: 24px;
+      background: #1a1214;
+    }
+
+    .v1 .contact-frame.selected {
+      outline: 1px solid #ff6b6b;
+    }
+
+    .v1 .darkroom .btn {
+      background: #ff6b6b;
+      color: #0a0708;
+    }
+
+    .v1 .workshop {
+      background: #0d0c0a;
+      background-image:
+        radial-gradient(ellipse at 30% 50%, rgba(212, 168, 75, 0.1) 0%, transparent 50%),
+        url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%233d3829' fill-opacity='0.15'%3E%3Cpath d='M20 20h20v1H20zM0 20h20v1H0zM20 0v20h1V0zM20 20v20h1V20z'/%3E%3C/g%3E%3C/svg%3E");
+      color: #f5f0e6;
+    }
+
+    .v1 .workshop .space-title { color: #a89f8a; }
+
+    .v1 .swatches {
+      display: flex;
+      gap: 4px;
+    }
+
+    .v1 .swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      border: 2px solid transparent;
+    }
+
+    .v1 .swatch.active { border-color: #f5f0e6; }
+    .v1 .swatch-earth { background: linear-gradient(135deg, #4a7c59, #2d5016); }
+    .v1 .swatch-desert { background: linear-gradient(135deg, #e8a854, #b8860b); }
+    .v1 .swatch-ocean { background: linear-gradient(135deg, #50d2cb, #0891b2); }
+
+    .v1 .workshop .btn {
+      background: #d4a84b;
+      color: #0d0c0a;
+    }
+
+    /* ============================================
+       VARIATION 2: ANALOG CRAFT
+       ============================================ */
+    .v2 .gallery {
+      background: #13120f;
+      background-image:
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-blend-mode: overlay;
+      color: #e8e4dc;
+      border-bottom: 1px solid #2a2822;
+    }
+
+    .v2 .gallery .space-title {
+      font-family: 'Caveat', cursive;
+      font-size: 14px;
+      color: #a09a8a;
+    }
+
+    .v2 .polaroid {
+      background: #f5f2eb;
+      padding: 6px 6px 20px 6px;
+      box-shadow: 2px 3px 8px rgba(0,0,0,0.4);
+      transform: rotate(-2deg);
+    }
+
+    .v2 .polaroid:nth-child(2) { transform: rotate(1deg); }
+    .v2 .polaroid:nth-child(3) { transform: rotate(-1deg); }
+
+    .v2 .polaroid-img {
+      width: 50px;
+      height: 50px;
+      background: #ddd;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .v2 .polaroid-label {
+      font-family: 'Caveat', cursive;
+      font-size: 10px;
+      color: #444;
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    .v2 .darkroom {
+      background: #0a0606;
+      background-image:
+        radial-gradient(ellipse at 90% 10%, rgba(180, 50, 50, 0.25) 0%, transparent 40%);
+      color: #e8d0d0;
+      border-bottom: 1px solid #2d1a1a;
+    }
+
+    .v2 .darkroom .space-title {
+      font-family: 'Caveat', cursive;
+      font-size: 14px;
+      color: #aa6666;
+    }
+
+    .v2 .film-strip {
+      background: #111;
+      padding: 4px 8px;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .v2 .sprocket {
+      width: 6px;
+      height: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .v2 .sprocket-hole {
+      width: 6px;
+      height: 4px;
+      background: #222;
+      border-radius: 1px;
+    }
+
+    .v2 .film-frames {
+      display: flex;
+      gap: 2px;
+    }
+
+    .v2 .film-frame {
+      width: 28px;
+      height: 20px;
+      background: #1a1212;
+      border: 1px solid #333;
+    }
+
+    .v2 .film-frame.selected {
+      border-color: #cc5555;
+      box-shadow: 0 0 4px rgba(200, 80, 80, 0.5);
+    }
+
+    .v2 .darkroom .btn {
+      background: #aa5555;
+      color: #fff;
+      font-family: 'Caveat', cursive;
+      font-size: 11px;
+    }
+
+    .v2 .workshop {
+      background: #0f0d09;
+      background-image:
+        radial-gradient(ellipse at 20% 60%, rgba(180, 140, 80, 0.12) 0%, transparent 50%),
+        url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h100v100H0z' fill='%23181510'/%3E%3Cpath d='M0 50h100M50 0v100' stroke='%232a2418' stroke-width='0.5'/%3E%3C/svg%3E");
+      color: #e8dcc8;
+    }
+
+    .v2 .workshop .space-title {
+      font-family: 'Caveat', cursive;
+      font-size: 14px;
+      color: #b8a078;
+    }
+
+    .v2 .ink-swatches {
+      display: flex;
+      gap: 6px;
+    }
+
+    .v2 .ink-swatch {
+      width: 18px;
+      height: 24px;
+      border-radius: 2px 2px 6px 6px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 1px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .v2 .ink-swatch.active {
+      box-shadow: 0 0 0 2px #e8dcc8, 1px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .v2 .ink-earth { background: linear-gradient(180deg, #5a8c69 0%, #3d6045 100%); }
+    .v2 .ink-desert { background: linear-gradient(180deg, #d4a04a 0%, #a67c35 100%); }
+    .v2 .ink-ocean { background: linear-gradient(180deg, #4ab8b0 0%, #2d7872 100%); }
+
+    .v2 .workshop .btn {
+      background: #c4a060;
+      color: #1a1508;
+      font-family: 'Caveat', cursive;
+      font-size: 11px;
+    }
+
+    /* ============================================
+       VARIATION 3: MAXIMALIST
+       ============================================ */
+    .v3 .gallery {
+      background:
+        linear-gradient(180deg, #0a0a10 0%, #12121a 100%);
+      background-image:
+        radial-gradient(ellipse at 50% -20%, rgba(140, 120, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(100, 140, 255, 0.08) 0%, transparent 40%),
+        linear-gradient(180deg, #0a0a10 0%, #12121a 100%);
+      color: #fff;
+      border-bottom: 1px solid #2a2a3a;
+    }
+
+    .v3 .gallery .space-title {
+      color: #8888aa;
+      text-shadow: 0 0 20px rgba(140, 120, 255, 0.3);
+    }
+
+    .v3 .glass-card {
+      background: rgba(30, 30, 50, 0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(140, 120, 255, 0.2);
+      border-radius: 8px;
+      padding: 8px;
+      width: 65px;
+      box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .v3 .glass-card-thumb {
+      height: 35px;
+      background: linear-gradient(135deg, rgba(140, 120, 255, 0.2), rgba(100, 140, 255, 0.1));
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .v3 .glass-card-title {
+      font-size: 8px;
+      font-weight: 600;
+    }
+
+    .v3 .glass-card-status {
+      font-size: 7px;
+      color: #a78bfa;
+      text-shadow: 0 0 8px rgba(167, 139, 250, 0.5);
+    }
+
+    .v3 .darkroom {
+      background: #080404;
+      background-image:
+        radial-gradient(ellipse at 100% 0%, rgba(255, 60, 60, 0.3) 0%, transparent 40%),
+        radial-gradient(ellipse at 0% 100%, rgba(255, 140, 40, 0.15) 0%, transparent 40%),
+        radial-gradient(ellipse at 50% 50%, rgba(100, 20, 20, 0.2) 0%, transparent 60%);
+      color: #ffdddd;
+      border-bottom: 1px solid #3d1515;
+    }
+
+    .v3 .darkroom .space-title {
+      color: #ff6b6b;
+      text-shadow: 0 0 15px rgba(255, 107, 107, 0.5);
+    }
+
+    .v3 .tray {
+      background: linear-gradient(180deg, #1a0808 0%, #0d0404 100%);
+      border: 1px solid #3d1a1a;
+      border-radius: 4px;
+      padding: 6px;
+      box-shadow:
+        inset 0 2px 8px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(255, 60, 60, 0.1);
+    }
+
+    .v3 .tray-frames {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3px;
+    }
+
+    .v3 .tray-frame {
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, #1a0a0a, #0d0505);
+      border: 1px solid #2d1212;
+      border-radius: 2px;
+    }
+
+    .v3 .tray-frame.selected {
+      border-color: #ff4444;
+      box-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+      background: linear-gradient(135deg, #2a0a0a, #1a0505);
+    }
+
+    .v3 .tray-frame.developing {
+      animation: develop-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes develop-glow {
+      0%, 100% { box-shadow: 0 0 4px rgba(255, 140, 40, 0.3); }
+      50% { box-shadow: 0 0 12px rgba(255, 140, 40, 0.6); }
+    }
+
+    .v3 .darkroom .btn {
+      background: linear-gradient(135deg, #ff5555, #cc3333);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(255, 85, 85, 0.4);
+    }
+
+    .v3 .workshop {
+      background: #0a0806;
+      background-image:
+        radial-gradient(ellipse at 0% 30%, rgba(255, 180, 60, 0.2) 0%, transparent 40%),
+        radial-gradient(ellipse at 100% 70%, rgba(200, 150, 80, 0.1) 0%, transparent 40%),
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23443820' stroke-width='0.5'%3E%3Cpath d='M0 30h60M30 0v60M0 0l60 60M60 0L0 60'/%3E%3C/g%3E%3C/svg%3E");
+      color: #fff8e8;
+    }
+
+    .v3 .workshop .space-title {
+      color: #ffcc66;
+      text-shadow: 0 0 15px rgba(255, 200, 100, 0.4);
+    }
+
+    .v3 .gem-swatches {
+      display: flex;
+      gap: 6px;
+    }
+
+    .v3 .gem-swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .v3 .gem-swatch.active {
+      box-shadow:
+        0 0 0 2px #ffcc66,
+        0 2px 12px rgba(255, 200, 100, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .v3 .gem-earth {
+      background: linear-gradient(135deg, #6aaa7a 0%, #3d7048 50%, #2a5030 100%);
+    }
+    .v3 .gem-desert {
+      background: linear-gradient(135deg, #ffcc66 0%, #cc9933 50%, #996622 100%);
+    }
+    .v3 .gem-ocean {
+      background: linear-gradient(135deg, #66ddcc 0%, #33aa99 50%, #227766 100%);
+    }
+
+    .v3 .workshop .btn {
+      background: linear-gradient(135deg, #ffcc55, #cc9922);
+      color: #1a1000;
+      box-shadow: 0 2px 10px rgba(255, 200, 80, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- VARIATION 1: CLEAN MINIMAL -->
+  <div class="variation v1">
+    <div class="variation-header">
+      <span class="variation-label">1 — Clean Minimal</span>
+    </div>
+    <div class="space gallery">
+      <span class="space-title">Gallery</span>
+      <div class="space-ui">
+        <div class="card"><div class="card-thumb">🏔️</div><div class="card-title">Colorado</div><div class="card-status">Live</div></div>
+        <div class="card"><div class="card-thumb">🏖️</div><div class="card-title">Greece</div><div class="card-status">Draft</div></div>
+      </div>
+    </div>
+    <div class="space darkroom">
+      <span class="space-title">Darkroom</span>
+      <div class="space-ui">
+        <div class="contact-sheet">
+          <div class="contact-frame selected"></div>
+          <div class="contact-frame selected"></div>
+          <div class="contact-frame"></div>
+          <div class="contact-frame"></div>
+          <div class="contact-frame selected"></div>
+          <div class="contact-frame"></div>
+          <div class="contact-frame"></div>
+          <div class="contact-frame"></div>
+        </div>
+        <button class="btn">Export</button>
+      </div>
+    </div>
+    <div class="space workshop">
+      <span class="space-title">Workshop</span>
+      <div class="space-ui">
+        <div class="swatches">
+          <div class="swatch swatch-earth active"></div>
+          <div class="swatch swatch-desert"></div>
+          <div class="swatch swatch-ocean"></div>
+        </div>
+        <button class="btn">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIATION 2: ANALOG CRAFT -->
+  <div class="variation v2">
+    <div class="variation-header">
+      <span class="variation-label">2 — Analog Craft</span>
+    </div>
+    <div class="space gallery">
+      <span class="space-title">Gallery</span>
+      <div class="space-ui">
+        <div class="polaroid"><div class="polaroid-img">🏔️</div><div class="polaroid-label">Colorado</div></div>
+        <div class="polaroid"><div class="polaroid-img">🏖️</div><div class="polaroid-label">Greece</div></div>
+        <div class="polaroid"><div class="polaroid-img">🌲</div><div class="polaroid-label">PNW</div></div>
+      </div>
+    </div>
+    <div class="space darkroom">
+      <span class="space-title">Darkroom</span>
+      <div class="space-ui">
+        <div class="film-strip">
+          <div class="sprocket"><div class="sprocket-hole"></div><div class="sprocket-hole"></div><div class="sprocket-hole"></div></div>
+          <div class="film-frames">
+            <div class="film-frame selected"></div>
+            <div class="film-frame"></div>
+            <div class="film-frame selected"></div>
+            <div class="film-frame"></div>
+          </div>
+          <div class="sprocket"><div class="sprocket-hole"></div><div class="sprocket-hole"></div><div class="sprocket-hole"></div></div>
+        </div>
+        <button class="btn">Develop</button>
+      </div>
+    </div>
+    <div class="space workshop">
+      <span class="space-title">Workshop</span>
+      <div class="space-ui">
+        <div class="ink-swatches">
+          <div class="ink-swatch ink-earth active"></div>
+          <div class="ink-swatch ink-desert"></div>
+          <div class="ink-swatch ink-ocean"></div>
+        </div>
+        <button class="btn">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIATION 3: MAXIMALIST -->
+  <div class="variation v3">
+    <div class="variation-header">
+      <span class="variation-label">3 — Maximalist</span>
+    </div>
+    <div class="space gallery">
+      <span class="space-title">Gallery</span>
+      <div class="space-ui">
+        <div class="glass-card"><div class="glass-card-thumb">🏔️</div><div class="glass-card-title">Colorado</div><div class="glass-card-status">● Live</div></div>
+        <div class="glass-card"><div class="glass-card-thumb">🏖️</div><div class="glass-card-title">Greece</div><div class="glass-card-status">● Draft</div></div>
+      </div>
+    </div>
+    <div class="space darkroom">
+      <span class="space-title">Darkroom</span>
+      <div class="space-ui">
+        <div class="tray">
+          <div class="tray-frames">
+            <div class="tray-frame selected"></div>
+            <div class="tray-frame developing"></div>
+            <div class="tray-frame"></div>
+            <div class="tray-frame"></div>
+            <div class="tray-frame selected"></div>
+            <div class="tray-frame"></div>
+            <div class="tray-frame developing"></div>
+            <div class="tray-frame"></div>
+          </div>
+        </div>
+        <button class="btn">Export</button>
+      </div>
+    </div>
+    <div class="space workshop">
+      <span class="space-title">Workshop</span>
+      <div class="space-ui">
+        <div class="gem-swatches">
+          <div class="gem-swatch gem-earth active"></div>
+          <div class="gem-swatch gem-desert"></div>
+          <div class="gem-swatch gem-ocean"></div>
+        </div>
+        <button class="btn">Apply</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
