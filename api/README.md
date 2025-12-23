@@ -1,16 +1,16 @@
 # Vacay Photo Map API
 
-Self-hosted Bun + Hono API server for Vacay Photo Map.
-
-> **Migration Note**: This API replaces Supabase for self-hosted deployments. The schema intentionally diverges from the Supabase version - see [Schema Differences](#schema-differences).
+Self-hosted Bun + Hono API server for Vacay Photo Map with WebAuthn authentication and Cloudflare R2 storage.
 
 ## Tech Stack
 
-- **Runtime**: [Bun](https://bun.sh/)
-- **Framework**: [Hono](https://hono.dev/)
+- **Runtime**: [Bun](https://bun.sh/) 1.0+
+- **Framework**: [Hono](https://hono.dev/) 4.x
 - **Database**: PostgreSQL 15+ with [postgres.js](https://github.com/porsager/postgres)
-- **Auth**: JWT (jose) + bcrypt password hashing
-- **Testing**: Bun test runner
+- **Auth**: WebAuthn/Passkeys ([@simplewebauthn/server](https://simplewebauthn.dev/)) + JWT (jose)
+- **Storage**: Cloudflare R2 (S3-compatible) with local filesystem fallback
+- **Image Processing**: [Sharp](https://sharp.pixelplumbing.com/) for thumbnails
+- **Testing**: Bun test runner with coverage support
 
 ## Prerequisites
 
@@ -57,10 +57,14 @@ API available at `http://localhost:3000`
 | `DATABASE_IDLE_TIMEOUT_MS` | `10000` | Idle connection timeout |
 | `JWT_SECRET` | - | JWT signing secret (min 32 bytes, required) |
 | `JWT_EXPIRATION` | `1h` | Token expiration (e.g., `1h`, `7d`, `30m`) |
-| `BCRYPT_SALT_ROUNDS` | `14` | Password hashing rounds (10-20) |
 | `SEED_ADMIN_EMAIL` | `admin@example.com` | Admin email for seeding |
-| `SEED_ADMIN_PASSWORD` | `admin123` | Admin password for seeding (min 8 chars) |
 | `SEED_ADMIN_NAME` | `Admin User` | Admin display name |
+| `R2_ACCOUNT_ID` | - | Cloudflare account ID (optional) |
+| `R2_ACCESS_KEY_ID` | - | R2 access key (optional) |
+| `R2_SECRET_ACCESS_KEY` | - | R2 secret key (optional) |
+| `R2_BUCKET_NAME` | - | R2 bucket name (optional) |
+| `PHOTOS_DIR` | `/data/photos` | Local storage fallback directory |
+| `TRUSTED_PROXY` | `false` | Enable if behind reverse proxy (production only) |
 
 Generate a secure JWT secret:
 ```bash
@@ -124,13 +128,22 @@ SEED_ADMIN_EMAIL=me@example.com SEED_ADMIN_PASSWORD=supersecret bun run scripts/
 ### Schema
 
 ```
-user_profiles     # Users with email/password auth
+user_profiles     # User accounts
 ├── id            # UUID primary key
 ├── email         # Unique, indexed
-├── password_hash # bcrypt hash
+├── webauthn_user_id  # WebAuthn user identifier
 ├── display_name
 ├── is_admin
 └── timestamps
+
+authenticators    # WebAuthn credentials (passkeys)
+├── credential_id # Primary key (base64url)
+├── user_id       # FK to user_profiles
+├── public_key    # COSE public key
+├── counter       # Signature counter (replay protection)
+├── transports    # Preferred authenticator transports
+├── created_at
+└── last_used_at
 
 trips             # Photo trips/albums
 ├── id            # UUID primary key
@@ -138,32 +151,27 @@ trips             # Photo trips/albums
 ├── title
 ├── description
 ├── cover_photo_url
-├── is_public     # RLS visibility
-├── access_token_hash  # For protected sharing
+├── is_public     # Public/private visibility
+├── access_token_hash  # Bcrypt-hashed token for private trips
 └── timestamps
 
 photos            # Individual photos
 ├── id            # UUID primary key
 ├── trip_id       # FK to trips, indexed
-├── cloudinary_public_id
-├── url
-├── thumbnail_url
-├── latitude/longitude
-├── taken_at      # Indexed, compound index with trip_id
-├── caption
-├── album
+├── cloudinary_public_id  # R2 key (legacy name)
+├── url           # Photo URL (/api/photos/:key)
+├── thumbnail_url # Thumbnail URL
+├── latitude/longitude  # GPS coordinates from EXIF
+├── taken_at      # Timestamp from EXIF, indexed
+├── caption       # Photo caption from EXIF
+├── album         # Album name from EXIF
 └── created_at
 ```
 
-### Schema Differences
-
-This schema differs from the Supabase-hosted version:
-
-| Feature | Self-Hosted | Supabase |
-|---------|-------------|----------|
-| Auth | `user_profiles.password_hash` | Supabase Auth service |
-| User ID | `user_profiles.id` (UUID) | `auth.users.id` |
-| RLS | Permissive for dev | User-based policies |
+**Notes:**
+- Photos are stored in Cloudflare R2 if configured, otherwise local filesystem
+- `cloudinary_public_id` is actually the R2 object key (naming kept for backwards compatibility)
+- One user can have multiple passkeys (multiple authenticators per user_id)
 
 ## Available Scripts
 
@@ -222,12 +230,26 @@ curl http://localhost:3000/health/ready
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/trips` | GET | - | List public trips |
+| `/api/trips` | GET | JWT (optional) | List all trips (public + admin's private) |
 | `/api/trips/:slug` | GET | Optional | Get trip by slug (token for private) |
-| `/api/trips` | POST | Admin | Create trip |
-| `/api/trips/:id` | PATCH | Admin | Update trip |
-| `/api/trips/:id` | DELETE | Admin | Delete trip (cascade deletes photos) |
-| `/api/trips/:id/protection` | PATCH | Admin | Update protection settings |
+| `/api/trips` | POST | Admin JWT | Create trip (or draft) |
+| `/api/trips/:id` | PATCH | Admin JWT | Update trip |
+| `/api/trips/:id` | DELETE | Admin JWT | Delete trip (cascade deletes photos) |
+| `/api/trips/:id/protection` | PATCH | Admin JWT | Update protection settings |
+| `/api/trips/:id/photos` | POST | Admin JWT | Add photos to existing trip |
+
+### Photos
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/photos/:key` | GET | - | Serve photo from R2 or local storage |
+| `/api/photos/:photoId` | DELETE | Admin JWT | Delete single photo |
+
+### Upload
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/upload` | POST | Admin JWT | Upload photos (multipart/form-data) |
 
 #### Access Control for Private Trips
 
@@ -307,14 +329,38 @@ bun test --coverage
 bun test src/middleware/auth.test.ts
 ```
 
+## Storage
+
+### Cloudflare R2
+
+Photos are stored in Cloudflare R2 (S3-compatible object storage) when configured:
+
+1. **Setup**: Configure R2 credentials in `.env` (see environment variables)
+2. **Upload**: Sharp processes images → thumbnail generated → both uploaded to R2
+3. **Serving**: Photos served via `/api/photos/:key` endpoint
+4. **Deletion**: Photos deleted from R2 when trip/photo is deleted
+
+### Local Filesystem Fallback
+
+If R2 is not configured, photos are stored locally:
+
+- **Directory**: `PHOTOS_DIR` (default: `/data/photos`)
+- **Structure**: `{tripId}/{filename}.jpg` and `{tripId}/thumb_{filename}.jpg`
+- **Serving**: Photos served from local filesystem via `/api/photos/:key`
+
+The API automatically detects R2 availability and falls back to local storage.
+
 ## Security
 
+- **WebAuthn/Passkeys**: Industry-standard passwordless authentication
 - **JWT**: HS256 signing with configurable expiration
-- **Passwords**: bcrypt with configurable rounds (default: 14)
+- **Trip Tokens**: Bcrypt-hashed access tokens for private trip sharing
+- **Rate Limiting**: Protection against brute force and abuse
+- **RLS Policies**: Row-level security on trips and photos tables
 - **Migrations**: DDL-only validation prevents SQL injection
-- **Seeding**: Password strength validation, production guards
 - **Error Logging**: Sanitized to avoid leaking connection details
-- **RLS**: Row-level security enabled (permissive for dev - tighten for prod)
+- **CORS**: Restricted to configured frontend origin
+- **Trusted Proxy**: Production-only setting for IP forwarding behind reverse proxies
 
 ## Troubleshooting
 

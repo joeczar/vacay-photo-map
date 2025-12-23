@@ -35,18 +35,20 @@ Run from root: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm type-ch
 ## Architecture
 
 **Data Flow:**
-- Upload: User selects → extractExif (with `xmp: true`) → uploadToCloudinary → createTrip → createPhotos
-- Display: getTripBySlug → TripView → Leaflet map with markers
+- Upload: User selects → extractExif (with `xmp: true`) → upload to API → Sharp processing → R2/local storage → createTrip → createPhotos
+- Display: getTripBySlug (API) → TripView → Leaflet map with markers → photos served from /api/photos/:key
 
 **Critical Details:**
 - **EXIF**: Must use `xmp: true` or GPS fails on 95% of iPhone photos
-- **API**: Hono backend at `api/`, PostgreSQL database via `postgres` package
-- **Cloudinary**: EXIF extracted before upload, originals preserve metadata
-- **Routes**: `/`, `/admin`, `/trip/:slug` - auth guards not enforced yet
+- **API**: Bun + Hono backend at `api/`, PostgreSQL database via `postgres` package
+- **Storage**: Cloudflare R2 (primary) with local filesystem fallback
+- **Image Processing**: Sharp generates thumbnails (800px wide) server-side
+- **Routes**: `/`, `/admin`, `/login`, `/register`, `/trips`, `/trip/:slug`
+- **Auth**: WebAuthn/passkeys + JWT, enforced on admin routes
 
 **Schema:**
-- Current: `trips`, `photos`
-- Upcoming: `user_profiles`, `photo_comments`, `invites` (see PROJECT_ROADMAP.md)
+- Current: `user_profiles`, `authenticators`, `trips`, `photos`
+- Upcoming: `photo_comments`, `invites` (see PROJECT_ROADMAP.md)
 
 ## Project Context
 
@@ -62,14 +64,24 @@ Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn au
 
 ## Common Gotchas
 
-- GPS: Always `xmp: true`, validate coordinates, null island check
-- Photos: Warning icon if no GPS, map only shows valid coordinates
-- Auth: Not implemented yet despite route guards
+- **GPS**: Always `xmp: true` in exifr, validate coordinates, null island check
+- **Photos**: Warning icon if no GPS, map only shows valid coordinates
+- **R2 Fallback**: If R2 not configured, photos save to local `PHOTOS_DIR` (default: `/data/photos`)
+- **WebAuthn RP_ID**: Must match domain (localhost for dev, your-domain.com for prod)
+- **Database User**: RLS INSERT policies expect user `vacay` - don't change without updating policies
 
 ## Environment Variables
 
-Required in `app/.env`: `VITE_API_URL`, `VITE_CLOUDINARY_CLOUD_NAME`, `VITE_CLOUDINARY_UPLOAD_PRESET`
-Required in `api/.env`: `DATABASE_URL`, `JWT_SECRET`, `RP_ID`, `RP_ORIGIN`
+**App (`app/.env`):**
+- `VITE_API_URL` - API endpoint (http://localhost:3000 for dev)
+- `VITE_APP_URL` - Frontend URL for redirects
+- `VITE_WEBAUTHN_RP_NAME` - Display name for passkeys
+- `VITE_WEBAUTHN_RP_ID` - Domain for WebAuthn (localhost for dev)
+
+**API (`api/.env`):**
+- Required: `DATABASE_URL`, `JWT_SECRET`, `RP_ID`, `RP_NAME`, `RP_ORIGIN`, `FRONTEND_URL`
+- Optional: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
+- See `api/.env.example` for full list
 
 ## Agent Workflow
 
