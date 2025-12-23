@@ -19,11 +19,27 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: () => import('../views/RegisterView.vue'),
-      beforeEnter: (_to, _from, next) => {
-        // Only allow registration in development mode
-        if (import.meta.env.DEV) {
-          next()
-        } else {
+      beforeEnter: async (_to, _from, next) => {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/auth/registration-status`
+          )
+
+          if (!response.ok) {
+            // API error - fail closed
+            return next({ name: 'login' })
+          }
+
+          const { registrationOpen } = await response.json()
+
+          if (registrationOpen) {
+            next()
+          } else {
+            next({ name: 'login' })
+          }
+        } catch (error) {
+          // Network error or JSON parse error - fail closed
+          console.error('[ROUTER] Registration status check failed:', error)
           next({ name: 'login' })
         }
       }
