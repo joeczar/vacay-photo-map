@@ -44,6 +44,18 @@ CREATE TABLE IF NOT EXISTS trips (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- Sections (organize photos within trips)
+CREATE TABLE IF NOT EXISTS sections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  order_index INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  CONSTRAINT sections_order_index_check CHECK (order_index >= 0),
+  UNIQUE (trip_id, order_index)
+);
+
 -- Photos
 CREATE TABLE IF NOT EXISTS photos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -59,6 +71,46 @@ CREATE TABLE IF NOT EXISTS photos (
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- Add rotation column to photos table
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'photos'
+      AND column_name = 'rotation'
+  ) THEN
+    ALTER TABLE photos
+      ADD COLUMN rotation INTEGER DEFAULT 0 NOT NULL,
+      ADD CONSTRAINT photos_rotation_check CHECK (rotation IN (0, 90, 180, 270));
+  END IF;
+END $$;
+
+-- Add description column to photos table
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'photos'
+      AND column_name = 'description'
+  ) THEN
+    ALTER TABLE photos
+      ADD COLUMN description TEXT;
+  END IF;
+END $$;
+
+-- Add section_id column to photos table
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'photos'
+      AND column_name = 'section_id'
+  ) THEN
+    ALTER TABLE photos
+      ADD COLUMN section_id UUID REFERENCES sections(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
 CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);
@@ -66,6 +118,8 @@ CREATE INDEX IF NOT EXISTS idx_photos_trip_id ON photos(trip_id);
 CREATE INDEX IF NOT EXISTS idx_photos_taken_at ON photos(taken_at);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_taken ON photos(trip_id, taken_at);
 CREATE INDEX IF NOT EXISTS idx_trips_slug ON trips(slug);
+CREATE INDEX IF NOT EXISTS idx_sections_trip_order ON sections(trip_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_photos_section_id ON photos(section_id);
 
 -- Update updated_at timestamps automatically
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -88,9 +142,16 @@ CREATE TRIGGER trg_trips_set_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_sections_set_updated_at ON sections;
+CREATE TRIGGER trg_sections_set_updated_at
+  BEFORE UPDATE ON sections
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
 -- Enable Row Level Security
 ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE photos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sections ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies (idempotent)
 -- INSERT policies restrict to the API database user ('vacay') for defense-in-depth.
@@ -139,4 +200,29 @@ DROP POLICY IF EXISTS "Allow all inserts for photos" ON photos;
 DROP POLICY IF EXISTS "Allow inserts from API user for photos" ON photos;
 CREATE POLICY "Allow inserts from API user for photos"
   ON photos FOR INSERT
+  WITH CHECK (current_user = 'vacay');
+
+-- Sections inherit visibility from their parent trip
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'sections'
+      AND policyname = 'Sections of public trips are viewable'
+  ) THEN
+    CREATE POLICY "Sections of public trips are viewable"
+      ON sections FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM trips
+          WHERE trips.id = sections.trip_id
+            AND trips.is_public = true
+        )
+      );
+  END IF;
+END $$;
+
+DROP POLICY IF EXISTS "Allow inserts from API user for sections" ON sections;
+CREATE POLICY "Allow inserts from API user for sections"
+  ON sections FOR INSERT
   WITH CHECK (current_user = 'vacay');
