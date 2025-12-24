@@ -9,6 +9,7 @@ import {
   getAdminAuthHeader,
   getUserAuthHeader,
   TEST_ADMIN_USER_ID,
+  uniqueIp,
 } from "../test-helpers";
 
 // Response types
@@ -420,6 +421,7 @@ describe("Invite Routes", () => {
       const res = await app.fetch(
         new Request(`http://localhost/api/invites/validate/${fakeToken}`, {
           method: "GET",
+          headers: { "X-Forwarded-For": uniqueIp() },
         }),
       );
       expect(res.status).toBe(400);
@@ -451,7 +453,7 @@ describe("Invite Routes", () => {
       const validateRes = await app.fetch(
         new Request(
           `http://localhost/api/invites/validate/${createData.invite.code}`,
-          { method: "GET" },
+          { method: "GET", headers: { "X-Forwarded-For": uniqueIp() } },
         ),
       );
       expect(validateRes.status).toBe(200);
@@ -491,7 +493,7 @@ describe("Invite Routes", () => {
       const validateRes = await app.fetch(
         new Request(
           `http://localhost/api/invites/validate/${createData.invite.code}`,
-          { method: "GET" },
+          { method: "GET", headers: { "X-Forwarded-For": uniqueIp() } },
         ),
       );
       expect(validateRes.status).toBe(400);
@@ -529,7 +531,7 @@ describe("Invite Routes", () => {
       const validateRes = await app.fetch(
         new Request(
           `http://localhost/api/invites/validate/${createData.invite.code}`,
-          { method: "GET" },
+          { method: "GET", headers: { "X-Forwarded-For": uniqueIp() } },
         ),
       );
       expect(validateRes.status).toBe(400);
@@ -557,7 +559,7 @@ describe("Invite Routes", () => {
       const responses = await Promise.all(requests);
       const statusCodes = responses.map((r) => r.status);
 
-      // First 5 should be 404 (not found), 6th should be 429 (rate limited)
+      // First 5 should be 400 (invalid), 6th should be 429 (rate limited)
       const rateLimitedCount = statusCodes.filter((s) => s === 429).length;
       expect(rateLimitedCount).toBeGreaterThan(0);
     });
