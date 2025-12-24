@@ -1,8 +1,15 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
-import { describe, expect, it, mock, beforeEach, spyOn } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 import { Hono } from "hono";
-import { requireAuth, requireAdmin, optionalAuth, checkTripAccess, requireEditor, requireViewer } from "./auth";
+import {
+  requireAuth,
+  requireAdmin,
+  optionalAuth,
+  checkTripAccess,
+  requireEditor,
+  requireViewer,
+} from "./auth";
 import { signToken } from "../utils/jwt";
 import type { AuthEnv } from "../types/auth";
 import * as dbClient from "../db/client";
@@ -62,9 +69,14 @@ function createRbacTestApp() {
     return c.json({ success: true });
   });
 
-  app.get("/custom/:tripId/view", requireAuth, checkTripAccess("viewer", (c) => c.req.param("tripId")), (c) => {
-    return c.json({ success: true });
-  });
+  app.get(
+    "/custom/:tripId/view",
+    requireAuth,
+    checkTripAccess("viewer", (c) => c.req.param("tripId")),
+    (c) => {
+      return c.json({ success: true });
+    },
+  );
 
   return app;
 }
