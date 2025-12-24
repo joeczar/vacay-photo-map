@@ -1,6 +1,6 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it, spyOn, afterEach, mock } from "bun:test";
 import { Hono } from "hono";
 import {
   requireAuth,
@@ -217,12 +217,24 @@ describe("Auth Middleware", () => {
 
 describe("RBAC Middleware", () => {
   const testTripId = "550e8400-e29b-41d4-a716-446655440000";
+  let dbSpy: ReturnType<typeof spyOn> | null = null;
+
+  // Clean up mocks after each test
+  afterEach(() => {
+    if (dbSpy) {
+      dbSpy.mockRestore();
+      dbSpy = null;
+    }
+    mock.restore();
+  });
 
   // Helper to create mock db client that returns specified role
   function mockDbWithRole(role: string | null) {
     const mockResult = role ? [{ role }] : [];
     const mockTaggedTemplate = () => Promise.resolve(mockResult);
-    spyOn(dbClient, "getDbClient").mockReturnValue(mockTaggedTemplate as any);
+    dbSpy = spyOn(dbClient, "getDbClient").mockReturnValue(
+      mockTaggedTemplate as any,
+    );
   }
 
   describe("Admin bypass", () => {
