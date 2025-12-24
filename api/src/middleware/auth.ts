@@ -136,6 +136,11 @@ export const optionalAuth = createMiddleware<AuthEnv>(async (c, next) => {
 /**
  * Check if user has access to a trip with minimum required role
  * Admins always have access (bypass trip_access table)
+ *
+ * Note: Does not verify trip existence. Non-existent trips return false
+ * (same as insufficient access) to prevent information leakage about which
+ * trips exist. Route handlers should verify trip existence after access check.
+ *
  * @returns true if user has access, false otherwise
  */
 async function userHasTripAccess(

@@ -315,7 +315,10 @@ ALTER TABLE invite_trip_access ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trip_access ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies for RBAC tables
--- Only the API user (vacay) can insert into these tables
+-- Strategy: Only INSERT policies are defined here. The 'vacay' DB user (used by the API)
+-- is a table owner and bypasses RLS for SELECT/UPDATE/DELETE operations.
+-- Access control is enforced at the application layer via middleware (checkTripAccess).
+-- This approach provides defense-in-depth while keeping RLS policies simple.
 DROP POLICY IF EXISTS "Allow inserts from API user for invites" ON invites;
 CREATE POLICY "Allow inserts from API user for invites"
   ON invites FOR INSERT

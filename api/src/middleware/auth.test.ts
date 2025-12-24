@@ -10,9 +10,9 @@ import {
   requireEditor,
   requireViewer,
 } from "./auth";
-import { signToken } from "../utils/jwt";
 import type { AuthEnv } from "../types/auth";
 import * as dbClient from "../db/client";
+import { getAdminAuthHeader, getUserAuthHeader } from "../test-helpers";
 
 interface UserResponse {
   userId: string;
@@ -115,15 +115,9 @@ describe("Auth Middleware", () => {
 
     it("succeeds with valid token", async () => {
       const app = createTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "test@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "test@example.com");
       const res = await app.fetch(
-        new Request("http://localhost/protected", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request("http://localhost/protected", { headers }),
       );
       expect(res.status).toBe(200);
       const data = (await res.json()) as UserResponse;
@@ -141,15 +135,9 @@ describe("Auth Middleware", () => {
 
     it("returns 403 for non-admin user", async () => {
       const app = createTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "test@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "test@example.com");
       const res = await app.fetch(
-        new Request("http://localhost/admin", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request("http://localhost/admin", { headers }),
       );
       expect(res.status).toBe(403);
       const data = (await res.json()) as ErrorResponse;
@@ -159,15 +147,12 @@ describe("Auth Middleware", () => {
 
     it("succeeds for admin user", async () => {
       const app = createTestApp();
-      const token = await signToken({
-        sub: "admin-123",
-        email: "admin@example.com",
-        isAdmin: true,
-      });
+      const headers = await getAdminAuthHeader(
+        "admin-123",
+        "admin@example.com",
+      );
       const res = await app.fetch(
-        new Request("http://localhost/admin", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request("http://localhost/admin", { headers }),
       );
       expect(res.status).toBe(200);
       const data = (await res.json()) as UserResponse;
@@ -197,15 +182,12 @@ describe("Auth Middleware", () => {
 
     it("sets user with valid token", async () => {
       const app = createTestApp();
-      const token = await signToken({
-        sub: "user-456",
-        email: "optional@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader(
+        "user-456",
+        "optional@example.com",
+      );
       const res = await app.fetch(
-        new Request("http://localhost/optional", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request("http://localhost/optional", { headers }),
       );
       expect(res.status).toBe(200);
       const data = (await res.json()) as OptionalResponse;
@@ -244,16 +226,13 @@ describe("RBAC Middleware", () => {
       mockDbWithRole(null);
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "admin-123",
-        email: "admin@example.com",
-        isAdmin: true,
-      });
+      const headers = await getAdminAuthHeader(
+        "admin-123",
+        "admin@example.com",
+      );
 
       const res = await app.fetch(
-        new Request(`http://localhost/trips/${testTripId}/view`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request(`http://localhost/trips/${testTripId}/view`, { headers }),
       );
 
       expect(res.status).toBe(200);
@@ -265,16 +244,15 @@ describe("RBAC Middleware", () => {
       mockDbWithRole(null);
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "admin-123",
-        email: "admin@example.com",
-        isAdmin: true,
-      });
+      const headers = await getAdminAuthHeader(
+        "admin-123",
+        "admin@example.com",
+      );
 
       const res = await app.fetch(
         new Request(`http://localhost/trips/${testTripId}/edit`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
         }),
       );
 
@@ -295,16 +273,10 @@ describe("RBAC Middleware", () => {
       mockDbWithRole("viewer");
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "viewer@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "viewer@example.com");
 
       const res = await app.fetch(
-        new Request(`http://localhost/trips/${testTripId}/view`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request(`http://localhost/trips/${testTripId}/view`, { headers }),
       );
 
       expect(res.status).toBe(200);
@@ -314,16 +286,10 @@ describe("RBAC Middleware", () => {
       mockDbWithRole("editor");
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "editor@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "editor@example.com");
 
       const res = await app.fetch(
-        new Request(`http://localhost/trips/${testTripId}/view`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request(`http://localhost/trips/${testTripId}/view`, { headers }),
       );
 
       expect(res.status).toBe(200);
@@ -333,16 +299,10 @@ describe("RBAC Middleware", () => {
       mockDbWithRole(null);
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "noone@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "noone@example.com");
 
       const res = await app.fetch(
-        new Request(`http://localhost/trips/${testTripId}/view`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request(`http://localhost/trips/${testTripId}/view`, { headers }),
       );
 
       expect(res.status).toBe(403);
@@ -357,16 +317,12 @@ describe("RBAC Middleware", () => {
       mockDbWithRole("editor");
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "editor@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "editor@example.com");
 
       const res = await app.fetch(
         new Request(`http://localhost/trips/${testTripId}/edit`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
         }),
       );
 
@@ -377,16 +333,12 @@ describe("RBAC Middleware", () => {
       mockDbWithRole("viewer");
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "viewer@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "viewer@example.com");
 
       const res = await app.fetch(
         new Request(`http://localhost/trips/${testTripId}/edit`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
         }),
       );
 
@@ -400,16 +352,12 @@ describe("RBAC Middleware", () => {
       mockDbWithRole(null);
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "noone@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "noone@example.com");
 
       const res = await app.fetch(
         new Request(`http://localhost/trips/${testTripId}/edit`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
+          headers,
         }),
       );
 
@@ -422,16 +370,10 @@ describe("RBAC Middleware", () => {
       mockDbWithRole("viewer");
 
       const app = createRbacTestApp();
-      const token = await signToken({
-        sub: "user-123",
-        email: "viewer@example.com",
-        isAdmin: false,
-      });
+      const headers = await getUserAuthHeader("user-123", "viewer@example.com");
 
       const res = await app.fetch(
-        new Request(`http://localhost/custom/${testTripId}/view`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        new Request(`http://localhost/custom/${testTripId}/view`, { headers }),
       );
 
       expect(res.status).toBe(200);
