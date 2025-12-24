@@ -309,12 +309,13 @@ invites.get("/", requireAdmin, async (c) => {
   const db = getDbClient();
 
   // Fetch all invites with trip counts
+  // Cast COUNT to int to match TypeScript type (postgres returns bigint as string)
   const inviteRows = await db<(InviteRow & { trip_count: number })[]>`
     SELECT
       i.id, i.code, i.created_by_user_id, i.email, i.role,
       i.expires_at, i.used_at, i.used_by_user_id,
       i.created_at, i.updated_at,
-      COUNT(ita.trip_id) as trip_count
+      COUNT(ita.trip_id)::int as trip_count
     FROM invites i
     LEFT JOIN invite_trip_access ita ON ita.invite_id = i.id
     GROUP BY i.id
@@ -393,42 +394,32 @@ invites.get("/validate/:token", async (c) => {
     WHERE code = ${token}
   `;
 
-  if (inviteRows.length === 0) {
-    return c.json(
+  // Use consistent error response for all invalid states to prevent enumeration
+  // Attackers cannot distinguish between non-existent, used, or expired codes
+  const invalidResponse = () =>
+    c.json(
       {
         valid: false,
-        reason: "not_found",
-        message: "Invalid invite code",
+        message: "Invalid or expired invite code",
       },
-      404,
+      400,
     );
+
+  if (inviteRows.length === 0) {
+    return invalidResponse();
   }
 
   const inviteRow = inviteRows[0];
   const invite = toInvite(inviteRow);
 
-  // Check if already used - return 404 to prevent token enumeration
+  // Check if already used - return same error to prevent enumeration
   if (invite.usedAt) {
-    return c.json(
-      {
-        valid: false,
-        reason: "not_found",
-        message: "Invalid invite code",
-      },
-      404,
-    );
+    return invalidResponse();
   }
 
-  // Check if expired - return 404 to prevent token enumeration
+  // Check if expired - return same error to prevent enumeration
   if (invite.expiresAt < new Date()) {
-    return c.json(
-      {
-        valid: false,
-        reason: "not_found",
-        message: "Invalid invite code",
-      },
-      404,
-    );
+    return invalidResponse();
   }
 
   // Fetch associated trips

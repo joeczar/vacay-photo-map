@@ -5,7 +5,11 @@ import { Hono } from "hono";
 import { invites } from "./invites";
 import type { AuthEnv } from "../types/auth";
 import { getDbClient } from "../db/client";
-import { getAdminAuthHeader, getUserAuthHeader } from "../test-helpers";
+import {
+  getAdminAuthHeader,
+  getUserAuthHeader,
+  TEST_ADMIN_USER_ID,
+} from "../test-helpers";
 
 // Response types
 interface ErrorResponse {
@@ -69,9 +73,17 @@ function createTestApp() {
 let testTripId: string;
 
 describe("Invite Routes", () => {
-  // Setup: Create a test trip for invite assignments
+  // Setup: Create test user and test trip for invite assignments
   beforeAll(async () => {
     const db = getDbClient();
+
+    // Create test admin user (required for invite creation foreign key)
+    await db`
+      INSERT INTO user_profiles (id, email, is_admin)
+      VALUES (${TEST_ADMIN_USER_ID}, 'admin@example.com', true)
+      ON CONFLICT (id) DO NOTHING
+    `;
+
     const uniqueSlug = `test-trip-for-invites-${Date.now()}`;
     const [trip] = await db<{ id: string }[]>`
       INSERT INTO trips (slug, title, is_public)
@@ -81,10 +93,11 @@ describe("Invite Routes", () => {
     testTripId = trip.id;
   });
 
-  // Cleanup: Delete test trip
+  // Cleanup: Delete test trip and user
   afterAll(async () => {
     const db = getDbClient();
     await db`DELETE FROM trips WHERE id = ${testTripId}`;
+    await db`DELETE FROM user_profiles WHERE id = ${TEST_ADMIN_USER_ID}`;
   });
 
   // ==========================================================================
@@ -184,7 +197,8 @@ describe("Invite Routes", () => {
     it("creates invite successfully for admin", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
-      const email = `test-${Date.now()}@example.com`;
+      // Use mixed-case email to verify normalization
+      const email = `Test-${Date.now()}@Example.COM`;
 
       const res = await app.fetch(
         new Request("http://localhost/api/invites", {
@@ -200,6 +214,7 @@ describe("Invite Routes", () => {
 
       expect(res.status).toBe(201);
       const data = (await res.json()) as CreateInviteResponse;
+      // Verify email is normalized to lowercase
       expect(data.invite.email).toBe(email.toLowerCase());
       expect(data.invite.role).toBe("viewer");
       expect(data.invite.code).toHaveLength(32);
@@ -396,16 +411,16 @@ describe("Invite Routes", () => {
       expect(res.status).toBe(400);
     });
 
-    it("returns 404 for non-existent token", async () => {
+    it("returns 400 for non-existent token (prevents enumeration)", async () => {
       const app = createTestApp();
-      // Valid format but doesn't exist
+      // Valid format but doesn't exist - uses 400 to prevent token enumeration
       const fakeToken = "A".repeat(32);
       const res = await app.fetch(
         new Request(`http://localhost/api/invites/validate/${fakeToken}`, {
           method: "GET",
         }),
       );
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(400);
       const data = (await res.json()) as ValidateInviteResponse;
       expect(data.valid).toBe(false);
     });
@@ -447,7 +462,7 @@ describe("Invite Routes", () => {
       await db`DELETE FROM invites WHERE id = ${createData.invite.id}`;
     });
 
-    it("returns 404 for already-used invite (prevents enumeration)", async () => {
+    it("returns 400 for already-used invite (prevents enumeration)", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
       const db = getDbClient();
@@ -470,14 +485,14 @@ describe("Invite Routes", () => {
       // Mark as used
       await db`UPDATE invites SET used_at = NOW() WHERE id = ${createData.invite.id}`;
 
-      // Validate - should return 404 to prevent enumeration
+      // Validate - returns 400 (same as non-existent) to prevent enumeration
       const validateRes = await app.fetch(
         new Request(
           `http://localhost/api/invites/validate/${createData.invite.code}`,
           { method: "GET" },
         ),
       );
-      expect(validateRes.status).toBe(404);
+      expect(validateRes.status).toBe(400);
       const validateData = (await validateRes.json()) as ValidateInviteResponse;
       expect(validateData.valid).toBe(false);
 
@@ -485,7 +500,7 @@ describe("Invite Routes", () => {
       await db`DELETE FROM invites WHERE id = ${createData.invite.id}`;
     });
 
-    it("returns 404 for expired invite (prevents enumeration)", async () => {
+    it("returns 400 for expired invite (prevents enumeration)", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
       const db = getDbClient();
@@ -508,14 +523,14 @@ describe("Invite Routes", () => {
       // Set expiration to past
       await db`UPDATE invites SET expires_at = NOW() - INTERVAL '1 day' WHERE id = ${createData.invite.id}`;
 
-      // Validate - should return 404 to prevent enumeration
+      // Validate - returns 400 (same as non-existent) to prevent enumeration
       const validateRes = await app.fetch(
         new Request(
           `http://localhost/api/invites/validate/${createData.invite.code}`,
           { method: "GET" },
         ),
       );
-      expect(validateRes.status).toBe(404);
+      expect(validateRes.status).toBe(400);
       const validateData = (await validateRes.json()) as ValidateInviteResponse;
       expect(validateData.valid).toBe(false);
 
