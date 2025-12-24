@@ -1,6 +1,8 @@
 import { createMiddleware } from 'hono/factory'
 import { verifyToken } from '../utils/jwt'
+import { getDbClient } from '../db/client'
 import type { AuthEnv, AuthUser } from '../types/auth'
+import type { Role, TripAccessRow } from '../types/rbac'
 
 /**
  * Extract Bearer token from Authorization header (case-insensitive)
@@ -126,3 +128,120 @@ export const optionalAuth = createMiddleware<AuthEnv>(async (c, next) => {
     )
   }
 })
+
+// =============================================================================
+// RBAC Middleware for Trip Access Control
+// =============================================================================
+
+/**
+ * Check if user has access to a trip with minimum required role
+ * Admins always have access (bypass trip_access table)
+ * @returns true if user has access, false otherwise
+ */
+async function userHasTripAccess(
+  userId: string,
+  tripId: string,
+  isAdmin: boolean,
+  minRole: Role
+): Promise<boolean> {
+  // Admins bypass all checks
+  if (isAdmin) {
+    return true
+  }
+
+  const db = getDbClient()
+  const result = await db<TripAccessRow[]>`
+    SELECT role FROM trip_access
+    WHERE user_id = ${userId} AND trip_id = ${tripId}
+  `
+
+  if (result.length === 0) {
+    return false
+  }
+
+  const userRole = result[0].role as Role
+
+  // Check role hierarchy: editor > viewer
+  if (minRole === 'viewer') {
+    // Viewer access: either viewer or editor role works
+    return userRole === 'viewer' || userRole === 'editor'
+  } else if (minRole === 'editor') {
+    // Editor access: only editor role works
+    return userRole === 'editor'
+  }
+
+  return false
+}
+
+/**
+ * Middleware factory that checks if user has minimum required access to a trip
+ * Extracts trip ID using the provided extractor function
+ * Returns 401 if not authenticated, 403 if no access
+ *
+ * @param minRole - Minimum role required ('viewer' or 'editor')
+ * @param tripIdExtractor - Function to extract trip ID from context (default: c.req.param('id'))
+ *
+ * @example
+ * // For routes like /api/trips/:id
+ * app.get('/trips/:id', requireAuth, checkTripAccess('viewer'), handler)
+ *
+ * @example
+ * // For routes like /api/trips/:tripId/photos
+ * app.post('/trips/:tripId/photos', requireAuth, checkTripAccess('editor', (c) => c.req.param('tripId')), handler)
+ */
+export function checkTripAccess(
+  minRole: Role,
+  tripIdExtractor: (c: { req: { param: (name: string) => string } }) => string = (c) => c.req.param('id')
+) {
+  return createMiddleware<AuthEnv>(async (c, next) => {
+    const user = c.get('user')
+
+    if (!user) {
+      return c.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        401
+      )
+    }
+
+    const tripId = tripIdExtractor(c)
+
+    if (!tripId) {
+      return c.json(
+        { error: 'Bad Request', message: 'Trip ID is required' },
+        400
+      )
+    }
+
+    const hasAccess = await userHasTripAccess(user.id, tripId, user.isAdmin, minRole)
+
+    if (!hasAccess) {
+      return c.json(
+        {
+          error: 'Forbidden',
+          message: `${minRole === 'editor' ? 'Editor' : 'Viewer'} access required for this trip`,
+        },
+        403
+      )
+    }
+
+    await next()
+  })
+}
+
+/**
+ * Middleware that requires editor access to trip specified in route params
+ * Convenience wrapper around checkTripAccess('editor')
+ * Use for endpoints that modify trip data (upload, edit, delete)
+ *
+ * Must be used AFTER requireAuth middleware
+ */
+export const requireEditor = checkTripAccess('editor')
+
+/**
+ * Middleware that requires viewer access to trip specified in route params
+ * Convenience wrapper around checkTripAccess('viewer')
+ * Use for endpoints that only read trip data
+ *
+ * Must be used AFTER requireAuth middleware
+ */
+export const requireViewer = checkTripAccess('viewer')
