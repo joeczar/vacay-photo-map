@@ -300,7 +300,7 @@ CREATE INDEX IF NOT EXISTS idx_invite_trip_access_invite ON invite_trip_access(i
 CREATE INDEX IF NOT EXISTS idx_invite_trip_access_trip ON invite_trip_access(trip_id);
 CREATE INDEX IF NOT EXISTS idx_trip_access_user ON trip_access(user_id);
 CREATE INDEX IF NOT EXISTS idx_trip_access_trip ON trip_access(trip_id);
-CREATE INDEX IF NOT EXISTS idx_trip_access_user_trip ON trip_access(user_id, trip_id);
+-- Note: No composite index needed - UNIQUE(user_id, trip_id) constraint already creates one
 
 -- RBAC Triggers
 DROP TRIGGER IF EXISTS trg_invites_set_updated_at ON invites;
