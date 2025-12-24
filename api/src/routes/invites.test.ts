@@ -78,9 +78,11 @@ describe("Invite Routes", () => {
     const db = getDbClient();
 
     // Create test admin user (required for invite creation foreign key)
+    // webauthn_user_id is required NOT NULL - use a test value
+    const testWebauthnUserId = `test-webauthn-${TEST_ADMIN_USER_ID}`;
     await db`
-      INSERT INTO user_profiles (id, email, is_admin)
-      VALUES (${TEST_ADMIN_USER_ID}, 'admin@example.com', true)
+      INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
+      VALUES (${TEST_ADMIN_USER_ID}, 'admin@example.com', ${testWebauthnUserId}, true)
       ON CONFLICT (id) DO NOTHING
     `;
 
