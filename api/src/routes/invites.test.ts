@@ -72,9 +72,10 @@ describe("Invite Routes", () => {
   // Setup: Create a test trip for invite assignments
   beforeAll(async () => {
     const db = getDbClient();
+    const uniqueSlug = `test-trip-for-invites-${Date.now()}`;
     const [trip] = await db<{ id: string }[]>`
       INSERT INTO trips (slug, title, is_public)
-      VALUES ('test-trip-for-invites', 'Test Trip for Invites', true)
+      VALUES (${uniqueSlug}, 'Test Trip for Invites', true)
       RETURNING id
     `;
     testTripId = trip.id;
@@ -139,7 +140,7 @@ describe("Invite Routes", () => {
       );
       expect(res.status).toBe(400);
       const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("email");
+      expect(data.message.toLowerCase()).toContain("email");
     });
 
     it("returns 400 for invalid role", async () => {
@@ -158,7 +159,7 @@ describe("Invite Routes", () => {
       );
       expect(res.status).toBe(400);
       const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("role");
+      expect(data.message.toLowerCase()).toContain("role");
     });
 
     it("returns 400 for empty trip IDs", async () => {
@@ -177,7 +178,7 @@ describe("Invite Routes", () => {
       );
       expect(res.status).toBe(400);
       const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("trip");
+      expect(data.message.toLowerCase()).toContain("trip");
     });
 
     it("creates invite successfully for admin", async () => {
@@ -199,7 +200,7 @@ describe("Invite Routes", () => {
 
       expect(res.status).toBe(201);
       const data = (await res.json()) as CreateInviteResponse;
-      expect(data.invite.email).toBe(email);
+      expect(data.invite.email).toBe(email.toLowerCase());
       expect(data.invite.role).toBe("viewer");
       expect(data.invite.code).toHaveLength(32);
       expect(data.tripIds).toEqual([testTripId]);
@@ -439,7 +440,7 @@ describe("Invite Routes", () => {
       expect(validateRes.status).toBe(200);
       const validateData = (await validateRes.json()) as ValidateInviteResponse;
       expect(validateData.valid).toBe(true);
-      expect(validateData.invite?.email).toBe(email);
+      expect(validateData.invite?.email).toBe(email.toLowerCase());
       expect(validateData.trips).toHaveLength(1);
 
       // Cleanup
