@@ -250,3 +250,86 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_recovery_tokens_unused_per_user ON recover
 
 -- Optimize verify query
 CREATE INDEX IF NOT EXISTS idx_recovery_tokens_verify ON recovery_tokens(code, expires_at, used_at, locked_at);
+
+-- =============================================================================
+-- RBAC (Role-Based Access Control) for Trip Access
+-- =============================================================================
+
+-- Invitations for trip access
+-- An invite grants access to one or more trips with a specific role
+CREATE TABLE IF NOT EXISTS invites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT UNIQUE NOT NULL,
+  created_by_user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  email TEXT,
+  role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  used_by_user_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+-- Junction table: which trips an invite grants access to
+CREATE TABLE IF NOT EXISTS invite_trip_access (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invite_id UUID REFERENCES invites(id) ON DELETE CASCADE NOT NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(invite_id, trip_id)
+);
+
+-- User permissions for specific trips
+-- This is the source of truth for who can access what trip with what role
+-- Admins (user_profiles.is_admin = true) bypass this table entirely
+CREATE TABLE IF NOT EXISTS trip_access (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
+  granted_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  granted_by_user_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+  UNIQUE(user_id, trip_id)
+);
+
+-- RBAC Indexes
+CREATE INDEX IF NOT EXISTS idx_invites_code ON invites(code);
+CREATE INDEX IF NOT EXISTS idx_invites_email ON invites(email);
+CREATE INDEX IF NOT EXISTS idx_invites_created_by ON invites(created_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_invite_trip_access_invite ON invite_trip_access(invite_id);
+CREATE INDEX IF NOT EXISTS idx_invite_trip_access_trip ON invite_trip_access(trip_id);
+CREATE INDEX IF NOT EXISTS idx_trip_access_user ON trip_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_trip_access_trip ON trip_access(trip_id);
+-- Note: No composite index needed - UNIQUE(user_id, trip_id) constraint already creates one
+
+-- RBAC Triggers
+DROP TRIGGER IF EXISTS trg_invites_set_updated_at ON invites;
+CREATE TRIGGER trg_invites_set_updated_at
+  BEFORE UPDATE ON invites
+  FOR EACH ROW
+  EXECUTE FUNCTION set_updated_at();
+
+-- Enable RLS on RBAC tables
+ALTER TABLE invites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invite_trip_access ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trip_access ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies for RBAC tables
+-- Strategy: Only INSERT policies are defined here. The 'vacay' DB user (used by the API)
+-- is a table owner and bypasses RLS for SELECT/UPDATE/DELETE operations.
+-- Access control is enforced at the application layer via middleware (checkTripAccess).
+-- This approach provides defense-in-depth while keeping RLS policies simple.
+DROP POLICY IF EXISTS "Allow inserts from API user for invites" ON invites;
+CREATE POLICY "Allow inserts from API user for invites"
+  ON invites FOR INSERT
+  WITH CHECK (current_user = 'vacay');
+
+DROP POLICY IF EXISTS "Allow inserts from API user for invite_trip_access" ON invite_trip_access;
+CREATE POLICY "Allow inserts from API user for invite_trip_access"
+  ON invite_trip_access FOR INSERT
+  WITH CHECK (current_user = 'vacay');
+
+DROP POLICY IF EXISTS "Allow inserts from API user for trip_access" ON trip_access;
+CREATE POLICY "Allow inserts from API user for trip_access"
+  ON trip_access FOR INSERT
+  WITH CHECK (current_user = 'vacay');
