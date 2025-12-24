@@ -6,6 +6,24 @@ import type { InviteRow, Role } from "../types/rbac";
 import { toInvite } from "../types/rbac";
 
 // =============================================================================
+// Types
+// =============================================================================
+
+interface InviteListItem {
+  id: string;
+  code: string;
+  email: string | null;
+  role: Role;
+  expiresAt: Date;
+  usedAt: Date | null;
+  usedByUserId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  tripCount: number;
+  status: "pending" | "used" | "expired";
+}
+
+// =============================================================================
 // Token Generation
 // =============================================================================
 
@@ -210,6 +228,52 @@ invites.post("/", requireAdmin, async (c) => {
     }
     throw error;
   }
+});
+
+// =============================================================================
+// GET /api/invites - List all invites (admin only)
+// =============================================================================
+invites.get("/", requireAdmin, async (c) => {
+  const db = getDbClient();
+
+  // Fetch all invites with trip counts
+  const inviteRows = await db<(InviteRow & { trip_count: string })[]>`
+    SELECT
+      i.id, i.code, i.created_by_user_id, i.email, i.role,
+      i.expires_at, i.used_at, i.used_by_user_id,
+      i.created_at, i.updated_at,
+      COUNT(ita.trip_id)::text as trip_count
+    FROM invites i
+    LEFT JOIN invite_trip_access ita ON ita.invite_id = i.id
+    GROUP BY i.id
+    ORDER BY i.created_at DESC
+  `;
+
+  const now = new Date();
+
+  const inviteList: InviteListItem[] = inviteRows.map((row) => {
+    const invite = toInvite(row);
+
+    // Determine status
+    let status: "pending" | "used" | "expired";
+    if (invite.usedAt) {
+      status = "used";
+    } else if (invite.expiresAt < now) {
+      status = "expired";
+    } else {
+      status = "pending";
+    }
+
+    return {
+      ...invite,
+      tripCount: parseInt(row.trip_count, 10),
+      status,
+    };
+  });
+
+  return c.json({
+    invites: inviteList,
+  });
 });
 
 export { invites };
