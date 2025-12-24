@@ -1,8 +1,9 @@
 import { Hono } from "hono";
+import { getConnInfo } from "hono/bun";
 import { getDbClient } from "../db/client";
 import { requireAdmin } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
-import type { InviteRow, Role } from "../types/rbac";
+import type { InviteRow, InviteTripAccessRow, Role } from "../types/rbac";
 import { toInvite } from "../types/rbac";
 
 // =============================================================================
@@ -70,6 +71,75 @@ function isUniqueViolation(error: unknown): boolean {
     "code" in error &&
     (error as { code: string }).code === "23505"
   );
+}
+
+// =============================================================================
+// Rate Limiting for Validation Endpoint
+// =============================================================================
+// SECURITY: Prevents brute-force guessing of invite codes
+// Limit: 5 validation attempts per minute per IP
+
+const VALIDATION_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const VALIDATION_RATE_LIMIT_MAX_REQUESTS = 5; // 5 requests per minute
+
+const validationRateLimitMap = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
+
+// Cleanup rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of validationRateLimitMap.entries()) {
+    if (now > entry.resetAt) {
+      validationRateLimitMap.delete(key);
+    }
+  }
+}, VALIDATION_RATE_LIMIT_WINDOW_MS);
+
+function checkValidationRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = validationRateLimitMap.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    validationRateLimitMap.set(ip, {
+      count: 1,
+      resetAt: now + VALIDATION_RATE_LIMIT_WINDOW_MS,
+    });
+    return true;
+  }
+
+  if (entry.count >= VALIDATION_RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
+/**
+ * Extract client IP address for rate limiting
+ * Follows same pattern as auth.ts
+ */
+function getClientIp(c: any): string {
+  const trustedProxy = process.env.TRUSTED_PROXY === "true";
+
+  if (trustedProxy) {
+    const forwardedFor = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+    const realIp = c.req.header("x-real-ip");
+    return forwardedFor || realIp || "unknown";
+  }
+
+  try {
+    const connInfo = getConnInfo(c);
+    return connInfo.remote.address || "unknown";
+  } catch {
+    return (
+      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ||
+      c.req.header("x-real-ip") ||
+      "unknown"
+    );
+  }
 }
 
 // =============================================================================
@@ -273,6 +343,114 @@ invites.get("/", requireAdmin, async (c) => {
 
   return c.json({
     invites: inviteList,
+  });
+});
+
+// =============================================================================
+// GET /api/invites/validate/:token - Validate invite token (public, rate-limited)
+// =============================================================================
+/**
+ * Public endpoint to validate an invite code
+ * Returns invite details and associated trips if valid
+ * Rate limited to 5 requests/minute per IP to prevent brute force
+ */
+invites.get("/validate/:token", async (c) => {
+  const token = c.req.param("token");
+
+  // Rate limiting
+  const ip = getClientIp(c);
+  if (!checkValidationRateLimit(ip)) {
+    return c.json(
+      {
+        error: "Too Many Requests",
+        message: "Too many validation attempts. Please try again later.",
+      },
+      429,
+    );
+  }
+
+  // Validate token format (should be 32 characters, URL-safe base64)
+  if (!token || token.length !== 32 || !/^[A-Za-z0-9_-]+$/.test(token)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Invalid invite code format",
+      },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Find invite with trip assignments
+  const inviteRows = await db<InviteRow[]>`
+    SELECT id, code, created_by_user_id, email, role,
+           expires_at, used_at, used_by_user_id,
+           created_at, updated_at
+    FROM invites
+    WHERE code = ${token}
+  `;
+
+  if (inviteRows.length === 0) {
+    return c.json(
+      {
+        valid: false,
+        reason: "not_found",
+        message: "Invalid invite code",
+      },
+      404,
+    );
+  }
+
+  const inviteRow = inviteRows[0];
+  const invite = toInvite(inviteRow);
+
+  // Check if already used
+  if (invite.usedAt) {
+    return c.json({
+      valid: false,
+      reason: "already_used",
+      message: "This invite has already been used",
+    });
+  }
+
+  // Check if expired
+  if (invite.expiresAt < new Date()) {
+    return c.json({
+      valid: false,
+      reason: "expired",
+      message: "This invite has expired",
+    });
+  }
+
+  // Fetch associated trips
+  const tripAccessRows = await db<InviteTripAccessRow[]>`
+    SELECT id, invite_id, trip_id, created_at
+    FROM invite_trip_access
+    WHERE invite_id = ${invite.id}
+  `;
+
+  const tripIds = tripAccessRows.map((row) => row.trip_id);
+
+  // Fetch trip details for display
+  const trips = await db<{ id: string; slug: string; title: string }[]>`
+    SELECT id, slug, title
+    FROM trips
+    WHERE id = ANY(${tripIds})
+  `;
+
+  return c.json({
+    valid: true,
+    invite: {
+      email: invite.email,
+      role: invite.role,
+      expiresAt: invite.expiresAt,
+    },
+    trips: trips.map((t) => ({
+      id: t.id,
+      slug: t.slug,
+      title: t.title,
+    })),
   });
 });
 
