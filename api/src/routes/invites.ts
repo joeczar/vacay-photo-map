@@ -276,4 +276,70 @@ invites.get("/", requireAdmin, async (c) => {
   });
 });
 
+// =============================================================================
+// DELETE /api/invites/:id - Revoke invite (admin only)
+// =============================================================================
+/**
+ * Revoke a pending invite by marking it as used
+ * This prevents the code from being accepted while maintaining audit trail
+ * Only pending (unused, unexpired) invites can be revoked
+ */
+invites.delete("/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+
+  // Validate UUID format
+  if (!isValidUUID(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid invite ID format" },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Check if invite exists and is pending
+  const inviteCheck = await db<InviteRow[]>`
+    SELECT id, used_at, expires_at
+    FROM invites
+    WHERE id = ${id}
+  `;
+
+  if (inviteCheck.length === 0) {
+    return c.json({ error: "Not Found", message: "Invite not found" }, 404);
+  }
+
+  const invite = inviteCheck[0];
+
+  // Check if already used
+  if (invite.used_at) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Cannot revoke an invite that has already been used",
+      },
+      400,
+    );
+  }
+
+  // Check if already expired
+  if (invite.expires_at < new Date()) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Cannot revoke an expired invite (already inactive)",
+      },
+      400,
+    );
+  }
+
+  // Mark invite as used (soft delete - maintains audit trail)
+  await db`
+    UPDATE invites
+    SET used_at = NOW()
+    WHERE id = ${id}
+  `;
+
+  return c.json({ success: true });
+});
+
 export { invites };
