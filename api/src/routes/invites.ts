@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, Context } from "hono";
 import { getConnInfo } from "hono/bun";
 import { getDbClient } from "../db/client";
 import { requireAdmin } from "../middleware/auth";
@@ -88,7 +88,8 @@ const validationRateLimitMap = new Map<
 >();
 
 // Cleanup rate limit entries periodically
-setInterval(() => {
+// Use .unref() to allow graceful process shutdown
+const cleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of validationRateLimitMap.entries()) {
     if (now > entry.resetAt) {
@@ -96,6 +97,7 @@ setInterval(() => {
     }
   }
 }, VALIDATION_RATE_LIMIT_WINDOW_MS);
+cleanupInterval.unref();
 
 function checkValidationRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -121,7 +123,7 @@ function checkValidationRateLimit(ip: string): boolean {
  * Extract client IP address for rate limiting
  * Follows same pattern as auth.ts
  */
-function getClientIp(c: any): string {
+function getClientIp(c: Context<AuthEnv>): string {
   const trustedProxy = process.env.TRUSTED_PROXY === "true";
 
   if (trustedProxy) {
@@ -307,12 +309,12 @@ invites.get("/", requireAdmin, async (c) => {
   const db = getDbClient();
 
   // Fetch all invites with trip counts
-  const inviteRows = await db<(InviteRow & { trip_count: string })[]>`
+  const inviteRows = await db<(InviteRow & { trip_count: number })[]>`
     SELECT
       i.id, i.code, i.created_by_user_id, i.email, i.role,
       i.expires_at, i.used_at, i.used_by_user_id,
       i.created_at, i.updated_at,
-      COUNT(ita.trip_id)::text as trip_count
+      COUNT(ita.trip_id) as trip_count
     FROM invites i
     LEFT JOIN invite_trip_access ita ON ita.invite_id = i.id
     GROUP BY i.id
@@ -336,7 +338,7 @@ invites.get("/", requireAdmin, async (c) => {
 
     return {
       ...invite,
-      tripCount: parseInt(row.trip_count, 10),
+      tripCount: Number(row.trip_count),
       status,
     };
   });
@@ -405,22 +407,28 @@ invites.get("/validate/:token", async (c) => {
   const inviteRow = inviteRows[0];
   const invite = toInvite(inviteRow);
 
-  // Check if already used
+  // Check if already used - return 404 to prevent token enumeration
   if (invite.usedAt) {
-    return c.json({
-      valid: false,
-      reason: "already_used",
-      message: "This invite has already been used",
-    });
+    return c.json(
+      {
+        valid: false,
+        reason: "not_found",
+        message: "Invalid invite code",
+      },
+      404,
+    );
   }
 
-  // Check if expired
+  // Check if expired - return 404 to prevent token enumeration
   if (invite.expiresAt < new Date()) {
-    return c.json({
-      valid: false,
-      reason: "expired",
-      message: "This invite has expired",
-    });
+    return c.json(
+      {
+        valid: false,
+        reason: "not_found",
+        message: "Invalid invite code",
+      },
+      404,
+    );
   }
 
   // Fetch associated trips

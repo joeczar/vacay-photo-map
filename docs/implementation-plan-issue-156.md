@@ -52,8 +52,8 @@ Each commit is independently testable and leaves the codebase in a working state
 **Message:** `feat(api): add invite creation endpoint with secure token generation`
 
 **Files:**
-- `/home/user/vacay-photo-map/api/src/routes/invites.ts` - Create
-- `/home/user/vacay-photo-map/api/src/index.ts` - Modify
+- `api/src/routes/invites.ts` - Create
+- `api/src/index.ts` - Modify
 
 **Changes:**
 
@@ -311,7 +311,7 @@ app.route('/api/invites', invites)
 **Message:** `feat(api): add invite listing endpoint for admins`
 
 **Files:**
-- `/home/user/vacay-photo-map/api/src/routes/invites.ts` - Modify
+- `api/src/routes/invites.ts` - Modify
 
 **Changes:**
 
@@ -401,7 +401,7 @@ invites.get("/", requireAdmin, async (c) => {
 **Message:** `feat(api): add invite revocation endpoint`
 
 **Files:**
-- `/home/user/vacay-photo-map/api/src/routes/invites.ts` - Modify
+- `api/src/routes/invites.ts` - Modify
 
 **Changes:**
 
@@ -499,7 +499,7 @@ invites.delete("/:id", requireAdmin, async (c) => {
 **Message:** `feat(api): add invite validation endpoint with rate limiting`
 
 **Files:**
-- `/home/user/vacay-photo-map/api/src/routes/invites.ts` - Modify
+- `api/src/routes/invites.ts` - Modify
 
 **Changes:**
 
@@ -710,7 +710,7 @@ invites.get("/validate/:token", async (c) => {
 **Message:** `test(api): add comprehensive tests for invite management`
 
 **Files:**
-- `/home/user/vacay-photo-map/api/src/routes/invites.test.ts` - Create
+- `api/src/routes/invites.test.ts` - Create
 
 **Changes:**
 

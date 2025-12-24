@@ -447,6 +447,82 @@ describe("Invite Routes", () => {
       await db`DELETE FROM invites WHERE id = ${createData.invite.id}`;
     });
 
+    it("returns 404 for already-used invite (prevents enumeration)", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const db = getDbClient();
+
+      // Create invite
+      const email = `used-${Date.now()}@example.com`;
+      const createRes = await app.fetch(
+        new Request("http://localhost/api/invites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            email,
+            role: "viewer",
+            tripIds: [testTripId],
+          }),
+        }),
+      );
+      const createData = (await createRes.json()) as CreateInviteResponse;
+
+      // Mark as used
+      await db`UPDATE invites SET used_at = NOW() WHERE id = ${createData.invite.id}`;
+
+      // Validate - should return 404 to prevent enumeration
+      const validateRes = await app.fetch(
+        new Request(
+          `http://localhost/api/invites/validate/${createData.invite.code}`,
+          { method: "GET" },
+        ),
+      );
+      expect(validateRes.status).toBe(404);
+      const validateData = (await validateRes.json()) as ValidateInviteResponse;
+      expect(validateData.valid).toBe(false);
+
+      // Cleanup
+      await db`DELETE FROM invites WHERE id = ${createData.invite.id}`;
+    });
+
+    it("returns 404 for expired invite (prevents enumeration)", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const db = getDbClient();
+
+      // Create invite
+      const email = `expired-${Date.now()}@example.com`;
+      const createRes = await app.fetch(
+        new Request("http://localhost/api/invites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            email,
+            role: "viewer",
+            tripIds: [testTripId],
+          }),
+        }),
+      );
+      const createData = (await createRes.json()) as CreateInviteResponse;
+
+      // Set expiration to past
+      await db`UPDATE invites SET expires_at = NOW() - INTERVAL '1 day' WHERE id = ${createData.invite.id}`;
+
+      // Validate - should return 404 to prevent enumeration
+      const validateRes = await app.fetch(
+        new Request(
+          `http://localhost/api/invites/validate/${createData.invite.code}`,
+          { method: "GET" },
+        ),
+      );
+      expect(validateRes.status).toBe(404);
+      const validateData = (await validateRes.json()) as ValidateInviteResponse;
+      expect(validateData.valid).toBe(false);
+
+      // Cleanup
+      await db`DELETE FROM invites WHERE id = ${createData.invite.id}`;
+    });
+
     it("enforces rate limiting", async () => {
       const app = createTestApp();
       const fakeToken = "B".repeat(32);
