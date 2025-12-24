@@ -1,10 +1,11 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, mock, beforeEach, spyOn } from "bun:test";
 import { Hono } from "hono";
-import { requireAuth, requireAdmin, optionalAuth } from "./auth";
+import { requireAuth, requireAdmin, optionalAuth, checkTripAccess, requireEditor, requireViewer } from "./auth";
 import { signToken } from "../utils/jwt";
 import type { AuthEnv } from "../types/auth";
+import * as dbClient from "../db/client";
 
 interface UserResponse {
   userId: string;
@@ -22,7 +23,11 @@ interface ErrorResponse {
   message: string;
 }
 
-// Test app setup
+interface SuccessResponse {
+  success: boolean;
+}
+
+// Test app setup for basic auth middleware
 function createTestApp() {
   const app = new Hono<AuthEnv>();
 
@@ -39,6 +44,26 @@ function createTestApp() {
   app.get("/optional", optionalAuth, (c) => {
     const user = c.var.user;
     return c.json({ authenticated: !!user, userId: user?.id ?? null });
+  });
+
+  return app;
+}
+
+// Test app setup for RBAC middleware
+function createRbacTestApp() {
+  const app = new Hono<AuthEnv>();
+
+  // Apply requireAuth first, then RBAC middleware
+  app.get("/trips/:id/view", requireAuth, requireViewer, (c) => {
+    return c.json({ success: true });
+  });
+
+  app.post("/trips/:id/edit", requireAuth, requireEditor, (c) => {
+    return c.json({ success: true });
+  });
+
+  app.get("/custom/:tripId/view", requireAuth, checkTripAccess("viewer", (c) => c.req.param("tripId")), (c) => {
+    return c.json({ success: true });
   });
 
   return app;
@@ -174,6 +199,218 @@ describe("Auth Middleware", () => {
       const data = (await res.json()) as OptionalResponse;
       expect(data.authenticated).toBe(true);
       expect(data.userId).toBe("user-456");
+    });
+  });
+});
+
+describe("RBAC Middleware", () => {
+  const testTripId = "550e8400-e29b-41d4-a716-446655440000";
+
+  // Helper to create mock db client that returns specified role
+  function mockDbWithRole(role: string | null) {
+    const mockResult = role ? [{ role }] : [];
+    const mockTaggedTemplate = () => Promise.resolve(mockResult);
+    spyOn(dbClient, "getDbClient").mockReturnValue(mockTaggedTemplate as any);
+  }
+
+  describe("Admin bypass", () => {
+    it("allows admin access without trip_access record", async () => {
+      // Admin bypass doesn't query DB, so no mock needed
+      // But we mock it to return empty to prove bypass works
+      mockDbWithRole(null);
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "admin-123",
+        email: "admin@example.com",
+        isAdmin: true,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/view`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as SuccessResponse;
+      expect(data.success).toBe(true);
+    });
+
+    it("allows admin to edit without trip_access record", async () => {
+      mockDbWithRole(null);
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "admin-123",
+        email: "admin@example.com",
+        isAdmin: true,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/edit`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe("requireViewer", () => {
+    it("returns 401 without auth token", async () => {
+      const app = createRbacTestApp();
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/view`),
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it("allows viewer role to view", async () => {
+      mockDbWithRole("viewer");
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "user-123",
+        email: "viewer@example.com",
+        isAdmin: false,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/view`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+    });
+
+    it("allows editor role to view (editor > viewer)", async () => {
+      mockDbWithRole("editor");
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "user-123",
+        email: "editor@example.com",
+        isAdmin: false,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/view`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+    });
+
+    it("returns 403 for user without trip_access", async () => {
+      mockDbWithRole(null);
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "user-123",
+        email: "noone@example.com",
+        isAdmin: false,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/view`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+      expect(data.message).toContain("Viewer access required");
+    });
+  });
+
+  describe("requireEditor", () => {
+    it("allows editor role to edit", async () => {
+      mockDbWithRole("editor");
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "user-123",
+        email: "editor@example.com",
+        isAdmin: false,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/edit`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+    });
+
+    it("returns 403 for viewer role trying to edit", async () => {
+      mockDbWithRole("viewer");
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "user-123",
+        email: "viewer@example.com",
+        isAdmin: false,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/edit`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+      expect(data.message).toContain("Editor access required");
+    });
+
+    it("returns 403 for user without trip_access", async () => {
+      mockDbWithRole(null);
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "user-123",
+        email: "noone@example.com",
+        isAdmin: false,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/trips/${testTripId}/edit`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe("checkTripAccess with custom extractor", () => {
+    it("extracts trip ID from custom param name", async () => {
+      mockDbWithRole("viewer");
+
+      const app = createRbacTestApp();
+      const token = await signToken({
+        sub: "user-123",
+        email: "viewer@example.com",
+        isAdmin: false,
+      });
+
+      const res = await app.fetch(
+        new Request(`http://localhost/custom/${testTripId}/view`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+
+      expect(res.status).toBe(200);
     });
   });
 });
