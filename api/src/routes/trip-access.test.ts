@@ -108,6 +108,7 @@ describe("Trip Access Routes", () => {
     const db = getDbClient();
     // Cleanup: CASCADE deletes trip_access records
     await db`DELETE FROM trips WHERE id = ${testTripId}`;
+    await db`DELETE FROM user_profiles WHERE id IN (${TEST_ADMIN_USER_ID}, ${TEST_USER_ID})`;
   });
 
   describe("POST /api/trip-access", () => {

@@ -9,6 +9,7 @@ import {
   getAdminAuthHeader,
   getUserAuthHeader,
   TEST_ADMIN_USER_ID,
+  TEST_USER_ID,
   uniqueIp,
 } from "../test-helpers";
 
@@ -101,11 +102,11 @@ describe("Invite Routes", () => {
     testTripId = trip.id;
   });
 
-  // Cleanup: Delete test trip and user
+  // Cleanup: Delete test trip and users
   afterAll(async () => {
     const db = getDbClient();
     await db`DELETE FROM trips WHERE id = ${testTripId}`;
-    await db`DELETE FROM user_profiles WHERE id = ${TEST_ADMIN_USER_ID}`;
+    await db`DELETE FROM user_profiles WHERE id IN (${TEST_ADMIN_USER_ID}, ${TEST_USER_ID})`;
   });
 
   // ==========================================================================
