@@ -78,10 +78,10 @@ describe("Invite Routes", () => {
   beforeAll(async () => {
     const db = getDbClient();
 
-    // Create test admin user with UNIQUE email to avoid conflicts with existing data
-    // webauthn_user_id is required NOT NULL - use a test value
-    const testWebauthnUserId = `test-webauthn-${TEST_ADMIN_USER_ID}`;
-    const testAdminEmail = `test-admin-invites-${Date.now()}@example.com`;
+    // Create test admin user with UNIQUE email and webauthn_user_id to avoid conflicts
+    const now = Date.now();
+    const testWebauthnUserId = `test-webauthn-${TEST_ADMIN_USER_ID}-${now}`;
+    const testAdminEmail = `test-admin-invites-${now}@example.com`;
 
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)

@@ -66,9 +66,10 @@ describe("Trip Access Routes", () => {
   beforeAll(async () => {
     const db = getDbClient();
 
-    // Create admin user with unique email to avoid conflicts
-    const adminWebauthnId = `test-webauthn-${TEST_ADMIN_USER_ID}`;
-    testAdminEmail = `test-admin-trip-access-${Date.now()}@example.com`;
+    // Create admin user with unique email and webauthn_user_id to avoid conflicts
+    const now = Date.now();
+    const adminWebauthnId = `test-webauthn-${TEST_ADMIN_USER_ID}-${now}`;
+    testAdminEmail = `test-admin-trip-access-${now}@example.com`;
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
       VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${adminWebauthnId}, true, 'Admin User')
@@ -79,9 +80,9 @@ describe("Trip Access Routes", () => {
             display_name = EXCLUDED.display_name
     `;
 
-    // Create regular test user with unique email to avoid conflicts
-    const userWebauthnId = `test-webauthn-${TEST_USER_ID}`;
-    testUserEmail = `test-user-trip-access-${Date.now()}@example.com`;
+    // Create regular test user with unique email and webauthn_user_id to avoid conflicts
+    const userWebauthnId = `test-webauthn-${TEST_USER_ID}-${now}`;
+    testUserEmail = `test-user-trip-access-${now}@example.com`;
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
       VALUES (${TEST_USER_ID}, ${testUserEmail}, ${userWebauthnId}, false, 'Test User')
