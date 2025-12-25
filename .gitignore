@@ -60,6 +60,7 @@ docs/research/*.html
 **/.env.production
 **/.env.prod
 .env.prod
+.env.docker
 
 # Netlify
 .netlify

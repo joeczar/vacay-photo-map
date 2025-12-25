@@ -154,6 +154,13 @@ This starts PostgreSQL 15 with the default credentials from `.env.example`.
 
 **Note:** Development database runs on port 5433 (not the default 5432) to avoid conflicts with existing PostgreSQL installations. Production uses the standard port 5432.
 
+**Custom configuration:** Copy `.env.docker.example` to `.env.docker` and run:
+```bash
+docker compose --env-file .env.docker up -d postgres
+```
+
+> **Warning:** Postgres credentials are set at first volume creation. To change credentials, you must delete the volume: `docker compose down -v` (this deletes all data).
+
 ### 5. Initialize the Database
 
 ```bash
