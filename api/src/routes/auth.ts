@@ -270,31 +270,26 @@ auth.post("/register/options", async (c) => {
   // Validate invite code if provided
   let validatedInviteCode: string | undefined;
   if (inviteCode) {
-    const inviteRows = await db<
+    const [invite] = await db<
       {
         id: string;
         email: string | null;
-        used_at: Date | null;
-        expires_at: Date;
       }[]
     >`
-      SELECT id, email, used_at, expires_at
+      SELECT id, email
       FROM invites
       WHERE code = ${inviteCode}
+        AND used_at IS NULL
+        AND expires_at > NOW()
     `;
 
-    if (
-      inviteRows.length === 0 ||
-      inviteRows[0].used_at !== null ||
-      inviteRows[0].expires_at <= new Date()
-    ) {
+    if (!invite) {
       return c.json(
         { error: "Bad Request", message: "Invalid or expired invite code" },
         400,
       );
     }
 
-    const invite = inviteRows[0];
     if (
       invite.email !== null &&
       invite.email.toLowerCase() !== email.toLowerCase()
@@ -530,14 +525,15 @@ auth.post("/register/verify", async (c) => {
             WHERE invite_id = ${invite.id}
           `;
 
-          // Grant trip access for each trip
+          // Grant trip access for each trip (bulk insert)
           if (tripAccess.length > 0) {
-            for (const ta of tripAccess) {
-              await tx`
-                INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
-                VALUES (${user.id}, ${ta.trip_id}, ${invite.role}, ${invite.created_by_user_id})
-              `;
-            }
+            const accessRows = tripAccess.map((ta) => ({
+              user_id: user.id,
+              trip_id: ta.trip_id,
+              role: invite.role,
+              granted_by_user_id: invite.created_by_user_id,
+            }));
+            await tx`INSERT INTO trip_access ${tx(accessRows)}`;
           }
 
           // Mark invite as used

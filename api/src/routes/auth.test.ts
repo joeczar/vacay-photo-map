@@ -289,7 +289,7 @@ describe("Auth Routes", () => {
   });
 
   describe("POST /api/auth/register/options - Invite validation", () => {
-    it("accepts optional inviteCode parameter", async () => {
+    it("returns 400 for an invalid invite code", async () => {
       const app = createTestApp();
       const email = `test-invite-options-${Date.now()}@example.com`;
       const res = await app.fetch(
@@ -301,14 +301,14 @@ describe("Auth Routes", () => {
             body: JSON.stringify({
               email,
               displayName: "Test User",
-              inviteCode: "INVALID_CODE_BUT_ACCEPTED_FOR_OPTIONS",
+              inviteCode: "INVALID_CODE",
             }),
           },
         ),
       );
-      // Should process even with invalid code at this stage
-      // Actual validation happens in DB query
-      expect([200, 400]).toContain(res.status);
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { message: string };
+      expect(data.message).toBe("Invalid or expired invite code");
     });
   });
 
