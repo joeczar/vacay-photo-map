@@ -9,6 +9,7 @@ import {
   getAdminAuthHeader,
   getUserAuthHeader,
   TEST_ADMIN_USER_ID,
+  TEST_USER_ID,
   uniqueIp,
 } from "../test-helpers";
 
@@ -78,13 +79,18 @@ describe("Invite Routes", () => {
   beforeAll(async () => {
     const db = getDbClient();
 
-    // Create test admin user (required for invite creation foreign key)
-    // webauthn_user_id is required NOT NULL - use a test value
-    const testWebauthnUserId = `test-webauthn-${TEST_ADMIN_USER_ID}`;
+    // Create test admin user with UNIQUE email and webauthn_user_id to avoid conflicts
+    const now = Date.now();
+    const testWebauthnUserId = `test-webauthn-${TEST_ADMIN_USER_ID}-${now}`;
+    const testAdminEmail = `test-admin-invites-${now}@example.com`;
+
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
-      VALUES (${TEST_ADMIN_USER_ID}, 'admin@example.com', ${testWebauthnUserId}, true)
-      ON CONFLICT (id) DO NOTHING
+      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${testWebauthnUserId}, true)
+      ON CONFLICT (id) DO UPDATE
+        SET email = EXCLUDED.email,
+            is_admin = EXCLUDED.is_admin,
+            webauthn_user_id = EXCLUDED.webauthn_user_id
     `;
 
     const uniqueSlug = `test-trip-for-invites-${Date.now()}`;
@@ -96,11 +102,11 @@ describe("Invite Routes", () => {
     testTripId = trip.id;
   });
 
-  // Cleanup: Delete test trip and user
+  // Cleanup: Delete test trip and users
   afterAll(async () => {
     const db = getDbClient();
     await db`DELETE FROM trips WHERE id = ${testTripId}`;
-    await db`DELETE FROM user_profiles WHERE id = ${TEST_ADMIN_USER_ID}`;
+    await db`DELETE FROM user_profiles WHERE id IN (${TEST_ADMIN_USER_ID}, ${TEST_USER_ID})`;
   });
 
   // ==========================================================================
