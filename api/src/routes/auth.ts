@@ -47,6 +47,7 @@ interface ChallengeEntry {
   expires: number;
   userId?: string; // For adding passkeys to existing users
   webauthnUserId?: string; // Stable WebAuthn user ID (base64url encoded)
+  inviteCode?: string; // Validated invite code for registration
 }
 
 const challenges = new Map<string, ChallengeEntry>();
@@ -64,13 +65,14 @@ setInterval(() => {
 function storeChallenge(
   email: string,
   challenge: string,
-  options?: { userId?: string; webauthnUserId?: string },
+  options?: { userId?: string; webauthnUserId?: string; inviteCode?: string },
 ): void {
   challenges.set(email.toLowerCase(), {
     challenge,
     expires: Date.now() + CHALLENGE_TTL_MS,
     userId: options?.userId,
     webauthnUserId: options?.webauthnUserId,
+    inviteCode: options?.inviteCode,
   });
 }
 
@@ -250,10 +252,10 @@ auth.post("/register/options", async (c) => {
   const body = await c.req.json<{
     email: string;
     displayName?: string;
-    inviteCode?: string; // TODO: Implement invite system - see issue #XX
+    inviteCode?: string;
   }>();
 
-  const { email, displayName } = body;
+  const { email, displayName, inviteCode } = body;
 
   if (!email || !isValidEmail(email)) {
     return c.json(
@@ -264,6 +266,45 @@ auth.post("/register/options", async (c) => {
 
   const db = getDbClient();
   const config = getConfig();
+
+  // Validate invite code if provided
+  let validatedInviteCode: string | undefined;
+  if (inviteCode) {
+    const [invite] = await db<
+      {
+        id: string;
+        email: string | null;
+      }[]
+    >`
+      SELECT id, email
+      FROM invites
+      WHERE code = ${inviteCode}
+        AND used_at IS NULL
+        AND expires_at > NOW()
+    `;
+
+    if (!invite) {
+      return c.json(
+        { error: "Bad Request", message: "Invalid or expired invite code" },
+        400,
+      );
+    }
+
+    if (
+      invite.email !== null &&
+      invite.email.toLowerCase() !== email.toLowerCase()
+    ) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message: "Invite email does not match registration email",
+        },
+        400,
+      );
+    }
+
+    validatedInviteCode = inviteCode;
+  }
 
   // Check if email already exists
   const existing = await db<(DbUser & { authenticator_count: number })[]>`
@@ -323,6 +364,7 @@ auth.post("/register/options", async (c) => {
   storeChallenge(email, options.challenge, {
     webauthnUserId: webauthnUserIdBase64,
     userId: existingUserId,
+    inviteCode: validatedInviteCode,
   });
 
   return c.json({ options });
@@ -454,6 +496,53 @@ auth.post("/register/verify", async (c) => {
             ${credential.response.transports || null}
           )
         `;
+
+        // Process invite if provided
+        if (entry.inviteCode) {
+          // Re-validate invite (could have been used between options and verify)
+          const [invite] = await tx<
+            {
+              id: string;
+              role: string;
+              created_by_user_id: string;
+            }[]
+          >`
+            SELECT id, role, created_by_user_id
+            FROM invites
+            WHERE code = ${entry.inviteCode}
+              AND used_at IS NULL
+              AND expires_at > NOW()
+          `;
+
+          if (!invite) {
+            throw new Error("Invite no longer valid");
+          }
+
+          // Fetch all trips associated with this invite
+          const tripAccess = await tx<{ trip_id: string }[]>`
+            SELECT trip_id
+            FROM invite_trip_access
+            WHERE invite_id = ${invite.id}
+          `;
+
+          // Grant trip access for each trip (bulk insert)
+          if (tripAccess.length > 0) {
+            const accessRows = tripAccess.map((ta) => ({
+              user_id: user.id,
+              trip_id: ta.trip_id,
+              role: invite.role,
+              granted_by_user_id: invite.created_by_user_id,
+            }));
+            await tx`INSERT INTO trip_access ${tx(accessRows)}`;
+          }
+
+          // Mark invite as used
+          await tx`
+            UPDATE invites
+            SET used_at = NOW(), used_by_user_id = ${user.id}
+            WHERE id = ${invite.id}
+          `;
+        }
 
         return user;
       });

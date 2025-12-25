@@ -288,6 +288,30 @@ describe("Auth Routes", () => {
     });
   });
 
+  describe("POST /api/auth/register/options - Invite validation", () => {
+    it("returns 400 for an invalid invite code", async () => {
+      const app = createTestApp();
+      const email = `test-invite-options-${Date.now()}@example.com`;
+      const res = await app.fetch(
+        createRequestWithUniqueIp(
+          "http://localhost/api/auth/register/options",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email,
+              displayName: "Test User",
+              inviteCode: "INVALID_CODE",
+            }),
+          },
+        ),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { message: string };
+      expect(data.message).toBe("Invalid or expired invite code");
+    });
+  });
+
   describe("Rate Limiting", () => {
     it("returns 429 after too many requests from same IP", async () => {
       const app = createTestApp();
