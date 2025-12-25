@@ -114,7 +114,7 @@ VITE_WEBAUTHN_RP_ID=localhost
 **Required:**
 ```env
 # Database (local Docker Compose default)
-DATABASE_URL=postgresql://vacay:vacay@localhost:5432/vacay
+DATABASE_URL=postgresql://vacay:vacay@localhost:5433/vacay
 
 # JWT Configuration
 JWT_SECRET=<generate with: openssl rand -hex 32>
@@ -151,6 +151,8 @@ docker compose up -d postgres
 ```
 
 This starts PostgreSQL 15 with the default credentials from `.env.example`.
+
+**Note:** Development database runs on port 5433 (not the default 5432) to avoid conflicts with existing PostgreSQL installations. Production uses the standard port 5432.
 
 ### 5. Initialize the Database
 
