@@ -59,25 +59,37 @@ function createTestApp() {
 // Test data
 let testTripId: string;
 let testUserId: string;
+let testAdminEmail: string;
+let testUserEmail: string;
 
 describe("Trip Access Routes", () => {
   beforeAll(async () => {
     const db = getDbClient();
 
-    // Create admin user
+    // Create admin user with unique email to avoid conflicts
     const adminWebauthnId = `test-webauthn-${TEST_ADMIN_USER_ID}`;
+    testAdminEmail = `test-admin-trip-access-${Date.now()}@example.com`;
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${TEST_ADMIN_USER_ID}, 'admin@example.com', ${adminWebauthnId}, true, 'Admin User')
-      ON CONFLICT (id) DO NOTHING
+      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${adminWebauthnId}, true, 'Admin User')
+      ON CONFLICT (id) DO UPDATE
+        SET email = EXCLUDED.email,
+            is_admin = EXCLUDED.is_admin,
+            webauthn_user_id = EXCLUDED.webauthn_user_id,
+            display_name = EXCLUDED.display_name
     `;
 
-    // Create regular test user
+    // Create regular test user with unique email to avoid conflicts
     const userWebauthnId = `test-webauthn-${TEST_USER_ID}`;
+    testUserEmail = `test-user-trip-access-${Date.now()}@example.com`;
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${TEST_USER_ID}, 'user@example.com', ${userWebauthnId}, false, 'Test User')
-      ON CONFLICT (id) DO NOTHING
+      VALUES (${TEST_USER_ID}, ${testUserEmail}, ${userWebauthnId}, false, 'Test User')
+      ON CONFLICT (id) DO UPDATE
+        SET email = EXCLUDED.email,
+            is_admin = EXCLUDED.is_admin,
+            webauthn_user_id = EXCLUDED.webauthn_user_id,
+            display_name = EXCLUDED.display_name
     `;
     testUserId = TEST_USER_ID;
 
@@ -414,7 +426,7 @@ describe("Trip Access Routes", () => {
       const data = (await res.json()) as UserListResponse;
       expect(data.users).toBeArrayOfSize(1);
       expect(data.users[0].userId).toBe(testUserId);
-      expect(data.users[0].email).toBe("user@example.com");
+      expect(data.users[0].email).toBe(testUserEmail);
       expect(data.users[0].displayName).toBe("Test User");
       expect(data.users[0].role).toBe("editor");
 
@@ -755,12 +767,12 @@ describe("Trip Access Routes", () => {
       const admin = data.users.find((u) => u.id === TEST_ADMIN_USER_ID);
       expect(admin).toBeDefined();
       expect(admin!.isAdmin).toBe(true);
-      expect(admin!.email).toBe("admin@example.com");
+      expect(admin!.email).toBe(testAdminEmail);
 
       const user = data.users.find((u) => u.id === TEST_USER_ID);
       expect(user).toBeDefined();
       expect(user!.isAdmin).toBe(false);
-      expect(user!.email).toBe("user@example.com");
+      expect(user!.email).toBe(testUserEmail);
     });
 
     it("returns 401 if not authenticated", async () => {
