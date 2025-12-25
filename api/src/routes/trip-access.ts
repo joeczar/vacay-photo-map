@@ -67,10 +67,15 @@ tripAccess.post("/trip-access", requireAdmin, async (c) => {
   const db = getDbClient();
   const currentUser = c.var.user!;
 
-  // Check if user exists
-  const userCheck = await db<{ id: string; is_admin: boolean }[]>`
-    SELECT id, is_admin FROM user_profiles WHERE id = ${body.userId}
-  `;
+  // Check if user and trip exist in parallel
+  const [userCheck, tripCheck] = await Promise.all([
+    db<{ id: string; is_admin: boolean }[]>`
+      SELECT id, is_admin FROM user_profiles WHERE id = ${body.userId}
+    `,
+    db<{ id: string }[]>`
+      SELECT id FROM trips WHERE id = ${body.tripId}
+    `,
+  ]);
 
   if (userCheck.length === 0) {
     return c.json({ error: "Not Found", message: "User not found" }, 404);
@@ -87,11 +92,6 @@ tripAccess.post("/trip-access", requireAdmin, async (c) => {
       400,
     );
   }
-
-  // Check if trip exists
-  const tripCheck = await db<{ id: string }[]>`
-    SELECT id FROM trips WHERE id = ${body.tripId}
-  `;
 
   if (tripCheck.length === 0) {
     return c.json({ error: "Not Found", message: "Trip not found" }, 404);
