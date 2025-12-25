@@ -49,6 +49,11 @@ cp api/.env.prod.example api/.env.prod
 pnpm dev:prod  # Uses api/.env.prod automatically
 ```
 
+**Port Configuration:**
+- Local dev database: `localhost:5433` (avoids conflicts with existing PostgreSQL)
+- Production database: `5432` (standard PostgreSQL port)
+- Both can run simultaneously without interference
+
 **First user registration:** Navigate to localhost:5173/register - first user becomes admin.
 
 ## Git Workflow
