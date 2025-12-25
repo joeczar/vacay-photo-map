@@ -502,6 +502,52 @@ auth.post("/register/verify", async (c) => {
           )
         `;
 
+        // Process invite if provided
+        if (entry.inviteCode) {
+          // Re-validate invite (could have been used between options and verify)
+          const [invite] = await tx<
+            {
+              id: string;
+              role: string;
+              created_by_user_id: string;
+            }[]
+          >`
+            SELECT id, role, created_by_user_id
+            FROM invites
+            WHERE code = ${entry.inviteCode}
+              AND used_at IS NULL
+              AND expires_at > NOW()
+          `;
+
+          if (!invite) {
+            throw new Error("Invite no longer valid");
+          }
+
+          // Fetch all trips associated with this invite
+          const tripAccess = await tx<{ trip_id: string }[]>`
+            SELECT trip_id
+            FROM invite_trip_access
+            WHERE invite_id = ${invite.id}
+          `;
+
+          // Grant trip access for each trip
+          if (tripAccess.length > 0) {
+            for (const ta of tripAccess) {
+              await tx`
+                INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
+                VALUES (${user.id}, ${ta.trip_id}, ${invite.role}, ${invite.created_by_user_id})
+              `;
+            }
+          }
+
+          // Mark invite as used
+          await tx`
+            UPDATE invites
+            SET used_at = NOW(), used_by_user_id = ${user.id}
+            WHERE id = ${invite.id}
+          `;
+        }
+
         return user;
       });
     }
