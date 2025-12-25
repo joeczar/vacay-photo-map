@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { rm } from "node:fs/promises";
 import { getDbClient } from "../db/client";
-import { requireAdmin, optionalAuth } from "../middleware/auth";
+import { requireAdmin, requireAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
 import {
@@ -230,17 +230,31 @@ async function buildTripWithPhotosResponse(
 const trips = new Hono<AuthEnv>();
 
 // =============================================================================
-// GET /api/trips - List all public trips
+// GET /api/trips - List trips accessible to the user
 // =============================================================================
-trips.get("/", async (c) => {
+trips.get("/", requireAuth, async (c) => {
+  const user = c.var.user!;
   const db = getDbClient();
 
-  const tripList = await db<DbTrip[]>`
-    SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
-    FROM trips
-    WHERE is_public = true
-    ORDER BY created_at DESC
-  `;
+  let tripList: DbTrip[];
+
+  if (user.isAdmin) {
+    // Admins see all trips
+    tripList = await db<DbTrip[]>`
+      SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
+      FROM trips
+      ORDER BY created_at DESC
+    `;
+  } else {
+    // Non-admins only see trips they have access to
+    tripList = await db<DbTrip[]>`
+      SELECT DISTINCT t.id, t.slug, t.title, t.description, t.cover_photo_url, t.is_public, t.created_at, t.updated_at
+      FROM trips t
+      INNER JOIN trip_access ta ON ta.trip_id = t.id
+      WHERE ta.user_id = ${user.id}
+      ORDER BY t.created_at DESC
+    `;
+  }
 
   // Get photo metadata for all trips in one query
   const tripIds = tripList.map((t) => t.id);
@@ -341,14 +355,13 @@ trips.get("/admin", requireAdmin, async (c) => {
 // =============================================================================
 // This route handles both:
 // - UUID (admin only): GET /api/trips/550e8400-e29b-41d4-a716-446655440000
-// - Slug (public with access control): GET /api/trips/my-trip-slug
+// - Slug (with trip_access check): GET /api/trips/my-trip-slug
 //
 // If the identifier is a valid UUID, treat it as an ID and require admin auth.
-// Otherwise, treat it as a slug and apply standard access control.
-trips.get("/:identifier", optionalAuth, async (c) => {
+// Otherwise, treat it as a slug and check trip_access for non-admin users.
+trips.get("/:identifier", requireAuth, async (c) => {
   const identifier = c.req.param("identifier");
-  const token = c.req.query("token");
-  const user = c.var.user;
+  const user = c.var.user!;
   const db = getDbClient();
 
   // Check if identifier is a UUID
@@ -356,7 +369,7 @@ trips.get("/:identifier", optionalAuth, async (c) => {
 
   if (isUuid) {
     // UUID path - admin only
-    if (!user?.isAdmin) {
+    if (!user.isAdmin) {
       return c.json(
         { error: "Forbidden", message: "Admin access required" },
         403,
@@ -382,7 +395,7 @@ trips.get("/:identifier", optionalAuth, async (c) => {
     return c.json(response);
   }
 
-  // Slug path - standard access control
+  // Slug path - check trip_access for non-admin users
   const slug = identifier;
 
   // Find trip by slug
@@ -399,25 +412,18 @@ trips.get("/:identifier", optionalAuth, async (c) => {
 
   const trip = tripResults[0];
 
-  // Access control for private trips
-  if (!trip.is_public) {
-    const isAdmin = user?.isAdmin === true;
+  // Check access for non-admin users
+  if (!user.isAdmin) {
+    const accessCheck = await db<{ role: string }[]>`
+      SELECT role FROM trip_access
+      WHERE user_id = ${user.id} AND trip_id = ${trip.id}
+    `;
 
-    // Check if admin
-    if (!isAdmin) {
-      // Check token if provided
-      if (!token || !trip.access_token_hash) {
-        return c.json({ error: "Unauthorized", message: "Access denied" }, 401);
-      }
-
-      // Verify token against hash
-      const isValidToken = await Bun.password.verify(
-        token,
-        trip.access_token_hash,
+    if (accessCheck.length === 0) {
+      return c.json(
+        { error: "Forbidden", message: "Access denied to this trip" },
+        403,
       );
-      if (!isValidToken) {
-        return c.json({ error: "Unauthorized", message: "Invalid token" }, 401);
-      }
     }
   }
 
