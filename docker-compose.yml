@@ -1,14 +1,14 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: vacay-postgres-dev
+    container_name: ${POSTGRES_CONTAINER:-vacay-postgres-dev}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-vacay}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vacay}
       POSTGRES_DB: ${POSTGRES_DB:-vacay}
     ports:
-      - '5433:5432'
+      - '${DEV_DB_PORT:-5433}:5432'
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
       - ./api/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
