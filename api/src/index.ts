@@ -6,6 +6,7 @@ import { auth } from "./routes/auth";
 import { trips } from "./routes/trips";
 import { upload } from "./routes/upload";
 import { invites } from "./routes/invites";
+import { tripAccess } from "./routes/trip-access";
 
 const app = new Hono();
 
@@ -18,6 +19,7 @@ app.route("/health", health);
 app.route("/api/auth", auth);
 app.route("/api/trips", trips);
 app.route("/api/invites", invites);
+app.route("/api", tripAccess);
 app.route("/api", upload);
 
 // Root

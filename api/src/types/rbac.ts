@@ -168,3 +168,66 @@ export function toTripAccess(row: TripAccessRow): TripAccess {
     grantedByUserId: row.granted_by_user_id,
   };
 }
+
+// =============================================================================
+// Trip Access API Response Types
+// =============================================================================
+
+/**
+ * Response for granting trip access (POST /api/trip-access)
+ */
+export interface GrantTripAccessResponse {
+  tripAccess: TripAccess;
+}
+
+/**
+ * Response for updating trip access role (PATCH /api/trip-access/:id)
+ */
+export interface UpdateTripAccessResponse {
+  tripAccess: TripAccess;
+}
+
+/**
+ * Response for revoking trip access (DELETE /api/trip-access/:id)
+ */
+export interface RevokeTripAccessResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * User with trip access details (for listing)
+ */
+export interface TripAccessUser {
+  id: string;
+  userId: string;
+  email: string;
+  displayName: string | null;
+  role: Role;
+  grantedAt: Date;
+  grantedByUserId: string | null;
+}
+
+/**
+ * Response for listing users with trip access (GET /api/trips/:tripId/access)
+ */
+export interface ListTripAccessResponse {
+  users: TripAccessUser[];
+}
+
+/**
+ * User info for admin listing
+ */
+export interface UserInfo {
+  id: string;
+  email: string;
+  displayName: string | null;
+  isAdmin: boolean;
+}
+
+/**
+ * Response for listing all users (GET /api/users)
+ */
+export interface ListUsersResponse {
+  users: UserInfo[];
+}
