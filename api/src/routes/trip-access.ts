@@ -38,7 +38,7 @@ const tripAccess = new Hono<AuthEnv>();
 // =============================================================================
 // POST /api/trip-access - Grant access to user (admin only)
 // =============================================================================
-tripAccess.post("/", requireAdmin, async (c) => {
+tripAccess.post("/trip-access", requireAdmin, async (c) => {
   const body = await c.req.json<{
     userId: string;
     tripId: string;
@@ -186,7 +186,7 @@ tripAccess.get("/trips/:tripId/access", requireAdmin, async (c) => {
 // =============================================================================
 // PATCH /api/trip-access/:id - Update user's role (admin only)
 // =============================================================================
-tripAccess.patch("/:id", requireAdmin, async (c) => {
+tripAccess.patch("/trip-access/:id", requireAdmin, async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ role: string }>();
 
@@ -239,7 +239,7 @@ tripAccess.patch("/:id", requireAdmin, async (c) => {
 // =============================================================================
 // DELETE /api/trip-access/:id - Revoke access (admin only)
 // =============================================================================
-tripAccess.delete("/:id", requireAdmin, async (c) => {
+tripAccess.delete("/trip-access/:id", requireAdmin, async (c) => {
   const id = c.req.param("id");
 
   // Validate UUID

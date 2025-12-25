@@ -19,7 +19,7 @@ app.route("/health", health);
 app.route("/api/auth", auth);
 app.route("/api/trips", trips);
 app.route("/api/invites", invites);
-app.route("/api/trip-access", tripAccess);
+app.route("/api", tripAccess);
 app.route("/api", upload);
 
 // Root
