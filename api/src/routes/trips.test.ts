@@ -72,18 +72,28 @@ function createTestApp() {
 
 describe("Trip Routes", () => {
   // ==========================================================================
-  // GET /api/trips - List public trips
-  // Note: Database-dependent tests are skipped in unit test mode
-  // Run integration tests with a real database for full coverage
+  // GET /api/trips - List trips (requires auth, filtered by access)
   // ==========================================================================
   describe("GET /api/trips", () => {
-    // These tests require a real database connection
-    // They are tested via integration tests
-    it("returns 200 with trips array (even if empty)", async () => {
+    it("returns 401 without authentication", async () => {
       const app = createTestApp();
       const res = await app.fetch(
         new Request("http://localhost/api/trips", {
           method: "GET",
+        }),
+      );
+      expect(res.status).toBe(401);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Unauthorized");
+    });
+
+    it("returns trips for authenticated admin user", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips", {
+          method: "GET",
+          headers: authHeader,
         }),
       );
       expect(res.status).toBe(200);
@@ -91,31 +101,228 @@ describe("Trip Routes", () => {
       expect(Array.isArray(data.trips)).toBe(true);
     });
 
-    it("does not require authentication", async () => {
+    it("returns only accessible trips for non-admin user", async () => {
+      const db = getDbClient();
       const app = createTestApp();
+
+      // Create a unique non-admin user for this test
+      const now = Date.now();
+      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
+      const testEmail = `test-trips-nonadmin-${now}@example.com`;
+      const testWebauthnUserId = `test-webauthn-trips-${now}`;
+
+      await db`
+        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
+        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
+        ON CONFLICT (id) DO UPDATE
+          SET email = EXCLUDED.email,
+              is_admin = EXCLUDED.is_admin,
+              webauthn_user_id = EXCLUDED.webauthn_user_id
+      `;
+
+      // Create two trips
+      const trip1Slug = `accessible-trip-${now}`;
+      const trip2Slug = `inaccessible-trip-${now}`;
+
+      const [trip1] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${trip1Slug}, 'Accessible Trip', true)
+        RETURNING id
+      `;
+
+      const [trip2] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${trip2Slug}, 'Inaccessible Trip', true)
+        RETURNING id
+      `;
+
+      // Grant access to trip1 only
+      await db`
+        INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
+        VALUES (${testUserId}, ${trip1.id}, 'viewer', ${testUserId})
+      `;
+
+      // Request trips as non-admin user
+      const authHeader = await getUserAuthHeader(testUserId, testEmail);
       const res = await app.fetch(
         new Request("http://localhost/api/trips", {
           method: "GET",
+          headers: authHeader,
         }),
       );
+
       expect(res.status).toBe(200);
+      const data = (await res.json()) as TripListResponse;
+
+      // Should only see trip1
+      const accessibleTrip = data.trips.find((t) => t.id === trip1.id);
+      const inaccessibleTrip = data.trips.find((t) => t.id === trip2.id);
+
+      expect(accessibleTrip).toBeDefined();
+      expect(inaccessibleTrip).toBeUndefined();
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id IN (${trip1.id}, ${trip2.id})`;
+      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
     });
   });
 
   // ==========================================================================
-  // GET /api/trips/:slug - Get trip by slug
+  // GET /api/trips/:slug - Get trip by slug (requires auth and access)
   // ==========================================================================
   describe("GET /api/trips/:slug", () => {
+    it("returns 401 without authentication", async () => {
+      const app = createTestApp();
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/some-trip-slug", {
+          method: "GET",
+        }),
+      );
+      expect(res.status).toBe(401);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Unauthorized");
+    });
+
     it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
       const res = await app.fetch(
         new Request("http://localhost/api/trips/non-existent-trip-slug", {
           method: "GET",
+          headers: authHeader,
         }),
       );
       expect(res.status).toBe(404);
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Not Found");
+    });
+
+    it("returns 403 for non-admin user without trip access", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+
+      // Create a unique non-admin user
+      const now = Date.now();
+      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
+      const testEmail = `test-trips-noaccess-${now}@example.com`;
+      const testWebauthnUserId = `test-webauthn-noaccess-${now}`;
+
+      await db`
+        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
+        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
+        ON CONFLICT (id) DO UPDATE
+          SET email = EXCLUDED.email,
+              is_admin = EXCLUDED.is_admin,
+              webauthn_user_id = EXCLUDED.webauthn_user_id
+      `;
+
+      // Create a trip without granting access
+      const tripSlug = `forbidden-trip-${now}`;
+      const [trip] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${tripSlug}, 'Forbidden Trip', true)
+        RETURNING id
+      `;
+
+      // Request trip as non-admin user without access
+      const authHeader = await getUserAuthHeader(testUserId, testEmail);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${tripSlug}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+      expect(data.message).toContain("Access denied");
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
+    });
+
+    it("returns trip for non-admin user with viewer access", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+
+      // Create a unique non-admin user
+      const now = Date.now();
+      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
+      const testEmail = `test-trips-viewer-${now}@example.com`;
+      const testWebauthnUserId = `test-webauthn-viewer-${now}`;
+
+      await db`
+        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
+        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
+        ON CONFLICT (id) DO UPDATE
+          SET email = EXCLUDED.email,
+              is_admin = EXCLUDED.is_admin,
+              webauthn_user_id = EXCLUDED.webauthn_user_id
+      `;
+
+      // Create a trip and grant viewer access
+      const tripSlug = `viewer-trip-${now}`;
+      const [trip] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${tripSlug}, 'Viewer Trip', true)
+        RETURNING id
+      `;
+
+      await db`
+        INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
+        VALUES (${testUserId}, ${trip.id}, 'viewer', ${testUserId})
+      `;
+
+      // Request trip as non-admin user with viewer access
+      const authHeader = await getUserAuthHeader(testUserId, testEmail);
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${tripSlug}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripWithPhotosResponse;
+      expect(data.id).toBe(trip.id);
+      expect(data.slug).toBe(tripSlug);
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
+    });
+
+    it("returns trip for admin user regardless of access", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+
+      // Create a trip without granting access to admin
+      const now = Date.now();
+      const tripSlug = `admin-trip-${now}`;
+      const [trip] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${tripSlug}, 'Admin Trip', true)
+        RETURNING id
+      `;
+
+      // Request trip as admin user (no explicit access needed)
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${tripSlug}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripWithPhotosResponse;
+      expect(data.id).toBe(trip.id);
+      expect(data.slug).toBe(tripSlug);
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
     });
   });
 
@@ -598,19 +805,55 @@ describe("Trip Routes", () => {
       await db`DELETE FROM trips WHERE id = ${trip.id}`;
     });
 
-    it("returns 403 for non-admin user", async () => {
+    it("returns 403 for non-admin user accessing by UUID", async () => {
+      const db = getDbClient();
       const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
 
+      // Create a unique non-admin user
+      const now = Date.now();
+      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
+      const testEmail = `test-uuid-access-${now}@example.com`;
+      const testWebauthnUserId = `test-webauthn-uuid-${now}`;
+
+      await db`
+        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
+        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
+        ON CONFLICT (id) DO UPDATE
+          SET email = EXCLUDED.email,
+              is_admin = EXCLUDED.is_admin,
+              webauthn_user_id = EXCLUDED.webauthn_user_id
+      `;
+
+      // Create a trip and grant viewer access
+      const tripSlug = `uuid-trip-${now}`;
+      const [trip] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${tripSlug}, 'UUID Trip', true)
+        RETURNING id
+      `;
+
+      await db`
+        INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
+        VALUES (${testUserId}, ${trip.id}, 'viewer', ${testUserId})
+      `;
+
+      // Try to access trip by UUID (should fail for non-admin even with access)
+      const authHeader = await getUserAuthHeader(testUserId, testEmail);
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}`, {
+        new Request(`http://localhost/api/trips/${trip.id}`, {
           method: "GET",
           headers: authHeader,
         }),
       );
 
       expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+      expect(data.message).toContain("Admin access required");
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
     });
 
     it("returns 404 for non-existent trip", async () => {

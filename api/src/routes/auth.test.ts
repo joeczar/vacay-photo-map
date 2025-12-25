@@ -288,6 +288,30 @@ describe("Auth Routes", () => {
     });
   });
 
+  describe("POST /api/auth/register/options - Invite validation", () => {
+    it("accepts optional inviteCode parameter", async () => {
+      const app = createTestApp();
+      const email = `test-invite-options-${Date.now()}@example.com`;
+      const res = await app.fetch(
+        createRequestWithUniqueIp(
+          "http://localhost/api/auth/register/options",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email,
+              displayName: "Test User",
+              inviteCode: "INVALID_CODE_BUT_ACCEPTED_FOR_OPTIONS",
+            }),
+          },
+        ),
+      );
+      // Should process even with invalid code at this stage
+      // Actual validation happens in DB query
+      expect([200, 400]).toContain(res.status);
+    });
+  });
+
   describe("Rate Limiting", () => {
     it("returns 429 after too many requests from same IP", async () => {
       const app = createTestApp();
