@@ -189,6 +189,27 @@ describe("Trip Access Routes", () => {
       expect(res.status).toBe(403);
     });
 
+    it("returns 400 for missing required fields", async () => {
+      const app = createTestApp();
+      const auth = await getAdminAuthHeader();
+
+      const res = await app.request("/api/trip-access", {
+        method: "POST",
+        headers: {
+          ...auth,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: testUserId,
+          // missing tripId and role
+        }),
+      });
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("required");
+    });
+
     it("returns 400 for invalid user ID format", async () => {
       const app = createTestApp();
       const auth = await getAdminAuthHeader();
@@ -574,6 +595,25 @@ describe("Trip Access Routes", () => {
       expect(data.message).toContain("Invalid trip access ID format");
     });
 
+    it("returns 400 for missing role field", async () => {
+      const app = createTestApp();
+      const auth = await getAdminAuthHeader();
+      const fakeId = "00000000-0000-4000-a000-000000000999";
+
+      const res = await app.request(`/api/trip-access/${fakeId}`, {
+        method: "PATCH",
+        headers: {
+          ...auth,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("role is required");
+    });
+
     it("returns 400 for invalid role", async () => {
       const app = createTestApp();
       const auth = await getAdminAuthHeader();
@@ -633,8 +673,9 @@ describe("Trip Access Routes", () => {
       });
 
       expect(res.status).toBe(200);
-      const data = (await res.json()) as { success: boolean };
+      const data = (await res.json()) as { success: boolean; message: string };
       expect(data.success).toBe(true);
+      expect(data.message).toBe("Trip access revoked");
 
       // Verify deletion
       const check = await db<{ id: string }[]>`

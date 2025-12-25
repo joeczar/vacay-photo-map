@@ -2,32 +2,13 @@ import { Hono } from "hono";
 import { getDbClient } from "../db/client";
 import { requireAdmin } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
-import type { Role, TripAccessRow } from "../types/rbac";
+import type { TripAccessRow } from "../types/rbac";
 import { toTripAccess } from "../types/rbac";
-
-// =============================================================================
-// Validation Helpers
-// =============================================================================
-
-const UUID_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isValidUUID(id: string): boolean {
-  return UUID_REGEX.test(id);
-}
-
-function isValidRole(role: string): role is Role {
-  return role === "editor" || role === "viewer";
-}
-
-// Check if error is a unique constraint violation
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    "code" in error &&
-    (error as { code: string }).code === "23505"
-  );
-}
+import {
+  isValidUUID,
+  isValidRole,
+  isUniqueViolation,
+} from "../utils/validation";
 
 // =============================================================================
 // Routes
@@ -44,6 +25,17 @@ tripAccess.post("/trip-access", requireAdmin, async (c) => {
     tripId: string;
     role: string;
   }>();
+
+  // Check required fields exist
+  if (!body.userId || !body.tripId || !body.role) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "userId, tripId, and role are required",
+      },
+      400,
+    );
+  }
 
   // Validate userId UUID
   if (!isValidUUID(body.userId)) {
@@ -190,6 +182,11 @@ tripAccess.patch("/trip-access/:id", requireAdmin, async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{ role: string }>();
 
+  // Check required fields exist
+  if (!body.role) {
+    return c.json({ error: "Bad Request", message: "role is required" }, 400);
+  }
+
   // Validate UUID
   if (!isValidUUID(id)) {
     return c.json(
@@ -267,7 +264,7 @@ tripAccess.delete("/trip-access/:id", requireAdmin, async (c) => {
   // Delete the access record
   await db`DELETE FROM trip_access WHERE id = ${id}`;
 
-  return c.json({ success: true });
+  return c.json({ success: true, message: "Trip access revoked" });
 });
 
 // =============================================================================
