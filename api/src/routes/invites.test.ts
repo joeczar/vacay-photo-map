@@ -78,13 +78,18 @@ describe("Invite Routes", () => {
   beforeAll(async () => {
     const db = getDbClient();
 
-    // Create test admin user (required for invite creation foreign key)
+    // Create test admin user with UNIQUE email to avoid conflicts with existing data
     // webauthn_user_id is required NOT NULL - use a test value
     const testWebauthnUserId = `test-webauthn-${TEST_ADMIN_USER_ID}`;
+    const testAdminEmail = `test-admin-invites-${Date.now()}@example.com`;
+
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
-      VALUES (${TEST_ADMIN_USER_ID}, 'admin@example.com', ${testWebauthnUserId}, true)
-      ON CONFLICT (id) DO NOTHING
+      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${testWebauthnUserId}, true)
+      ON CONFLICT (id) DO UPDATE
+        SET email = EXCLUDED.email,
+            is_admin = EXCLUDED.is_admin,
+            webauthn_user_id = EXCLUDED.webauthn_user_id
     `;
 
     const uniqueSlug = `test-trip-for-invites-${Date.now()}`;
