@@ -208,29 +208,22 @@ tripAccess.patch("/trip-access/:id", requireAdmin, async (c) => {
 
   const db = getDbClient();
 
-  // Check if record exists
-  const accessCheck = await db<TripAccessRow[]>`
-    SELECT id FROM trip_access WHERE id = ${id}
-  `;
-
-  if (accessCheck.length === 0) {
-    return c.json(
-      { error: "Not Found", message: "Trip access record not found" },
-      404,
-    );
-  }
-
-  // Update role
-  const [row] = await db<TripAccessRow[]>`
+  // Update role - RETURNING will be empty if record doesn't exist
+  const rows = await db<TripAccessRow[]>`
     UPDATE trip_access
     SET role = ${body.role}
     WHERE id = ${id}
     RETURNING id, user_id, trip_id, role, granted_at, granted_by_user_id
   `;
 
-  const tripAccessData = toTripAccess(row);
+  if (rows.length === 0) {
+    return c.json(
+      { error: "Not Found", message: "Trip access record not found" },
+      404,
+    );
+  }
 
-  return c.json({ tripAccess: tripAccessData });
+  return c.json({ tripAccess: toTripAccess(rows[0]) });
 });
 
 // =============================================================================
@@ -249,20 +242,17 @@ tripAccess.delete("/trip-access/:id", requireAdmin, async (c) => {
 
   const db = getDbClient();
 
-  // Check if record exists before deleting
-  const accessCheck = await db<TripAccessRow[]>`
-    SELECT id FROM trip_access WHERE id = ${id}
+  // Delete and check if record existed - RETURNING will be empty if not found
+  const deleted = await db<{ id: string }[]>`
+    DELETE FROM trip_access WHERE id = ${id} RETURNING id
   `;
 
-  if (accessCheck.length === 0) {
+  if (deleted.length === 0) {
     return c.json(
       { error: "Not Found", message: "Trip access record not found" },
       404,
     );
   }
-
-  // Delete the access record
-  await db`DELETE FROM trip_access WHERE id = ${id}`;
 
   return c.json({ success: true, message: "Trip access revoked" });
 });
