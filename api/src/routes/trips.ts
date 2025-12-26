@@ -433,6 +433,52 @@ trips.get("/:identifier", requireAuth, async (c) => {
 });
 
 // =============================================================================
+// GET /api/trips/slug/:slug - Get trip by slug
+// =============================================================================
+/**
+ * Get trip by slug. Requires authentication and trip access.
+ * Non-admin users must have a trip_access entry. Admins bypass access checks.
+ */
+trips.get("/slug/:slug", requireAuth, async (c) => {
+  const slug = c.req.param("slug");
+  const user = c.var.user!;
+  const db = getDbClient();
+
+  // Find trip by slug
+  const tripResults = await db<DbTrip[]>`
+    SELECT id, slug, title, description, cover_photo_url, is_public,
+           access_token_hash, created_at, updated_at
+    FROM trips
+    WHERE slug = ${slug}
+  `;
+
+  if (tripResults.length === 0) {
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
+  }
+
+  const trip = tripResults[0];
+
+  // Check access for non-admin users
+  if (!user.isAdmin) {
+    const accessCheck = await db<{ role: string }[]>`
+      SELECT role FROM trip_access
+      WHERE user_id = ${user.id} AND trip_id = ${trip.id}
+    `;
+
+    if (accessCheck.length === 0) {
+      return c.json(
+        { error: "Forbidden", message: "Access denied to this trip" },
+        403,
+      );
+    }
+  }
+
+  // Build response with photos and metadata
+  const response = await buildTripWithPhotosResponse(trip, db);
+  return c.json(response);
+});
+
+// =============================================================================
 // POST /api/trips - Create trip (admin only)
 // =============================================================================
 trips.post("/", requireAdmin, async (c) => {
