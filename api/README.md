@@ -25,7 +25,7 @@ Self-hosted Bun + Hono API server for Vacay Photo Map with WebAuthn authenticati
 bun install
 
 # 2. Start Postgres
-docker compose up -d postgres
+docker compose -p vacay-dev up -d postgres
 
 # 3. Configure environment
 cp .env.example .env
@@ -77,19 +77,19 @@ openssl rand -hex 32
 
 ```bash
 # Start Postgres
-docker compose up -d postgres
+docker compose -p vacay-dev up -d postgres
 
 # Check status
-docker compose ps
+docker compose -p vacay-dev ps
 
 # View logs
-docker compose logs postgres
+docker compose -p vacay-dev logs postgres
 
 # Stop (keeps data)
-docker compose down
+docker compose -p vacay-dev down
 
 # Stop and delete data
-docker compose down -v
+docker compose -p vacay-dev down -v
 ```
 
 Default connection: `postgresql://vacay:vacay@localhost:5432/vacay`
@@ -368,13 +368,13 @@ The API automatically detects R2 availability and falls back to local storage.
 
 ```bash
 # Check if Postgres is running
-docker compose ps
+docker compose -p vacay-dev ps
 
 # Check logs
-docker compose logs postgres
+docker compose -p vacay-dev logs postgres
 
 # Restart
-docker compose restart postgres
+docker compose -p vacay-dev restart postgres
 ```
 
 ### Migration fails
@@ -384,7 +384,7 @@ docker compose restart postgres
 echo $DATABASE_URL
 
 # Test connection
-docker compose exec postgres psql -U vacay -c "SELECT 1"
+docker compose -p vacay-dev exec postgres psql -U vacay -c "SELECT 1"
 ```
 
 ### Seed fails with password error
