@@ -134,7 +134,7 @@ Set up multiple notification channels to ensure you're alerted promptly:
 
 For each monitor, configure:
 
-- **Alert Threshold**: Down for 1 minute (2 consecutive failures on 5-min interval)
+- **Alert Threshold**: Alert after 2 consecutive failures
 - **Retry Interval**: 1 minute (retry after initial failure)
 - **Alert Delay**: 0 minutes (alert immediately after threshold)
 - **Ignore SSL Errors**: Disabled (catch certificate issues)
@@ -372,9 +372,8 @@ Configure different notification channels:
 # 2. Or pause UptimeRobot monitors
 # (via UI: Select monitors > Actions > Pause)
 
-# 3. Deploy
-docker compose -f docker-compose.prod.yml down
-docker compose -f docker-compose.prod.yml up -d
+# 3. Deploy (rolling update - only recreates changed services)
+docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
 # 4. Verify health
 curl https://photos.joeczar.com/api/health
@@ -561,7 +560,7 @@ docker exec vacay-api env | grep DATABASE_URL
 **Common Fixes**:
 - Restart API to reset connection pool: `docker restart vacay-api`
 - Check database credentials in `.env.production`
-- Verify network connectivity: `docker network inspect vacay-photo-map_default`
+- Verify network connectivity: `docker network inspect proxy` (for API/frontend) or `docker network inspect vacay-photo-map_internal` (for database)
 
 ### High Response Times
 
@@ -575,7 +574,9 @@ time curl https://photos.joeczar.com/api/health
 # 2. Check container resource usage
 docker stats vacay-api postgres
 
-# 3. Check database query performance
+# 3. Check database query performance (requires pg_stat_statements extension)
+# Note: This extension is not enabled by default. To enable:
+#   docker exec -it vacay-postgres psql -U vacay -d vacay -c "CREATE EXTENSION IF NOT EXISTS pg_stat_statements;"
 docker exec -it vacay-postgres psql -U vacay -d vacay \
   -c "SELECT query, mean_exec_time FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;"
 
