@@ -174,7 +174,7 @@ describe("Trip Routes", () => {
     it("returns 401 without authentication", async () => {
       const app = createTestApp();
       const res = await app.fetch(
-        new Request("http://localhost/api/trips/some-trip-slug", {
+        new Request("http://localhost/api/trips/slug/some-trip-slug", {
           method: "GET",
         }),
       );
@@ -187,7 +187,7 @@ describe("Trip Routes", () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request("http://localhost/api/trips/non-existent-trip-slug", {
+        new Request("http://localhost/api/trips/slug/non-existent-trip-slug", {
           method: "GET",
           headers: authHeader,
         }),
@@ -227,7 +227,7 @@ describe("Trip Routes", () => {
       // Request trip as non-admin user without access
       const authHeader = await getUserAuthHeader(testUserId, testEmail);
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${tripSlug}`, {
+        new Request(`http://localhost/api/trips/slug/${tripSlug}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -278,7 +278,7 @@ describe("Trip Routes", () => {
       // Request trip as non-admin user with viewer access
       const authHeader = await getUserAuthHeader(testUserId, testEmail);
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${tripSlug}`, {
+        new Request(`http://localhost/api/trips/slug/${tripSlug}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -310,7 +310,7 @@ describe("Trip Routes", () => {
       // Request trip as admin user (no explicit access needed)
       const authHeader = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${tripSlug}`, {
+        new Request(`http://localhost/api/trips/slug/${tripSlug}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -416,6 +416,24 @@ describe("Trip Routes", () => {
       const data = (await res.json()) as ErrorResponse;
       expect(data.message).toContain("Invalid cover photo URL");
     });
+
+    it("returns 400 for UUID-like slug", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            slug: "550e8400-e29b-41d4-a716-446655440000",
+            title: "Test Trip",
+          }),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("UUID format");
+    });
   });
 
   // ==========================================================================
@@ -477,6 +495,38 @@ describe("Trip Routes", () => {
       // Will be 404 since trip doesn't exist, or 400 for no fields
       // In this case, it checks for trip existence first
       expect([400, 404]).toContain(res.status);
+    });
+
+    it("returns 400 for UUID-like slug in update", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create a test trip
+      const originalSlug = "test-patch-uuid-slug-" + Date.now();
+      const [trip] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${originalSlug}, 'Test Trip', true)
+        RETURNING id
+      `;
+
+      // Try to update slug to UUID-like value
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${trip.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            slug: "550e8400-e29b-41d4-a716-446655440000",
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("UUID format");
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
     });
   });
 
@@ -782,7 +832,7 @@ describe("Trip Routes", () => {
 
       // Fetch trip by UUID
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${trip.id}`, {
+        new Request(`http://localhost/api/trips/id/${trip.id}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -840,7 +890,7 @@ describe("Trip Routes", () => {
       // Try to access trip by UUID (should fail for non-admin even with access)
       const authHeader = await getUserAuthHeader(testUserId, testEmail);
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${trip.id}`, {
+        new Request(`http://localhost/api/trips/id/${trip.id}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -862,7 +912,7 @@ describe("Trip Routes", () => {
       const validUuid = "550e8400-e29b-41d4-a716-446655440000";
 
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}`, {
+        new Request(`http://localhost/api/trips/id/${validUuid}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -871,6 +921,22 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(404);
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Not Found");
+    });
+
+    it("returns 400 for invalid UUID format", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/id/not-a-uuid", {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("Invalid trip ID format");
     });
   });
 

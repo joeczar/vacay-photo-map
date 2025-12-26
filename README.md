@@ -97,9 +97,10 @@ cp api/.env.example api/.env
 
 #### Frontend Configuration (`app/.env`)
 
+**Local Development:**
 ```env
 # API Backend
-VITE_API_URL=http://localhost:3000
+VITE_API_URL=http://localhost:4000
 
 # Application Configuration
 VITE_APP_URL=http://localhost:5173
@@ -109,9 +110,22 @@ VITE_WEBAUTHN_RP_NAME="Vacay Photo Map"
 VITE_WEBAUTHN_RP_ID=localhost
 ```
 
+**Dev Tunnel (Mobile/WebAuthn Testing):**
+```env
+# API Backend
+VITE_API_URL=https://photos-dev-api.joeczar.com
+
+# Application Configuration
+VITE_APP_URL=https://photos-dev.joeczar.com
+
+# WebAuthn Configuration
+VITE_WEBAUTHN_RP_NAME="Vacay Photo Map"
+VITE_WEBAUTHN_RP_ID=photos-dev.joeczar.com
+```
+
 #### API Configuration (`api/.env`)
 
-**Required:**
+**Local Development:**
 ```env
 # Database (local Docker Compose default)
 DATABASE_URL=postgresql://vacay:vacay@localhost:5433/vacay
@@ -127,6 +141,24 @@ RP_ORIGIN=http://localhost:5173
 
 # Frontend URL (for CORS)
 FRONTEND_URL=http://localhost:5173
+```
+
+**Dev Tunnel (Mobile/WebAuthn Testing):**
+```env
+# Database (same as local dev)
+DATABASE_URL=postgresql://vacay:vacay@localhost:5433/vacay
+
+# JWT Configuration
+JWT_SECRET=<generate with: openssl rand -hex 32>
+JWT_EXPIRATION=1h
+
+# WebAuthn Configuration (must match frontend)
+RP_ID=photos-dev.joeczar.com
+RP_NAME=Vacay Photo Map
+RP_ORIGIN=https://photos-dev.joeczar.com
+
+# Frontend URL (for CORS)
+FRONTEND_URL=https://photos-dev.joeczar.com
 ```
 
 **Optional (Cloudflare R2):**
@@ -147,19 +179,24 @@ For complete environment variable documentation, see [api/README.md](./api/READM
 Using Docker Compose (recommended):
 
 ```bash
-docker compose up -d postgres
+docker compose -p vacay-dev up -d postgres
 ```
 
 This starts PostgreSQL 15 with the default credentials from `.env.example`.
 
-**Note:** Development database runs on port 5433 (not the default 5432) to avoid conflicts with existing PostgreSQL installations. Production uses the standard port 5432.
+**Important:** Always use the `-p vacay-dev` project name to avoid conflicts with production Docker Compose stacks.
+
+**Port Configuration:**
+- Development database: `localhost:5433` (avoids conflicts with existing PostgreSQL installations)
+- Production database: `5432` (standard PostgreSQL port)
+- API development server: `localhost:4000` (avoids conflicts with production API on port 3000)
 
 **Custom configuration:** Copy `.env.docker.example` to `.env.docker` and run:
 ```bash
-docker compose --env-file .env.docker up -d postgres
+docker compose -p vacay-dev --env-file .env.docker up -d postgres
 ```
 
-> **Warning:** Postgres credentials are set at first volume creation. To change credentials, you must delete the volume: `docker compose down -v` (this deletes all data).
+> **Warning:** Postgres credentials are set at first volume creation. To change credentials, you must delete the volume: `docker compose -p vacay-dev down -v` (this deletes all data).
 
 ### 5. Initialize the Database
 
@@ -187,18 +224,33 @@ If R2 is not configured, photos will be stored locally.
 
 ### 7. Run the Development Servers
 
-**Option 1: Run both frontend and API:**
+**Option 1: Local Development (default):**
 ```bash
 pnpm dev         # Frontend (localhost:5173)
-pnpm dev:api     # API (localhost:3000) - in separate terminal
+pnpm dev:api     # API (localhost:4000) - in separate terminal
 ```
 
-**Option 2: Run everything with Docker:**
+Access the app at `http://localhost:5173`
+
+**Option 2: Dev Tunnel (Mobile/WebAuthn Testing):**
+```bash
+# Same commands, but access via public URLs
+pnpm dev         # Frontend
+pnpm dev:api     # API
+```
+
+Access the app at `https://photos-dev.joeczar.com` (requires Cloudflare Tunnel setup)
+
+**Benefits of dev tunnel:**
+- Test WebAuthn/passkeys on real mobile devices
+- Test on different networks
+- Share preview with others
+- Same development database as local mode
+
+**Option 3: Run everything with Docker:**
 ```bash
 pnpm dev:docker  # Starts Postgres, frontend, and API
 ```
-
-The app will be available at `http://localhost:5173`
 
 ## Available Scripts
 

@@ -20,6 +20,63 @@ Server (Surface Book 2)
        └── Cloudflare Tunnel → Internet
 ```
 
+## Environment Overview
+
+This project supports multiple environments. Each uses separate resources to prevent data conflicts.
+
+| Environment | Compose File | Database | Network | Use Case |
+|-------------|--------------|----------|---------|----------|
+| **Production** | `docker-compose.prod.yml` | `vacay-postgres` (internal) | `internal` + `proxy` | Live app via ghcr.io images |
+| **Development** | `docker-compose.dev.yml` | `vacay-postgres-dev:5433` | `default` | Hot-reload API from source |
+| **Testing** | N/A (uses dev DB) | `vacay-postgres-dev:5433` | `default` | `pnpm test` |
+| **CI** | GitHub Actions | Service container | N/A | Automated tests on PR |
+
+### Running Environments
+
+```bash
+# Production (full stack from ghcr.io)
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+
+# Development (hot-reload API + dev postgres)
+docker compose -f docker-compose.dev.yml up -d
+
+# Dev postgres only (for local `pnpm dev` or tests)
+docker compose up -d postgres
+
+# Run tests (requires dev postgres on port 5433)
+cd api && bun test
+```
+
+### Running Prod and Dev Simultaneously
+
+You can run both on the same machine:
+- **Prod postgres** runs on `internal` network (not exposed to host)
+- **Dev postgres** runs on port 5433 (exposed to host)
+- Different networks prevent cross-contamination
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Same Machine                             │
+├─────────────────────────────┬───────────────────────────────┤
+│ PRODUCTION                  │ DEVELOPMENT                   │
+│ (internal network)          │ (default network)             │
+├─────────────────────────────┼───────────────────────────────┤
+│ vacay-postgres (5432)       │ vacay-postgres-dev (5433)     │
+│ vacay-api                   │ vacay-api-dev (hot reload)    │
+│ vacay-frontend              │ localhost:5173 (vite)         │
+│ watchtower                  │                               │
+└─────────────────────────────┴───────────────────────────────┘
+```
+
+### Common Issues
+
+**API returns 500 / DNS error:**
+- Cause: Mixing prod API with dev postgres (different networks)
+- Fix: Start the full prod stack including `vacay-postgres`
+
+**Port conflict on 5432:**
+- Dev postgres uses port 5433 to avoid conflicts with any system postgres
+
 ## Prerequisites
 
 - Docker and Docker Compose installed

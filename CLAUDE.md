@@ -25,6 +25,30 @@ Try TDD if you have a difficult feature
 
 Run from root: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm type-check`
 
+### Development Modes
+
+**Local development (default):**
+```bash
+docker compose -p vacay-dev up -d postgres  # Start local database
+pnpm dev       # Frontend at localhost:5173
+pnpm dev:api   # API at localhost:4000
+```
+
+**Dev tunnel (mobile/WebAuthn testing):**
+```bash
+# Cloudflare Tunnel provides public HTTPS URLs for testing on real devices
+# Frontend: https://photos-dev.joeczar.com → localhost:5173
+# API: https://photos-dev-api.joeczar.com → localhost:4000
+
+docker compose -p vacay-dev up -d postgres  # Start local database
+pnpm dev       # Frontend
+pnpm dev:api   # API
+
+# Navigate to https://photos-dev.joeczar.com for mobile testing
+```
+
+**Note:** Dev tunnel requires Cloudflare Tunnel configured on server. Environment files (`app/.env`, `api/.env`) are already configured for this setup.
+
 ### Remote Development (Tailscale + Prod DB)
 
 Develop locally against production database without touching your local `.env`:
@@ -51,10 +75,18 @@ pnpm dev:prod  # Uses api/.env.prod automatically
 
 **Port Configuration:**
 - Local dev database: `localhost:5433` (avoids conflicts with existing PostgreSQL)
+- Dev API server: `localhost:4000` (avoids conflicts with production API on 3000)
 - Production database: `5432` (standard PostgreSQL port)
-- Both can run simultaneously without interference
+- All can run simultaneously without interference
 
-**First user registration:** Navigate to localhost:5173/register - first user becomes admin.
+**Database project naming:**
+```bash
+# CRITICAL: Use project name to avoid conflicts with production docker compose
+docker compose -p vacay-dev up -d postgres  # Development database
+docker compose -p vacay-prod up -d postgres # Production database (different project)
+```
+
+**First user registration:** Navigate to localhost:5173/register (or https://photos-dev.joeczar.com/register for dev tunnel) - first user becomes admin.
 
 ## Git Workflow
 
@@ -104,13 +136,22 @@ Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn au
 ## Environment Variables
 
 **App (`app/.env`):**
-- `VITE_API_URL` - API endpoint (http://localhost:3000 for dev)
+- `VITE_API_URL` - API endpoint
+  - Local dev: `http://localhost:4000`
+  - Dev tunnel: `https://photos-dev-api.joeczar.com`
 - `VITE_APP_URL` - Frontend URL for redirects
+  - Local dev: `http://localhost:5173`
+  - Dev tunnel: `https://photos-dev.joeczar.com`
 - `VITE_WEBAUTHN_RP_NAME` - Display name for passkeys
-- `VITE_WEBAUTHN_RP_ID` - Domain for WebAuthn (localhost for dev)
+- `VITE_WEBAUTHN_RP_ID` - Domain for WebAuthn
+  - Local dev: `localhost`
+  - Dev tunnel: `photos-dev.joeczar.com`
 
 **API (`api/.env`):**
 - Required: `DATABASE_URL`, `JWT_SECRET`, `RP_ID`, `RP_NAME`, `RP_ORIGIN`, `FRONTEND_URL`
+  - `RP_ID` matches `VITE_WEBAUTHN_RP_ID` (localhost or photos-dev.joeczar.com)
+  - `RP_ORIGIN` matches `VITE_APP_URL`
+  - `FRONTEND_URL` matches `VITE_APP_URL`
 - Optional: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
 - See `api/.env.example` for full list
 

@@ -96,6 +96,15 @@ function isValidSlug(slug: string): boolean {
   );
 }
 
+/**
+ * Check if a string looks like a UUID to prevent routing collisions.
+ * Even though we now have separate endpoints, we still want to prevent
+ * confusing slug names.
+ */
+function looksLikeUuid(str: string): boolean {
+  return UUID_REGEX.test(str);
+}
+
 function isValidTitle(title: string): boolean {
   return title.trim().length > 0 && title.length <= MAX_TITLE_LENGTH;
 }
@@ -351,52 +360,16 @@ trips.get("/admin", requireAdmin, async (c) => {
 });
 
 // =============================================================================
-// GET /api/trips/:identifier - Get trip by UUID or slug
+// GET /api/trips/slug/:slug - Get trip by slug
 // =============================================================================
-// This route handles both:
-// - UUID (admin only): GET /api/trips/550e8400-e29b-41d4-a716-446655440000
-// - Slug (with trip_access check): GET /api/trips/my-trip-slug
-//
-// If the identifier is a valid UUID, treat it as an ID and require admin auth.
-// Otherwise, treat it as a slug and check trip_access for non-admin users.
-trips.get("/:identifier", requireAuth, async (c) => {
-  const identifier = c.req.param("identifier");
+/**
+ * Get trip by slug. Requires authentication and trip access.
+ * Non-admin users must have a trip_access entry. Admins bypass access checks.
+ */
+trips.get("/slug/:slug", requireAuth, async (c) => {
+  const slug = c.req.param("slug");
   const user = c.var.user!;
   const db = getDbClient();
-
-  // Check if identifier is a UUID
-  const isUuid = UUID_REGEX.test(identifier);
-
-  if (isUuid) {
-    // UUID path - admin only
-    if (!user.isAdmin) {
-      return c.json(
-        { error: "Forbidden", message: "Admin access required" },
-        403,
-      );
-    }
-
-    // Find trip by UUID
-    const tripResults = await db<DbTrip[]>`
-      SELECT id, slug, title, description, cover_photo_url, is_public,
-             access_token_hash, created_at, updated_at
-      FROM trips
-      WHERE id = ${identifier}
-    `;
-
-    if (tripResults.length === 0) {
-      return c.json({ error: "Not Found", message: "Trip not found" }, 404);
-    }
-
-    const trip = tripResults[0];
-
-    // Build response with photos and metadata
-    const response = await buildTripWithPhotosResponse(trip, db);
-    return c.json(response);
-  }
-
-  // Slug path - check trip_access for non-admin users
-  const slug = identifier;
 
   // Find trip by slug
   const tripResults = await db<DbTrip[]>`
@@ -433,6 +406,43 @@ trips.get("/:identifier", requireAuth, async (c) => {
 });
 
 // =============================================================================
+// GET /api/trips/id/:id - Get trip by UUID (admin only)
+// =============================================================================
+/**
+ * Get trip by UUID. Admin-only endpoint for internal operations.
+ */
+trips.get("/id/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const db = getDbClient();
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid trip ID format." },
+      400,
+    );
+  }
+
+  // Find trip by UUID
+  const tripResults = await db<DbTrip[]>`
+    SELECT id, slug, title, description, cover_photo_url, is_public,
+           access_token_hash, created_at, updated_at
+    FROM trips
+    WHERE id = ${id}
+  `;
+
+  if (tripResults.length === 0) {
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
+  }
+
+  const trip = tripResults[0];
+
+  // Build response with photos and metadata
+  const response = await buildTripWithPhotosResponse(trip, db);
+  return c.json(response);
+});
+
+// =============================================================================
 // POST /api/trips - Create trip (admin only)
 // =============================================================================
 trips.post("/", requireAdmin, async (c) => {
@@ -453,6 +463,18 @@ trips.post("/", requireAdmin, async (c) => {
         error: "Bad Request",
         message:
           "Invalid slug format. Use lowercase letters, numbers, and hyphens only.",
+      },
+      400,
+    );
+  }
+
+  // Prevent UUID-like slugs
+  if (looksLikeUuid(slug)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Slug cannot be in UUID format. Please choose a different slug.",
       },
       400,
     );
@@ -543,6 +565,18 @@ trips.patch("/:id", requireAdmin, async (c) => {
         error: "Bad Request",
         message:
           "Invalid slug format. Use lowercase letters, numbers, and hyphens only.",
+      },
+      400,
+    );
+  }
+
+  // Prevent UUID-like slugs
+  if (slug !== undefined && looksLikeUuid(slug)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Slug cannot be in UUID format. Please choose a different slug.",
       },
       400,
     );
