@@ -96,6 +96,15 @@ function isValidSlug(slug: string): boolean {
   );
 }
 
+/**
+ * Check if a string looks like a UUID to prevent routing collisions.
+ * Even though we now have separate endpoints, we still want to prevent
+ * confusing slug names.
+ */
+function looksLikeUuid(str: string): boolean {
+  return UUID_REGEX.test(str);
+}
+
 function isValidTitle(title: string): boolean {
   return title.trim().length > 0 && title.length <= MAX_TITLE_LENGTH;
 }
@@ -541,6 +550,18 @@ trips.post("/", requireAdmin, async (c) => {
     );
   }
 
+  // Prevent UUID-like slugs
+  if (looksLikeUuid(slug)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Slug cannot be in UUID format. Please choose a different slug.",
+      },
+      400,
+    );
+  }
+
   if (!title || !isValidTitle(title)) {
     return c.json(
       {
@@ -626,6 +647,18 @@ trips.patch("/:id", requireAdmin, async (c) => {
         error: "Bad Request",
         message:
           "Invalid slug format. Use lowercase letters, numbers, and hyphens only.",
+      },
+      400,
+    );
+  }
+
+  // Prevent UUID-like slugs
+  if (slug !== undefined && looksLikeUuid(slug)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Slug cannot be in UUID format. Please choose a different slug.",
       },
       400,
     );
