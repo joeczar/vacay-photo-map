@@ -164,7 +164,7 @@ Uptime Kuma is already configured in `docker-compose.prod.yml`:
 cd /path/to/vacay-photo-map
 
 # Start Uptime Kuma service
-docker compose -f docker-compose.prod.yml up -d uptime-kuma
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d uptime-kuma
 
 # Verify it's running
 docker ps | grep uptime-kuma
@@ -380,7 +380,7 @@ Configure different notification channels:
 # (via UI: Select monitors > Actions > Pause)
 
 # 3. Deploy (rolling update - only recreates changed services)
-docker compose -f docker-compose.prod.yml up -d --remove-orphans
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d --remove-orphans
 
 # 4. Verify health
 curl https://photos.joeczar.com/health
@@ -455,7 +455,7 @@ sudo systemctl stop docker
 
 # Restore
 sudo systemctl start docker
-docker compose -f docker-compose.prod.yml up -d
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d
 ```
 
 ### Failure Scenarios Reference

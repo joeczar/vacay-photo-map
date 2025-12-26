@@ -35,13 +35,13 @@ This project supports multiple environments. Each uses separate resources to pre
 
 ```bash
 # Production (full stack from ghcr.io)
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+docker compose -p vacay-prod -f docker-compose.prod.yml --env-file .env.production up -d
 
 # Development (hot-reload API + dev postgres)
-docker compose -f docker-compose.dev.yml up -d
+docker compose -p vacay-dev -f docker-compose.dev.yml up -d
 
 # Dev postgres only (for local `pnpm dev` or tests)
-docker compose up -d postgres
+docker compose -p vacay-dev up -d postgres
 
 # Run tests (requires dev postgres on port 5433)
 cd api && bun test
@@ -155,14 +155,14 @@ docker network create proxy
 ### 6. Start Services
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+docker compose -p vacay-prod -f docker-compose.prod.yml --env-file .env.production up -d
 ```
 
 ### 7. Verify Deployment
 
 ```bash
 # Check container status
-docker compose -f docker-compose.prod.yml ps
+docker compose -p vacay-prod -f docker-compose.prod.yml ps
 
 # Check API health
 curl http://localhost:3000/health
@@ -174,7 +174,7 @@ curl http://localhost:3000/health/ready
 curl http://localhost:80/health
 
 # View logs
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose -p vacay-prod -f docker-compose.prod.yml logs -f api
 ```
 
 ## How Deployments Work
@@ -197,16 +197,16 @@ If you need to deploy immediately without waiting for Watchtower:
 
 ```bash
 # Pull latest API image
-docker compose -f docker-compose.prod.yml pull api
+docker compose -p vacay-prod -f docker-compose.prod.yml pull api
 
 # Restart API with new image
-docker compose -f docker-compose.prod.yml up -d api
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d api
 
 # Pull latest frontend image
-docker compose -f docker-compose.prod.yml pull frontend
+docker compose -p vacay-prod -f docker-compose.prod.yml pull frontend
 
 # Restart frontend with new image
-docker compose -f docker-compose.prod.yml up -d frontend
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d frontend
 ```
 
 ## Monitoring
@@ -220,38 +220,38 @@ docker compose -f docker-compose.prod.yml up -d frontend
 
 ```bash
 # All services
-docker compose -f docker-compose.prod.yml logs -f
+docker compose -p vacay-prod -f docker-compose.prod.yml logs -f
 
 # API only
-docker compose -f docker-compose.prod.yml logs -f api
+docker compose -p vacay-prod -f docker-compose.prod.yml logs -f api
 
 # Watchtower (deployment logs)
-docker compose -f docker-compose.prod.yml logs -f watchtower
+docker compose -p vacay-prod -f docker-compose.prod.yml logs -f watchtower
 ```
 
 ### Container Status
 
 ```bash
-docker compose -f docker-compose.prod.yml ps
+docker compose -p vacay-prod -f docker-compose.prod.yml ps
 ```
 
 ## Troubleshooting
 
 ### API Won't Start
 
-1. Check logs: `docker compose -f docker-compose.prod.yml logs api`
-2. Verify database is healthy: `docker compose -f docker-compose.prod.yml ps postgres`
+1. Check logs: `docker compose -p vacay-prod -f docker-compose.prod.yml logs api`
+2. Verify database is healthy: `docker compose -p vacay-prod -f docker-compose.prod.yml ps postgres`
 3. Check environment file exists: `ls -la api/.env.production`
 
 ### Watchtower Not Pulling New Images
 
-1. Check Watchtower logs: `docker compose -f docker-compose.prod.yml logs watchtower`
+1. Check Watchtower logs: `docker compose -p vacay-prod -f docker-compose.prod.yml logs watchtower`
 2. Verify ghcr.io authentication: `docker pull ghcr.io/joeczar/vacay-photo-map/api:latest`
 3. If auth fails, re-run: `echo PAT | docker login ghcr.io -u USERNAME --password-stdin`
 
 ### Database Connection Failed
 
-1. Check PostgreSQL is running: `docker compose -f docker-compose.prod.yml ps postgres`
+1. Check PostgreSQL is running: `docker compose -p vacay-prod -f docker-compose.prod.yml ps postgres`
 2. Verify DATABASE_URL in `api/.env.production`
 3. Check password matches in `.env.production` (POSTGRES_PASSWORD)
 
@@ -272,12 +272,12 @@ To rollback to a previous version:
 # Rollback API
 docker pull ghcr.io/joeczar/vacay-photo-map/api:COMMIT_SHA
 docker tag ghcr.io/joeczar/vacay-photo-map/api:COMMIT_SHA ghcr.io/joeczar/vacay-photo-map/api:latest
-docker compose -f docker-compose.prod.yml up -d api
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d api
 
 # Rollback Frontend
 docker pull ghcr.io/joeczar/vacay-photo-map/frontend:COMMIT_SHA
 docker tag ghcr.io/joeczar/vacay-photo-map/frontend:COMMIT_SHA ghcr.io/joeczar/vacay-photo-map/frontend:latest
-docker compose -f docker-compose.prod.yml up -d frontend
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d frontend
 ```
 
 ## Security Notes
