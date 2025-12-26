@@ -479,6 +479,43 @@ trips.get("/slug/:slug", requireAuth, async (c) => {
 });
 
 // =============================================================================
+// GET /api/trips/id/:id - Get trip by UUID (admin only)
+// =============================================================================
+/**
+ * Get trip by UUID. Admin-only endpoint for internal operations.
+ */
+trips.get("/id/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const db = getDbClient();
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid trip ID format." },
+      400,
+    );
+  }
+
+  // Find trip by UUID
+  const tripResults = await db<DbTrip[]>`
+    SELECT id, slug, title, description, cover_photo_url, is_public,
+           access_token_hash, created_at, updated_at
+    FROM trips
+    WHERE id = ${id}
+  `;
+
+  if (tripResults.length === 0) {
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
+  }
+
+  const trip = tripResults[0];
+
+  // Build response with photos and metadata
+  const response = await buildTripWithPhotosResponse(trip, db);
+  return c.json(response);
+});
+
+// =============================================================================
 // POST /api/trips - Create trip (admin only)
 // =============================================================================
 trips.post("/", requireAdmin, async (c) => {
