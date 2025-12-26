@@ -181,7 +181,7 @@ export async function getTripBySlug(
   token?: string
 ): Promise<(ApiTrip & { photos: Photo[] }) | null> {
   try {
-    const path = token ? `/api/trips/${slug}?token=${token}` : `/api/trips/${slug}`
+    const path = token ? `/api/trips/slug/${slug}?token=${token}` : `/api/trips/slug/${slug}`
     const trip = await api.get<ApiTripWithPhotosResponse>(path)
     return transformApiTripWithPhotos(trip)
   } catch (error) {
@@ -282,7 +282,7 @@ export async function getTripById(tripId: string): Promise<(ApiTrip & { photos: 
   api.setToken(token)
 
   try {
-    const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/${tripId}`)
+    const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/id/${tripId}`)
     return transformApiTripWithPhotos(trip)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
