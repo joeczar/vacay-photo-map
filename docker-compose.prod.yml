@@ -68,6 +68,15 @@ services:
     networks:
       - internal
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - uptime-kuma-data:/app/data
+    networks:
+      - proxy
+
 networks:
   proxy:
     external: true
@@ -76,3 +85,4 @@ networks:
 
 volumes:
   postgres_data:
+  uptime-kuma-data:
