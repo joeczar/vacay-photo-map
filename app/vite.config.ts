@@ -51,7 +51,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true
+    host: true,
+    allowedHosts: ['photos-dev.joeczar.com', 'localhost', '127.0.0.1']
   },
   build: {
     outDir: 'dist',

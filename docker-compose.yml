@@ -1,3 +1,18 @@
+# =============================================================================
+# Development Database Only
+# =============================================================================
+# This file provides the dev/test postgres database on port 5433.
+# For production, use: docker-compose.prod.yml
+# For hot-reload API dev, use: docker-compose.dev.yml
+#
+# CRITICAL: Always use -p vacay-dev to avoid conflicts with production
+#
+# Usage:
+#   docker compose -p vacay-dev up -d postgres     # Start dev DB only
+#   docker compose -p vacay-dev down               # Stop dev DB
+#   docker compose -p vacay-dev down -v            # Stop and delete volume
+# =============================================================================
+
 services:
   postgres:
     image: postgres:15-alpine
