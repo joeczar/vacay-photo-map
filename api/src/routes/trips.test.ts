@@ -496,6 +496,38 @@ describe("Trip Routes", () => {
       // In this case, it checks for trip existence first
       expect([400, 404]).toContain(res.status);
     });
+
+    it("returns 400 for UUID-like slug in update", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create a test trip
+      const originalSlug = "test-patch-uuid-slug-" + Date.now();
+      const [trip] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${originalSlug}, 'Test Trip', true)
+        RETURNING id
+      `;
+
+      // Try to update slug to UUID-like value
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${trip.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            slug: "550e8400-e29b-41d4-a716-446655440000",
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("UUID format");
+
+      // Cleanup
+      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+    });
   });
 
   // ==========================================================================
@@ -889,6 +921,22 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(404);
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Not Found");
+    });
+
+    it("returns 400 for invalid UUID format", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/id/not-a-uuid", {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("Invalid trip ID format");
     });
   });
 
