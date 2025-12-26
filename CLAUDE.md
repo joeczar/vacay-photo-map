@@ -88,6 +88,21 @@ docker compose -p vacay-prod up -d postgres # Production database (different pro
 
 **First user registration:** Navigate to localhost:5173/register (or https://photos-dev.joeczar.com/register for dev tunnel) - first user becomes admin.
 
+### Dev Server Management
+
+Claude Code hooks automatically manage dev server lifecycle:
+
+- **SessionStart**: Ensures postgres is running
+- **Stop**: Cleans up orphaned vite/bun processes on exit
+
+**Manual commands:**
+```bash
+.claude/hooks/check-dev-status.sh  # Check what's running
+.claude/hooks/cleanup-dev.sh       # Force cleanup orphaned processes
+```
+
+The `dev-server` skill (`.claude/skills/dev-server/`) provides Claude with commands for starting, stopping, and troubleshooting dev servers.
+
 ## Git Workflow
 
 - Branch: `feature/issue-{number}-{description}`
