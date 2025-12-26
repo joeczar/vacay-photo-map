@@ -17,11 +17,12 @@ Manages the three dev services: PostgreSQL, Frontend (Vite), and API (Bun/Hono).
 
 ### Start All Services
 ```bash
-# Start postgres first
-docker compose -p vacay-dev up -d postgres
+# Start postgres first (use the hook for proper wait)
+.claude/hooks/start-dev.sh
 
-# Wait for postgres
-sleep 2
+# Or manually:
+docker compose -p vacay-dev up -d postgres
+# Wait for ready: docker compose -p vacay-dev exec -T postgres pg_isready -U vacay
 
 # Start frontend and API (run in background)
 pnpm dev &
@@ -47,9 +48,9 @@ pnpm dev:api
 
 ### Stop Individual Services
 ```bash
-# Stop frontend/API
-pkill -f "vite"
-pkill -f "bun.*dev:api"
+# Stop frontend/API (matches the pnpm commands)
+pkill -f "pnpm dev"
+pkill -f "pnpm dev:api"
 
 # Stop postgres
 docker compose -p vacay-dev down
@@ -90,7 +91,7 @@ kill -9 <PID>
 
 # Or manually
 pkill -f "pnpm dev"
-pkill -f "vite"
+pkill -f "pnpm dev:api"
 ```
 
 ### Database connection issues

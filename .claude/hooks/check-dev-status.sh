@@ -19,7 +19,7 @@ else
 fi
 
 # Check API
-if pgrep -f "bun.*dev:api" > /dev/null; then
+if pgrep -f "bun run --hot src/index.ts" > /dev/null; then
   echo "✓ API: running on localhost:4000"
 else
   echo "✗ API: not running"
