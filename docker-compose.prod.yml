@@ -2,7 +2,7 @@
 # Production Stack
 # =============================================================================
 # This file deploys the full production stack from ghcr.io images.
-# For development, use: docker-compose.yml (dev DB only)
+# For development, use: docker-compose.yml (DB only) or docker-compose.dev.yml (DB + API)
 #
 # CRITICAL: Always use -p vacay-prod to avoid conflicts with development
 #
