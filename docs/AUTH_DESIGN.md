@@ -1,13 +1,13 @@
 # Authentication Design Document
 
 **Status:** IMPLEMENTED
-**Last Updated:** December 23, 2025
+**Last Updated:** December 26, 2025
 
 ---
 
 ## Overview
 
-This document outlines the implemented authentication and authorization strategy for the Vacay Photo Map application. The system uses WebAuthn/passkeys for admin authentication and token-based access control for trip sharing.
+This document outlines the implemented authentication and authorization strategy for the Vacay Photo Map application. The system uses WebAuthn/passkeys for authentication and Role-Based Access Control (RBAC) via the `trip_access` table for trip sharing.
 
 ---
 
@@ -15,10 +15,11 @@ This document outlines the implemented authentication and authorization strategy
 
 ### What Was Built
 
-- **WebAuthn/Passkey authentication** for admin users
+- **WebAuthn/Passkey authentication** for all users
 - **JWT-based session management** with configurable expiration
-- **Token-protected trip sharing** with bcrypt-hashed access tokens
-- **Admin flag** in user_profiles for authorization
+- **RBAC system with `trip_access` table** for fine-grained trip permissions
+- **Invite system** for sharing trips with specific roles (editor/viewer)
+- **Admin flag** in user_profiles for full system access
 - **First-user bootstrap** - first registered user becomes admin
 
 ---
@@ -74,63 +75,110 @@ This document outlines the implemented authentication and authorization strategy
 
 ## Use Case 2: Trip Access Control
 
-### Implementation: Token-Protected Share Links
+### Implementation: Role-Based Access Control (RBAC)
 
-**Approach Chosen:** Public/private trips with optional bcrypt-hashed access tokens
+**Approach Chosen:** Fine-grained access control via `trip_access` table with role hierarchy
 
 **Architecture:**
-- Trips have `is_public` boolean field
-- Private trips have `access_token_hash` (bcrypt hashed)
-- Tokens are cryptographically secure random strings
-- **Admins always bypass token checks** (authenticated via JWT)
+- All endpoints require JWT authentication
+- `trip_access` table maps users to trips with roles: `editor` > `viewer`
+- Admins bypass all access checks (authenticated via JWT `isAdmin` claim)
+- Invite system for sharing trips with specific roles
+- Role hierarchy: `editor` (full access) > `viewer` (read-only)
+
+**Database Schema:**
+```sql
+-- User permissions for specific trips
+CREATE TABLE trip_access (
+  user_id UUID REFERENCES user_profiles(id),
+  trip_id UUID REFERENCES trips(id),
+  role TEXT CHECK (role IN ('editor', 'viewer')),
+  granted_by_user_id UUID REFERENCES user_profiles(id),
+  UNIQUE(user_id, trip_id)
+);
+
+-- Invitations for trip access
+CREATE TABLE invites (
+  code TEXT UNIQUE NOT NULL,
+  created_by_user_id UUID REFERENCES user_profiles(id),
+  email TEXT,
+  role TEXT CHECK (role IN ('editor', 'viewer')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ
+);
+
+-- Junction table: which trips an invite grants access to
+CREATE TABLE invite_trip_access (
+  invite_id UUID REFERENCES invites(id),
+  trip_id UUID REFERENCES trips(id),
+  UNIQUE(invite_id, trip_id)
+);
+```
 
 **Backend Logic (Hono API):**
 ```typescript
-// GET /api/trips/:slug
-async function getTripBySlug(slug: string, token?: string, userIsAdmin?: boolean) {
-  const trip = await db.trips.findBySlug(slug)
+// Middleware: Check trip access with minimum role
+async function checkTripAccess(userId: string, tripId: string, minRole: 'editor' | 'viewer') {
+  // Admins bypass all checks
+  if (user.isAdmin) return true;
 
-  // Admin bypass
-  if (userIsAdmin) {
-    return trip
+  // Check trip_access table
+  const access = await db.tripAccess.find(userId, tripId);
+
+  if (!access) return false;
+
+  // Role hierarchy: editor > viewer
+  if (minRole === 'viewer') {
+    return access.role === 'viewer' || access.role === 'editor';
+  } else if (minRole === 'editor') {
+    return access.role === 'editor';
   }
-
-  // Public trip
-  if (trip.is_public) {
-    return trip
-  }
-
-  // Private trip - validate token
-  if (token && await bcrypt.compare(token, trip.access_token_hash)) {
-    return trip
-  }
-
-  throw new UnauthorizedError()
 }
+
+// GET /api/trips/slug/:slug - Requires auth + trip access
+app.get('/trips/slug/:slug', requireAuth, async (c) => {
+  const trip = await db.trips.findBySlug(slug);
+
+  // Check access for non-admin users
+  if (!user.isAdmin) {
+    const hasAccess = await checkTripAccess(user.id, trip.id, 'viewer');
+    if (!hasAccess) throw new ForbiddenError();
+  }
+
+  return trip;
+});
 ```
 
-**Frontend: Share Link Flow**
-- Admin generates share link: `/trip/california-roadtrip?token=abc123...`
-- User clicks link → Token extracted from URL query
-- API validates token → returns trip if valid
-- Frontend displays trip if authorized
-- Invalid/missing token → "This trip is private" message
+**Current Endpoints:**
+- `GET /api/trips` - List trips accessible to the user (via `trip_access` or admin)
+- `GET /api/trips/admin` - List all trips (admin only)
+- `GET /api/trips/slug/:slug` - Get trip by slug (auth + `trip_access` check)
+- `GET /api/trips/id/:id` - Get trip by UUID (admin only)
 
-**Admin UI: Trip Protection Management**
-- Located in AdminView trip management section
-- Public/Private toggle switch
-- "Generate Share Link" button
-  - Creates cryptographically secure random token
-  - Hashes token with bcrypt before storing
-  - Displays shareable URL with plaintext token
-  - Copy button for easy sharing
-- "Regenerate Link" button to revoke access (invalidates old token)
+**Access Control Flow:**
+1. User authenticates via WebAuthn → receives JWT
+2. User makes request with JWT in `Authorization: Bearer <token>` header
+3. `requireAuth` middleware verifies JWT, extracts user info
+4. For trip endpoints: check if user is admin OR has entry in `trip_access` table
+5. If admin: bypass all checks, grant full access
+6. If non-admin: check `trip_access` table for required role
+7. If no access: return 403 Forbidden
+
+**Invite System (Backend Implemented):**
+- Admin creates invite with role (`editor` or `viewer`) and trip list
+- Invite generates unique code (e.g., `abc123xyz`)
+- User receives invite link: `/invite/abc123xyz`
+- User clicks link, authenticates (or registers), redeems invite
+- Invite grants `trip_access` entries for each trip with specified role
+- Invite can only be used once, expires after timeout
 
 **Security Notes:**
-- Tokens are never stored in plaintext (bcrypt hashed)
-- Admin sees plaintext token only once during generation
-- Regenerating creates new token, invalidates old one
-- bcrypt comparison is constant-time (prevents timing attacks)
+- All endpoints require authentication (no anonymous access)
+- JWT tokens are short-lived (configurable, default: 1h)
+- Role hierarchy enforced at middleware level
+- Admins bypass access checks for operational flexibility
+- `trip_access` table is the single source of truth for permissions
+- Invite codes are cryptographically secure random strings
 
 ## Database Schema
 
@@ -159,10 +207,43 @@ CREATE TABLE authenticators (
   last_used_at TIMESTAMPTZ
 );
 
--- Trip protection
+-- Trip protection (LEGACY - not used in RBAC system)
 ALTER TABLE trips
-ADD COLUMN is_public BOOLEAN DEFAULT TRUE,
-ADD COLUMN access_token_hash TEXT;
+ADD COLUMN is_public BOOLEAN DEFAULT TRUE,        -- LEGACY: not used, kept for migration
+ADD COLUMN access_token_hash TEXT;                -- LEGACY: not used, kept for migration
+
+-- RBAC: User permissions for specific trips
+CREATE TABLE trip_access (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
+  role TEXT CHECK (role IN ('editor', 'viewer')),
+  granted_at TIMESTAMPTZ DEFAULT NOW(),
+  granted_by_user_id UUID REFERENCES user_profiles(id),
+  UNIQUE(user_id, trip_id)
+);
+
+-- RBAC: Invitations for trip access
+CREATE TABLE invites (
+  id UUID PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  created_by_user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  email TEXT,
+  role TEXT CHECK (role IN ('editor', 'viewer')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  used_by_user_id UUID REFERENCES user_profiles(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RBAC: Junction table for invite-to-trip mapping
+CREATE TABLE invite_trip_access (
+  id UUID PRIMARY KEY,
+  invite_id UUID REFERENCES invites(id) ON DELETE CASCADE,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
+  UNIQUE(invite_id, trip_id)
+);
 ```
 
 ### Future Enhancements (Planned)
@@ -176,16 +257,6 @@ CREATE TABLE photo_comments (
   comment TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Admin invite system (Milestone 7)
-CREATE TABLE invites (
-  id UUID PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  invited_by UUID REFERENCES user_profiles(id),
-  used_at TIMESTAMPTZ,
-  expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
@@ -207,21 +278,29 @@ CREATE TABLE invites (
    - Configurable expiration (default: 1h)
    - Admin middleware for protected routes
 
-3. **Trip Token Protection**
-   - Public/private trip toggle
-   - bcrypt-hashed access tokens
-   - Token validation on trip fetch
-   - Admin bypass for all trips
+3. **RBAC Trip Access Control**
+   - `trip_access` table maps users to trips with roles
+   - Role hierarchy: `editor` > `viewer`
+   - Middleware (`checkTripAccess`) enforces permissions
+   - Admins bypass all access checks
+   - All trip endpoints require authentication
 
-4. **Frontend Views**
+4. **Invite System (Backend)**
+   - `invites` table with unique codes and expiration
+   - `invite_trip_access` junction table for multi-trip invites
+   - Role-based invites (`editor` or `viewer`)
+   - Single-use invite redemption
+   - API endpoints: create, verify, redeem invites
+
+5. **Frontend Views**
    - LoginView - WebAuthn login flow
    - RegisterView - Passkey registration
-   - AdminView - Trip management with protection controls
+   - AdminView - Trip management
    - TripManagementView - Dedicated trip administration
 
 ### What Was Skipped (For Now)
 
-- Invite system (not needed for single admin)
+- **Invite UI in frontend** - Backend API exists, frontend not yet built
 - Password recovery (no passwords to recover!)
 - Email verification (WebAuthn provides device verification)
 - Refresh tokens (re-auth when JWT expires)
@@ -230,13 +309,20 @@ CREATE TABLE invites (
 
 ## Open Questions for Future Milestones
 
-1. **Photo Comments:** Should viewers with trip tokens be able to comment, or only admins?
-   - **Recommendation:** Only authenticated users (future feature)
-   - Trip tokens are for viewing only
+1. **Photo Comments:** Should viewers be able to comment, or only editors?
+   - **Recommendation:** Editors only (write access required)
+   - Viewers have read-only access
+   - Comments count as "editing" content
 
-2. **Invite System:** When implementing, should invites grant admin access or just user access?
-   - **Recommendation:** User access by default, manual admin promotion
-   - Maintains security of admin role
+2. **Public Access:** Should we re-enable public (unauthenticated) access to trips?
+   - **Current:** All endpoints require authentication
+   - **Legacy:** `is_public` and `access_token_hash` fields exist but unused
+   - **Consideration:** Add `is_public` flag to enable anonymous viewing
+   - **Trade-off:** Simplicity vs. ease of sharing with non-users
+
+3. **Role Elevation:** Can users request editor access for trips they only have viewer access to?
+   - **Recommendation:** Manual approval by trip owner/admin only
+   - Prevents privilege escalation
 
 ---
 
@@ -249,4 +335,4 @@ CREATE TABLE invites (
 
 ---
 
-**Conclusion:** The implemented system provides secure, modern authentication with WebAuthn/passkeys while maintaining simplicity for a personal project. The trip token system enables safe sharing without requiring recipients to authenticate.
+**Conclusion:** The implemented system provides secure, modern authentication with WebAuthn/passkeys combined with granular Role-Based Access Control. The RBAC system enables fine-grained trip sharing with role-based permissions (editor/viewer), while the invite system facilitates onboarding new users with specific access levels. All endpoints require authentication, ensuring accountability and security.
