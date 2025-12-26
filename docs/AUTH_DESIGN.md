@@ -90,27 +90,30 @@ This document outlines the implemented authentication and authorization strategy
 ```sql
 -- User permissions for specific trips
 CREATE TABLE trip_access (
-  user_id UUID REFERENCES user_profiles(id),
-  trip_id UUID REFERENCES trips(id),
-  role TEXT CHECK (role IN ('editor', 'viewer')),
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
   granted_by_user_id UUID REFERENCES user_profiles(id),
   UNIQUE(user_id, trip_id)
 );
 
 -- Invitations for trip access
 CREATE TABLE invites (
+  id UUID PRIMARY KEY,
   code TEXT UNIQUE NOT NULL,
-  created_by_user_id UUID REFERENCES user_profiles(id),
+  created_by_user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
   email TEXT,
-  role TEXT CHECK (role IN ('editor', 'viewer')),
+  role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
   expires_at TIMESTAMPTZ NOT NULL,
   used_at TIMESTAMPTZ
 );
 
 -- Junction table: which trips an invite grants access to
 CREATE TABLE invite_trip_access (
-  invite_id UUID REFERENCES invites(id),
-  trip_id UUID REFERENCES trips(id),
+  id UUID PRIMARY KEY,
+  invite_id UUID REFERENCES invites(id) ON DELETE CASCADE NOT NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE NOT NULL,
   UNIQUE(invite_id, trip_id)
 );
 ```
@@ -133,6 +136,7 @@ async function checkTripAccess(userId: string, tripId: string, minRole: 'editor'
   } else if (minRole === 'editor') {
     return access.role === 'editor';
   }
+  return false;
 }
 
 // GET /api/trips/slug/:slug - Requires auth + trip access
@@ -215,9 +219,9 @@ ADD COLUMN access_token_hash TEXT;                -- LEGACY: not used, kept for 
 -- RBAC: User permissions for specific trips
 CREATE TABLE trip_access (
   id UUID PRIMARY KEY,
-  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
-  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
-  role TEXT CHECK (role IN ('editor', 'viewer')),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
   granted_at TIMESTAMPTZ DEFAULT NOW(),
   granted_by_user_id UUID REFERENCES user_profiles(id),
   UNIQUE(user_id, trip_id)
@@ -227,9 +231,9 @@ CREATE TABLE trip_access (
 CREATE TABLE invites (
   id UUID PRIMARY KEY,
   code TEXT UNIQUE NOT NULL,
-  created_by_user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  created_by_user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
   email TEXT,
-  role TEXT CHECK (role IN ('editor', 'viewer')),
+  role TEXT NOT NULL CHECK (role IN ('editor', 'viewer')),
   expires_at TIMESTAMPTZ NOT NULL,
   used_at TIMESTAMPTZ,
   used_by_user_id UUID REFERENCES user_profiles(id),
@@ -240,8 +244,8 @@ CREATE TABLE invites (
 -- RBAC: Junction table for invite-to-trip mapping
 CREATE TABLE invite_trip_access (
   id UUID PRIMARY KEY,
-  invite_id UUID REFERENCES invites(id) ON DELETE CASCADE,
-  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
+  invite_id UUID REFERENCES invites(id) ON DELETE CASCADE NOT NULL,
+  trip_id UUID REFERENCES trips(id) ON DELETE CASCADE NOT NULL,
   UNIQUE(invite_id, trip_id)
 );
 ```
