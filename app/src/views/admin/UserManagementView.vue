@@ -34,30 +34,86 @@
                 </tr>
               </thead>
               <tbody>
-                <tr
-                  v-for="user in users"
-                  :key="user.id"
-                  class="border-b last:border-0 hover:bg-muted/30"
-                >
-                  <!-- Email -->
-                  <td class="px-4 py-3 text-sm">
-                    {{ user.email }}
-                  </td>
+                <template v-for="user in users" :key="user.id">
+                  <!-- User Row (clickable) -->
+                  <tr
+                    class="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                    @click="toggleUserExpanded(user.id)"
+                  >
+                    <!-- Email -->
+                    <td class="px-4 py-3 text-sm">
+                      {{ user.email }}
+                    </td>
 
-                  <!-- Display Name -->
-                  <td class="px-4 py-3 text-sm">
-                    {{ user.displayName || '-' }}
-                  </td>
+                    <!-- Display Name -->
+                    <td class="px-4 py-3 text-sm">
+                      {{ user.displayName || '-' }}
+                    </td>
 
-                  <!-- Role Badge -->
-                  <td class="px-4 py-3">
-                    <Badge v-if="user.isAdmin" variant="default">Admin</Badge>
-                    <Badge v-else variant="secondary">User</Badge>
-                  </td>
+                    <!-- Role Badge -->
+                    <td class="px-4 py-3">
+                      <Badge v-if="user.isAdmin" variant="default">Admin</Badge>
+                      <Badge v-else variant="secondary">User</Badge>
+                    </td>
 
-                  <!-- Trip Access Count (placeholder for now) -->
-                  <td class="px-4 py-3 text-sm text-muted-foreground">-</td>
-                </tr>
+                    <!-- Trip Access Count with Chevron -->
+                    <td class="px-4 py-3 text-sm">
+                      <div class="flex items-center gap-2">
+                        <span v-if="userTripAccess.has(user.id)">
+                          {{ userTripAccess.get(user.id)?.length || 0 }} trips
+                        </span>
+                        <span v-else class="text-muted-foreground">-</span>
+                        <!-- Chevron indicator -->
+                        <ChevronDown
+                          :class="[
+                            'h-4 w-4 transition-transform',
+                            { 'rotate-180': expandedUsers.has(user.id) }
+                          ]"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Expanded Details Row -->
+                  <tr v-if="expandedUsers.has(user.id)" class="border-b last:border-0">
+                    <td colspan="4" class="bg-muted/20 px-4 py-3">
+                      <!-- Loading State -->
+                      <div
+                        v-if="loadingTripAccess.has(user.id)"
+                        class="text-sm text-muted-foreground"
+                      >
+                        Loading trip access...
+                      </div>
+
+                      <!-- No Access -->
+                      <div
+                        v-else-if="!userTripAccess.get(user.id)?.length"
+                        class="text-sm text-muted-foreground"
+                      >
+                        No trip access
+                      </div>
+
+                      <!-- Trip Access List -->
+                      <div v-else class="space-y-2">
+                        <div
+                          v-for="access in userTripAccess.get(user.id)"
+                          :key="access.tripId"
+                          class="flex items-center justify-between text-sm"
+                        >
+                          <span>{{ access.tripTitle }}</span>
+                          <div class="flex items-center gap-2">
+                            <Badge :variant="access.role === 'editor' ? 'default' : 'secondary'">
+                              {{ access.role }}
+                            </Badge>
+                            <span class="text-muted-foreground text-xs">
+                              {{ formatDate(access.grantedAt) }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -73,8 +129,10 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { getAllUsers } from '@/lib/trip-access'
-import type { UserInfo } from '@/lib/trip-access'
+import { getAllUsers, getTripAccessList } from '@/lib/trip-access'
+import type { UserInfo, Role } from '@/lib/trip-access'
+import { getAllTripsAdmin } from '@/utils/database'
+import { ChevronDown } from 'lucide-vue-next'
 
 // Toast
 const { toast } = useToast()
@@ -82,6 +140,18 @@ const { toast } = useToast()
 // State
 const users = ref<UserInfo[]>([])
 const loading = ref(true)
+
+// Expandable rows state
+const expandedUsers = ref<Set<string>>(new Set())
+const userTripAccess = ref<Map<string, TripAccessInfo[]>>(new Map())
+const loadingTripAccess = ref<Set<string>>(new Set())
+
+interface TripAccessInfo {
+  tripId: string
+  tripTitle: string
+  role: Role
+  grantedAt: string
+}
 
 // Load all users
 async function loadUsers() {
@@ -98,6 +168,68 @@ async function loadUsers() {
   } finally {
     loading.value = false
   }
+}
+
+// Toggle user expansion
+function toggleUserExpanded(userId: string) {
+  if (expandedUsers.value.has(userId)) {
+    expandedUsers.value.delete(userId)
+  } else {
+    expandedUsers.value.add(userId)
+    // Load trip access if not already loaded
+    if (!userTripAccess.value.has(userId)) {
+      loadUserTripAccess(userId)
+    }
+  }
+  // Force reactivity
+  expandedUsers.value = new Set(expandedUsers.value)
+}
+
+// Load trip access for a specific user
+async function loadUserTripAccess(userId: string) {
+  loadingTripAccess.value.add(userId)
+  loadingTripAccess.value = new Set(loadingTripAccess.value)
+
+  try {
+    // Get all trips and check access for each
+    const trips = await getAllTripsAdmin()
+    const accessList: TripAccessInfo[] = []
+
+    for (const trip of trips) {
+      const tripUsers = await getTripAccessList(trip.id)
+      const userAccess = tripUsers.find(u => u.userId === userId)
+      if (userAccess) {
+        accessList.push({
+          tripId: trip.id,
+          tripTitle: trip.title,
+          role: userAccess.role,
+          grantedAt: userAccess.grantedAt
+        })
+      }
+    }
+
+    userTripAccess.value.set(userId, accessList)
+    userTripAccess.value = new Map(userTripAccess.value)
+  } catch (error) {
+    console.error('Failed to load trip access:', error)
+    toast({
+      title: 'Error',
+      description: 'Failed to load trip access details',
+      variant: 'destructive'
+    })
+  } finally {
+    loadingTripAccess.value.delete(userId)
+    loadingTripAccess.value = new Set(loadingTripAccess.value)
+  }
+}
+
+// Format date helper
+function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 
 // Load on mount
