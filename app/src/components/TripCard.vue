@@ -164,7 +164,7 @@ const cardDestination = computed(() => {
 })
 
 function navigateToEdit() {
-  router.push(`/trip/${props.trip.slug}/edit`)
+  router.push(`/admin/trips?tripId=${props.trip.id}`)
 }
 
 function handleDelete() {
