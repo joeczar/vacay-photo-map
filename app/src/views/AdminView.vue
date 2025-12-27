@@ -1,5 +1,5 @@
 <template>
-  <MainLayout>
+  <AdminLayout>
     <!-- Header with link to Manage Trips -->
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-foreground">
@@ -302,7 +302,7 @@
         </CardContent>
       </div>
     </Card>
-  </MainLayout>
+  </AdminLayout>
 </template>
 
 <script setup lang="ts">
@@ -320,7 +320,7 @@ import type { TablesRow } from '@/lib/database.types'
 import { useAuth } from '@/composables/useAuth'
 
 type Photo = TablesRow<'photos'>
-import MainLayout from '@/layouts/MainLayout.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
