@@ -65,9 +65,9 @@
         <template v-for="(trip, i) in trips" :key="trip.id">
           <!-- On large screens, let featured span full row for balance -->
           <div v-if="i === 0 && trips.length > 1" class="md:col-span-2 lg:col-span-3">
-            <TripCard :trip="trip" featured />
+            <TripCard :trip="trip" :user-role="trip.userRole" featured />
           </div>
-          <TripCard v-else :trip="trip" />
+          <TripCard v-else :trip="trip" :user-role="trip.userRole" />
         </template>
       </div>
     </div>
@@ -77,7 +77,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getTripsWithAuth, type ApiTrip } from '@/utils/database'
+import { getTripsWithAuth, type TripWithMetadata } from '@/utils/database'
 import { useAuth } from '@/composables/useAuth'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -90,9 +90,7 @@ import EmptyState from '@/components/EmptyState.vue'
 const router = useRouter()
 const { isAuthenticated } = useAuth()
 
-const trips = ref<
-  (ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]
->([])
+const trips = ref<TripWithMetadata[]>([])
 const loading = ref(true)
 const error = ref('')
 

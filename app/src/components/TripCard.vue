@@ -31,6 +31,9 @@
           </svg>
         </div>
 
+        <!-- Role Badge (top-left) -->
+        <RoleBadge v-if="userRole" :role="userRole" class="absolute top-2 left-2 z-10" />
+
         <!-- Draft Badge -->
         <Badge
           v-if="isDraft"
@@ -112,6 +115,7 @@ import { computed } from 'vue'
 import type { ApiTrip } from '@/utils/database'
 import { getImageUrl } from '@/utils/image'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
+import RoleBadge from '@/components/RoleBadge.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -120,6 +124,7 @@ const props = defineProps<{
   featured?: boolean
   isDraft?: boolean
   onDelete?: () => void
+  userRole?: 'admin' | 'editor' | 'viewer'
 }>()
 
 const coverSrcset = computed(() => '')
