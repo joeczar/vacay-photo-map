@@ -15,16 +15,21 @@
           </div>
         </div>
 
+        <!-- Empty State -->
+        <div v-else-if="trips.length === 0" class="text-center py-8">
+          <p class="text-muted-foreground">No trips found. Create a trip first to manage access.</p>
+        </div>
+
         <!-- Trip Selector -->
         <div v-else class="space-y-2">
-          <label class="text-sm font-medium">Select Trip *</label>
+          <Label for="trip-select" class="text-sm font-medium">Select Trip *</Label>
           <Select
             :model-value="selectedTripId ?? undefined"
             @update:model-value="
               value => handleTripSelect(typeof value === 'string' ? value : undefined)
             "
           >
-            <SelectTrigger>
+            <SelectTrigger id="trip-select" aria-labelledby="trip-select-label">
               <SelectValue placeholder="Choose a trip to manage access..." />
             </SelectTrigger>
             <SelectContent>
@@ -50,9 +55,9 @@
           <form @submit.prevent="handleGrantAccess" class="space-y-4">
             <!-- User Selector -->
             <div class="space-y-2">
-              <label class="text-sm font-medium">User *</label>
+              <Label for="user-select" class="text-sm font-medium">User *</Label>
               <Select v-model="selectedUserId" :disabled="availableUsers.length === 0">
-                <SelectTrigger>
+                <SelectTrigger id="user-select">
                   <SelectValue
                     :placeholder="
                       availableUsers.length === 0 ? 'No users available' : 'Select a user...'
@@ -72,9 +77,9 @@
 
             <!-- Role Selector -->
             <div class="space-y-2">
-              <label class="text-sm font-medium">Role *</label>
+              <Label for="role-select" class="text-sm font-medium">Role *</Label>
               <Select v-model="selectedRole">
-                <SelectTrigger>
+                <SelectTrigger id="role-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -169,6 +174,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -232,9 +238,11 @@ const availableUsers = computed(() => {
   return allUsers.value.filter(u => !u.isAdmin && !accessUserIds.has(u.id))
 })
 
-// Helper: Format date
+// Helper: Format date with validation
 function formatDate(dateString: string): string {
+  if (!dateString) return '-'
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '-'
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -425,9 +433,8 @@ async function confirmRevoke() {
   }
 }
 
-// Load trips and users on mount
+// Load trips and users on mount (in parallel for better performance)
 onMounted(async () => {
-  await loadTrips()
-  await loadAllUsers()
+  await Promise.all([loadTrips(), loadAllUsers()])
 })
 </script>

@@ -35,10 +35,16 @@
               </thead>
               <tbody>
                 <template v-for="user in users" :key="user.id">
-                  <!-- User Row (clickable) -->
+                  <!-- User Row (clickable, keyboard accessible) -->
                   <tr
-                    class="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                    class="border-b last:border-0 hover:bg-muted/30 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
+                    tabindex="0"
+                    role="button"
+                    :aria-expanded="expandedUsers.has(user.id)"
+                    :aria-label="`${user.email}, click to ${expandedUsers.has(user.id) ? 'collapse' : 'expand'} trip access details`"
                     @click="toggleUserExpanded(user.id)"
+                    @keydown.enter="toggleUserExpanded(user.id)"
+                    @keydown.space.prevent="toggleUserExpanded(user.id)"
                   >
                     <!-- Email -->
                     <td class="px-4 py-3 text-sm">
@@ -176,8 +182,8 @@ function toggleUserExpanded(userId: string) {
     expandedUsers.value.delete(userId)
   } else {
     expandedUsers.value.add(userId)
-    // Load trip access if not already loaded
-    if (!userTripAccess.value.has(userId)) {
+    // Load trip access if not already loaded and not currently loading (prevents race condition)
+    if (!userTripAccess.value.has(userId) && !loadingTripAccess.value.has(userId)) {
       loadUserTripAccess(userId)
     }
   }
@@ -191,22 +197,30 @@ async function loadUserTripAccess(userId: string) {
   loadingTripAccess.value = new Set(loadingTripAccess.value)
 
   try {
-    // Get all trips and check access for each
+    // Get all trips first
     const trips = await getAllTripsAdmin()
-    const accessList: TripAccessInfo[] = []
 
-    for (const trip of trips) {
-      const tripUsers = await getTripAccessList(trip.id)
-      const userAccess = tripUsers.find(u => u.userId === userId)
-      if (userAccess) {
-        accessList.push({
-          tripId: trip.id,
-          tripTitle: trip.title,
-          role: userAccess.role,
-          grantedAt: userAccess.grantedAt
-        })
-      }
-    }
+    // Fetch all trip access lists in parallel (fixes N+1 query pattern)
+    const tripAccessResults = await Promise.all(
+      trips.map(async trip => {
+        const tripUsers = await getTripAccessList(trip.id)
+        const userAccess = tripUsers.find(u => u.userId === userId)
+        if (userAccess) {
+          return {
+            tripId: trip.id,
+            tripTitle: trip.title,
+            role: userAccess.role,
+            grantedAt: userAccess.grantedAt
+          }
+        }
+        return null
+      })
+    )
+
+    // Filter out nulls
+    const accessList = tripAccessResults.filter(
+      (access): access is TripAccessInfo => access !== null
+    )
 
     userTripAccess.value.set(userId, accessList)
     userTripAccess.value = new Map(userTripAccess.value)
@@ -223,9 +237,12 @@ async function loadUserTripAccess(userId: string) {
   }
 }
 
-// Format date helper
+// Format date helper with validation
 function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'

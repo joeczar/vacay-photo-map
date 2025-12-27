@@ -123,9 +123,11 @@ function capitalizeRole(role: Role): string {
   return role.charAt(0).toUpperCase() + role.slice(1)
 }
 
-// Helper: Format date
+// Helper: Format date with validation
 function formatDate(dateString: string): string {
+  if (!dateString) return '-'
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return '-'
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
