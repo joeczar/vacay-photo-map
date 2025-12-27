@@ -7,6 +7,7 @@ import { trips } from "./routes/trips";
 import { upload } from "./routes/upload";
 import { invites } from "./routes/invites";
 import { tripAccess } from "./routes/trip-access";
+import { connectWithRetry } from "./db/client";
 
 const app = new Hono();
 
@@ -50,7 +51,25 @@ app.onError((err, c) => {
 
 const port = parseInt(process.env.PORT || "3000", 10);
 
-console.log(`Server starting on port ${port}...`);
+// Startup validation
+async function startServer() {
+  console.log("Server starting...");
+  console.log("Connecting to database...");
+
+  try {
+    await connectWithRetry();
+    console.log(`Server ready on port ${port}`);
+  } catch (error) {
+    console.error(
+      "Failed to connect to database:",
+      error instanceof Error ? error.message : error,
+    );
+    process.exit(1);
+  }
+}
+
+// Start server with database validation
+startServer();
 
 // Export app for testing
 export { app };
