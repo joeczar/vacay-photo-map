@@ -12,6 +12,7 @@ import {
   getUserAuthHeader,
   TEST_ADMIN_USER_ID,
   TEST_USER_ID,
+  TEST_USER_2_ID,
   uniqueIp,
 } from "../test-helpers";
 
@@ -116,7 +117,6 @@ let testTripSlug: string;
 let testAdminEmail: string;
 let testUserEmail: string;
 let secondUserEmail: string;
-let secondUserId: string;
 
 // =============================================================================
 // RBAC Integration Tests
@@ -154,12 +154,11 @@ describe("RBAC Integration Tests", () => {
     `;
 
     // Create second regular test user for invite workflow tests
-    secondUserId = "00000000-0000-4000-a000-000000000003";
-    const secondWebauthnId = `test-webauthn-${secondUserId}-${now}`;
+    const secondWebauthnId = `test-webauthn-${TEST_USER_2_ID}-${now}`;
     secondUserEmail = `test-user-2-rbac-${now}@example.com`;
     await db`
       INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${secondUserId}, ${secondUserEmail}, ${secondWebauthnId}, false, 'Test User 2')
+      VALUES (${TEST_USER_2_ID}, ${secondUserEmail}, ${secondWebauthnId}, false, 'Test User 2')
       ON CONFLICT (id) DO UPDATE
         SET email = EXCLUDED.email,
             is_admin = EXCLUDED.is_admin,
@@ -181,7 +180,7 @@ describe("RBAC Integration Tests", () => {
     const db = getDbClient();
     // CASCADE deletes trip_access, photos, invite_trips
     await db`DELETE FROM trips WHERE id = ${testTripId}`;
-    await db`DELETE FROM user_profiles WHERE id IN (${TEST_ADMIN_USER_ID}, ${TEST_USER_ID}, ${secondUserId})`;
+    await db`DELETE FROM user_profiles WHERE id IN (${TEST_ADMIN_USER_ID}, ${TEST_USER_ID}, ${TEST_USER_2_ID})`;
   });
 
   // ===========================================================================
@@ -333,14 +332,14 @@ describe("RBAC Integration Tests", () => {
       // Step 2: Mark invite as used (simulates auth.ts registration flow)
       await db`
         UPDATE invites
-        SET used_at = NOW(), used_by_user_id = ${secondUserId}
+        SET used_at = NOW(), used_by_user_id = ${TEST_USER_2_ID}
         WHERE id = ${inviteId}
       `;
 
       // Step 3: Grant trip access to new user (simulates auth.ts registration flow)
       const [access] = await db<{ id: string }[]>`
         INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
-        SELECT ${secondUserId}, ita.trip_id, i.role, i.created_by_user_id
+        SELECT ${TEST_USER_2_ID}, ita.trip_id, i.role, i.created_by_user_id
         FROM invites i
         JOIN invite_trip_access ita ON ita.invite_id = i.id
         WHERE i.id = ${inviteId}
@@ -357,7 +356,7 @@ describe("RBAC Integration Tests", () => {
         WHERE id = ${access.id}
       `;
 
-      expect(tripAccess.user_id).toBe(secondUserId);
+      expect(tripAccess.user_id).toBe(TEST_USER_2_ID);
       expect(tripAccess.trip_id).toBe(testTripId);
       expect(tripAccess.role).toBe("viewer");
     });
@@ -380,7 +379,7 @@ describe("RBAC Integration Tests", () => {
     afterAll(async () => {
       const db = getDbClient();
       // Clean up trip access and invite
-      await db`DELETE FROM trip_access WHERE user_id = ${secondUserId} AND trip_id = ${testTripId}`;
+      await db`DELETE FROM trip_access WHERE user_id = ${TEST_USER_2_ID} AND trip_id = ${testTripId}`;
       await db`DELETE FROM invites WHERE id = ${inviteId}`;
     });
   });
@@ -422,8 +421,11 @@ describe("RBAC Integration Tests", () => {
 
     it("user without access gets 403", async () => {
       const app = createTestApp();
-      // Use secondUserId who doesn't have access
-      const authHeader = await getUserAuthHeader(secondUserId, secondUserEmail);
+      // Use TEST_USER_2_ID who doesn't have access
+      const authHeader = await getUserAuthHeader(
+        TEST_USER_2_ID,
+        secondUserEmail,
+      );
 
       const res = await app.fetch(
         new Request(`http://localhost/api/trips/slug/${testTripSlug}`, {

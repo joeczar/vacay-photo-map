@@ -14,6 +14,7 @@ import { signToken } from "./utils/jwt";
 // Default UUIDs for test users (these are valid UUIDs that work with database foreign keys)
 export const TEST_ADMIN_USER_ID = "00000000-0000-4000-a000-000000000001";
 export const TEST_USER_ID = "00000000-0000-4000-a000-000000000002";
+export const TEST_USER_2_ID = "00000000-0000-4000-a000-000000000003";
 
 /**
  * Generate auth header for admin user
