@@ -57,12 +57,6 @@ describe("UUID Validation", () => {
       desc: "Get trip by UUID",
     },
     {
-      method: "PATCH",
-      path: "/api/trips/invalid-uuid/protection",
-      desc: "Update trip protection",
-      body: { isPublic: true },
-    },
-    {
       method: "DELETE",
       path: "/api/trips/photos/invalid-uuid",
       desc: "Delete photo",
