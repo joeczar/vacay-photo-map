@@ -109,19 +109,31 @@ function getStatusVariant(status: InviteStatus): 'default' | 'secondary' | 'outl
   }
 }
 
-// Helper: Format expiration date
+// Helper: Format expiration date with proper calendar day handling
 function formatExpiration(expiresAt: string, status: InviteStatus): string {
   if (status === 'used') return 'N/A'
-  if (status === 'expired') return 'Expired'
 
-  const now = new Date()
   const expires = new Date(expiresAt)
+  const now = new Date()
+
+  // Check if already expired (by time, not just status)
+  if (status === 'expired' || expires.getTime() <= now.getTime()) {
+    return 'Expired'
+  }
+
+  // Use calendar days for "Today" and "Tomorrow"
+  if (expires.toDateString() === now.toDateString()) {
+    return 'Today'
+  }
+
+  const tomorrow = new Date()
+  tomorrow.setDate(now.getDate() + 1)
+  if (expires.toDateString() === tomorrow.toDateString()) {
+    return 'Tomorrow'
+  }
+
   const diffMs = expires.getTime() - now.getTime()
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Tomorrow'
-  if (diffDays < 0) return 'Expired'
 
   return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`
 }

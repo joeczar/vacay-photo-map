@@ -55,7 +55,7 @@
           <label
             :for="`trip-${trip.id}`"
             class="flex-1 text-sm font-medium leading-none cursor-pointer"
-            @click.stop="toggleTrip(trip.id)"
+            @click.stop
           >
             {{ trip.title }}
             <span class="text-muted-foreground ml-2">({{ trip.photo_count }} photos)</span>
