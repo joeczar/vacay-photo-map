@@ -114,8 +114,11 @@ const showTripError = ref(false)
 const invites = ref<InviteListItem[]>([])
 const loadingInvites = ref(true)
 
-// Get app URL from env - validated at build time by Vite
-const APP_URL = import.meta.env.VITE_APP_URL || 'http://localhost:5173'
+// Get app URL from env - no fallback to catch missing config in production
+const APP_URL = import.meta.env.VITE_APP_URL
+if (!APP_URL && import.meta.env.DEV) {
+  console.warn('[InviteManagement] VITE_APP_URL not set - invite links will be broken')
+}
 
 /**
  * Copy text to clipboard with fallback for non-HTTPS contexts
