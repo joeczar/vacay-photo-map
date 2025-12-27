@@ -1,5 +1,5 @@
 import type { TablesInsert, TablesRow } from '@/lib/database.types'
-import { api, ApiError } from '@/lib/api'
+import { api, ApiError, requireAuth } from '@/lib/api'
 import { useAuth } from '@/composables/useAuth'
 
 type Trip = TablesRow<'trips'>
@@ -134,10 +134,7 @@ function transformApiTripWithPhotos(
  */
 export async function createTrip(trip: TripInsert): Promise<ApiTrip> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth(getToken)
 
   const body = {
     title: trip.title,
@@ -158,10 +155,7 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
   if (photos.length === 0) return []
 
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth(getToken)
 
   // All photos should have the same trip_id
   const tripId = photos[0].trip_id
@@ -209,10 +203,8 @@ export async function getAllTrips(): Promise<TripWithMetadata[]> {
  */
 export async function getTripsWithAuth(): Promise<TripWithMetadata[]> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips')
   return trips.map(transformApiTrip)
 }
@@ -222,10 +214,8 @@ export async function getTripsWithAuth(): Promise<TripWithMetadata[]> {
  */
 export async function getAllTripsAdmin(): Promise<TripWithMetadata[]> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips/admin')
   return trips.map(transformApiTrip)
 }
@@ -243,10 +233,8 @@ export async function updateTrip(
   }
 ): Promise<void> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   await api.patch(`/api/trips/${tripId}`, updates)
 }
 
@@ -263,10 +251,8 @@ export async function updateTripCoverPhoto(tripId: string, coverPhotoUrl: string
  */
 export async function deleteTrip(tripId: string): Promise<void> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   await api.delete(`/api/trips/${tripId}`)
 }
 
@@ -293,10 +279,7 @@ export async function updateTripProtection(
  */
 export async function getTripById(tripId: string): Promise<(ApiTrip & { photos: Photo[] }) | null> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth(getToken)
 
   try {
     const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/id/${tripId}`)
@@ -314,9 +297,7 @@ export async function getTripById(tripId: string): Promise<(ApiTrip & { photos: 
  */
 export async function deletePhoto(photoId: string): Promise<void> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   await api.delete(`/api/trips/photos/${photoId}`)
 }
