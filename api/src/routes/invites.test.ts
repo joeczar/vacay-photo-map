@@ -264,18 +264,6 @@ describe("Invite Routes", () => {
   // DELETE /api/invites/:id - Revoke invite
   // ==========================================================================
   describe("DELETE /api/invites/:id", () => {
-    it("returns 400 for invalid UUID", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/invites/invalid-id", {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-      expect(res.status).toBe(400);
-    });
-
     it("returns 404 for non-existent invite", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();

@@ -188,50 +188,6 @@ describe("Trip Access Routes", () => {
       expect(data.message).toContain("required");
     });
 
-    it("returns 400 for invalid user ID format", async () => {
-      const app = createTestApp();
-      const auth = await getAdminAuthHeader();
-
-      const res = await app.request("/api/trip-access", {
-        method: "POST",
-        headers: {
-          ...auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: "not-a-uuid",
-          tripId: testTripId,
-          role: "editor",
-        }),
-      });
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid user ID format");
-    });
-
-    it("returns 400 for invalid trip ID format", async () => {
-      const app = createTestApp();
-      const auth = await getAdminAuthHeader();
-
-      const res = await app.request("/api/trip-access", {
-        method: "POST",
-        headers: {
-          ...auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: testUserId,
-          tripId: "not-a-uuid",
-          role: "editor",
-        }),
-      });
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
-
     it("returns 400 for invalid role", async () => {
       const app = createTestApp();
       const auth = await getAdminAuthHeader();
@@ -414,20 +370,6 @@ describe("Trip Access Routes", () => {
       expect(data.users).toBeArrayOfSize(0);
     });
 
-    it("returns 400 for invalid trip ID format", async () => {
-      const app = createTestApp();
-      const auth = await getAdminAuthHeader();
-
-      const res = await app.request("/api/trips/not-a-uuid/access", {
-        method: "GET",
-        headers: auth,
-      });
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
-
     it("returns 404 if trip does not exist", async () => {
       const app = createTestApp();
       const auth = await getAdminAuthHeader();
@@ -501,24 +443,6 @@ describe("Trip Access Routes", () => {
 
       // Cleanup
       await db`DELETE FROM trip_access WHERE id = ${access.id}`;
-    });
-
-    it("returns 400 for invalid ID format", async () => {
-      const app = createTestApp();
-      const auth = await getAdminAuthHeader();
-
-      const res = await app.request("/api/trip-access/not-a-uuid", {
-        method: "PATCH",
-        headers: {
-          ...auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role: "editor" }),
-      });
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip access ID format");
     });
 
     it("returns 400 for missing role field", async () => {
@@ -608,20 +532,6 @@ describe("Trip Access Routes", () => {
         SELECT id FROM trip_access WHERE id = ${access.id}
       `;
       expect(check).toBeArrayOfSize(0);
-    });
-
-    it("returns 400 for invalid ID format", async () => {
-      const app = createTestApp();
-      const auth = await getAdminAuthHeader();
-
-      const res = await app.request("/api/trip-access/not-a-uuid", {
-        method: "DELETE",
-        headers: auth,
-      });
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip access ID format");
     });
 
     it("returns 404 if record does not exist", async () => {

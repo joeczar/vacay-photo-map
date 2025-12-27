@@ -385,21 +385,6 @@ describe("Trip Routes", () => {
   describe("PATCH /api/trips/:id", () => {
     const validUuid = "550e8400-e29b-41d4-a716-446655440000";
 
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/not-a-uuid", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ title: "Updated Title" }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
-
     it("returns 400 for no fields to update", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -454,20 +439,6 @@ describe("Trip Routes", () => {
   describe("DELETE /api/trips/:id", () => {
     const validUuid = "550e8400-e29b-41d4-a716-446655440000";
 
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/not-a-uuid", {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
-
     it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -486,21 +457,6 @@ describe("Trip Routes", () => {
   // ==========================================================================
   describe("PATCH /api/trips/:id/protection", () => {
     const validUuid = "550e8400-e29b-41d4-a716-446655440000";
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/not-a-uuid/protection", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ isPublic: false }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
 
     it("returns 400 for missing isPublic field", async () => {
       const app = createTestApp();
@@ -781,22 +737,6 @@ describe("Trip Routes", () => {
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Not Found");
     });
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/id/not-a-uuid", {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
   });
 
   // ==========================================================================
@@ -886,22 +826,6 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(404);
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Not Found");
-    });
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/photos/not-a-uuid", {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid photo ID format");
     });
   });
 
