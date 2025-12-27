@@ -87,20 +87,37 @@ describe("connectWithRetry", () => {
   });
 
   it("should use exponential backoff timing", async () => {
-    pingDatabaseMock
-      .mockRejectedValueOnce(new Error("Connection refused"))
-      .mockRejectedValueOnce(new Error("Connection refused"))
-      .mockRejectedValueOnce(new Error("Connection refused"))
-      .mockResolvedValueOnce("2024-12-27 12:00:00");
+    // Mock setTimeout to execute immediately while capturing delays
+    const originalSetTimeout = globalThis.setTimeout;
+    const capturedDelays: number[] = [];
+    globalThis.setTimeout = ((fn: () => void, delay: number) => {
+      capturedDelays.push(delay);
+      fn(); // Execute immediately
+      return 1 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout;
 
-    await clientModule.connectWithRetry(5, 100);
+    try {
+      pingDatabaseMock
+        .mockRejectedValueOnce(new Error("Connection refused"))
+        .mockRejectedValueOnce(new Error("Connection refused"))
+        .mockRejectedValueOnce(new Error("Connection refused"))
+        .mockResolvedValueOnce("2024-12-27 12:00:00");
 
-    expect(pingDatabaseMock).toHaveBeenCalledTimes(4);
-    // Verify exponential backoff: 100ms, 200ms, 400ms
-    expect(consoleLogs).toContain("[DB] Retrying in 0.1s...");
-    expect(consoleLogs).toContain("[DB] Retrying in 0.2s...");
-    expect(consoleLogs).toContain("[DB] Retrying in 0.4s...");
-    expect(consoleLogs).toContain("[DB] Connection successful");
+      await clientModule.connectWithRetry(5, 100);
+
+      expect(pingDatabaseMock).toHaveBeenCalledTimes(4);
+      // Verify exponential backoff delays: 100ms, 200ms, 400ms
+      expect(capturedDelays[0]).toBe(100);
+      expect(capturedDelays[1]).toBe(200);
+      expect(capturedDelays[2]).toBe(400);
+      // Also verify log messages
+      expect(consoleLogs).toContain("[DB] Retrying in 0.1s...");
+      expect(consoleLogs).toContain("[DB] Retrying in 0.2s...");
+      expect(consoleLogs).toContain("[DB] Retrying in 0.4s...");
+      expect(consoleLogs).toContain("[DB] Connection successful");
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
   });
 
   it("should cap delay at max delay (60s)", async () => {

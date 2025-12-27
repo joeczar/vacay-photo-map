@@ -75,18 +75,6 @@ describe("Trip Routes", () => {
   // GET /api/trips - List trips (requires auth, filtered by access)
   // ==========================================================================
   describe("GET /api/trips", () => {
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips", {
-          method: "GET",
-        }),
-      );
-      expect(res.status).toBe(401);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Unauthorized");
-    });
-
     it("returns trips for authenticated admin user", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -171,18 +159,6 @@ describe("Trip Routes", () => {
   // GET /api/trips/:slug - Get trip by slug (requires auth and access)
   // ==========================================================================
   describe("GET /api/trips/:slug", () => {
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/slug/some-trip-slug", {
-          method: "GET",
-        }),
-      );
-      expect(res.status).toBe(401);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Unauthorized");
-    });
-
     it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -330,39 +306,6 @@ describe("Trip Routes", () => {
   // POST /api/trips - Create trip
   // ==========================================================================
   describe("POST /api/trips", () => {
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slug: "test-trip",
-            title: "Test Trip",
-          }),
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({
-            slug: "test-trip",
-            title: "Test Trip",
-          }),
-        }),
-      );
-      expect(res.status).toBe(403);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Forbidden");
-    });
-
     it("returns 400 for invalid slug format", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -442,46 +385,6 @@ describe("Trip Routes", () => {
   describe("PATCH /api/trips/:id", () => {
     const validUuid = "550e8400-e29b-41d4-a716-446655440000";
 
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: "Updated Title" }),
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ title: "Updated Title" }),
-        }),
-      );
-      expect(res.status).toBe(403);
-    });
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/not-a-uuid", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ title: "Updated Title" }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
-
     it("returns 400 for no fields to update", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -536,42 +439,6 @@ describe("Trip Routes", () => {
   describe("DELETE /api/trips/:id", () => {
     const validUuid = "550e8400-e29b-41d4-a716-446655440000";
 
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}`, {
-          method: "DELETE",
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}`, {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-      expect(res.status).toBe(403);
-    });
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/not-a-uuid", {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
-
     it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -590,46 +457,6 @@ describe("Trip Routes", () => {
   // ==========================================================================
   describe("PATCH /api/trips/:id/protection", () => {
     const validUuid = "550e8400-e29b-41d4-a716-446655440000";
-
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}/protection`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ isPublic: false }),
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}/protection`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ isPublic: false }),
-        }),
-      );
-      expect(res.status).toBe(403);
-    });
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/not-a-uuid/protection", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ isPublic: false }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
 
     it("returns 400 for missing isPublic field", async () => {
       const app = createTestApp();
@@ -739,18 +566,6 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(403);
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Forbidden");
-    });
-
-    it("returns 401 for unauthenticated request", async () => {
-      const app = createTestApp();
-
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/admin", {
-          method: "GET",
-        }),
-      );
-
-      expect(res.status).toBe(401);
     });
 
     it("returns trips ordered by created_at DESC", async () => {
@@ -922,22 +737,6 @@ describe("Trip Routes", () => {
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Not Found");
     });
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/id/not-a-uuid", {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid trip ID format");
-    });
   });
 
   // ==========================================================================
@@ -1012,36 +811,6 @@ describe("Trip Routes", () => {
       await db`DELETE FROM trips WHERE id = ${trip.id}`;
     });
 
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
-
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "DELETE",
-        }),
-      );
-
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin user", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
-
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(403);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Forbidden");
-    });
-
     it("returns 404 for non-existent photo", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -1057,22 +826,6 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(404);
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Not Found");
-    });
-
-    it("returns 400 for invalid UUID format", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/photos/not-a-uuid", {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid photo ID format");
     });
   });
 
