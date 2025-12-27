@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import RegisterView from '../RegisterView.vue'
 
@@ -58,6 +58,7 @@ import { api } from '@/lib/api'
 
 describe('RegisterView - Invite Flow', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     vi.clearAllMocks()
     vi.resetAllMocks()
 
@@ -68,6 +69,10 @@ describe('RegisterView - Invite Flow', () => {
         json: () => Promise.resolve({ registrationOpen: true })
       } as Response)
     )
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('should pass inviteCode to register/options when present in URL', async () => {
@@ -88,9 +93,10 @@ describe('RegisterView - Invite Flow', () => {
       }
     })
 
-    // Wait for onMounted to complete
+    // Wait for onMounted async operations to complete
+    await vi.runAllTimersAsync()
+    await flushPromises()
     await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 50))
 
     // Fill form
     await wrapper.find('input[type="email"]').setValue('test@example.com')
@@ -115,9 +121,11 @@ describe('RegisterView - Invite Flow', () => {
 
     // Submit form
     await wrapper.find('form').trigger('submit.prevent')
-    await nextTick()
+
     // Wait for form validation and async submission
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await vi.runAllTimersAsync()
+    await flushPromises()
+    await nextTick()
 
     // Verify inviteCode was passed to register/options
     expect(api.post).toHaveBeenCalledWith(
@@ -147,9 +155,10 @@ describe('RegisterView - Invite Flow', () => {
       }
     })
 
-    // Wait for onMounted to complete
+    // Wait for onMounted async operations to complete
+    await vi.runAllTimersAsync()
+    await flushPromises()
     await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 50))
 
     // Fill form
     await wrapper.find('input[type="email"]').setValue('first@example.com')
@@ -174,9 +183,11 @@ describe('RegisterView - Invite Flow', () => {
 
     // Submit form
     await wrapper.find('form').trigger('submit.prevent')
-    await nextTick()
+
     // Wait for form validation and async submission
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await vi.runAllTimersAsync()
+    await flushPromises()
+    await nextTick()
 
     // Verify request works without inviteCode
     expect(api.post).toHaveBeenCalledWith(

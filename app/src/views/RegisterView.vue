@@ -162,7 +162,10 @@ const onSubmit = handleSubmit(async values => {
 
   try {
     // Extract invite code from URL query params (if present)
-    const inviteCode = route.query.invite as string | undefined
+    // Handle case where query param appears multiple times (string[])
+    const inviteCode = Array.isArray(route.query.invite)
+      ? route.query.invite[0]
+      : route.query.invite
 
     // Step 1: Get registration options from backend
     const { options } = await api.post<{ options: PublicKeyCredentialCreationOptionsJSON }>(
