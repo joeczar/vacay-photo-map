@@ -1,5 +1,5 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
-import { connectWithRetry, pingDatabase } from "../client";
+import { connectWithRetry } from "../client";
 
 describe("connectWithRetry", () => {
   let consoleLogs: string[] = [];
@@ -35,7 +35,7 @@ describe("connectWithRetry", () => {
     // Mock successful connection
     mock.module("../client", () => ({
       pingDatabase: mock(async () => "2024-12-27 12:00:00"),
-      connectWithRetry: async (maxRetries = 5, initialDelay = 5000) => {
+      connectWithRetry: async (_maxRetries = 5, _initialDelay = 5000) => {
         console.log("[DB] Connection attempt 1/5...");
         await mock(async () => "2024-12-27 12:00:00")();
         console.log("[DB] Connection successful");
