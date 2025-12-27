@@ -3,11 +3,15 @@
     <MainLayout>
       <!-- Admin Sub-Navigation -->
       <div class="mb-6">
-        <nav class="flex gap-1 p-1 bg-card rounded-lg border border-border w-fit">
+        <nav
+          aria-label="Admin section navigation"
+          class="flex gap-1 p-1 bg-card rounded-lg border border-border w-fit"
+        >
           <router-link
             v-for="tab in tabs"
             :key="tab.name"
             :to="tab.to"
+            :aria-current="isActive(tab.name) ? 'page' : undefined"
             class="px-4 py-2 text-sm font-medium rounded-md transition-colors"
             :class="[
               isActive(tab.name)

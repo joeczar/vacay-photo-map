@@ -1,5 +1,16 @@
 # CLAUDE.md
 
+## ⚠️ Dev Server Startup - READ FIRST
+
+**ALWAYS use this single command to start the dev environment:**
+```bash
+pnpm dev:docker
+```
+
+This starts Postgres, frontend (5173), and API (4000) together. **NEVER run `pnpm dev` or `pnpm dev:api` separately.**
+
+---
+
 ## Testing Policy
 
 **CRITICAL: Test every change before committing.**
@@ -25,9 +36,18 @@ Try TDD if you have a difficult feature
 
 Run from root: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm type-check`
 
+### Starting Dev Environment
+
+**IMPORTANT: Use this single command to start everything:**
+```bash
+pnpm dev:docker   # Starts postgres + frontend + API all at once
+```
+
+This runs concurrently: docker compose, frontend (localhost:5173), API (localhost:4000).
+
 ### Development Modes
 
-**Local development (default):**
+**Local development (manual, if needed):**
 ```bash
 docker compose -p vacay-dev up -d postgres  # Start local database
 pnpm dev       # Frontend at localhost:5173

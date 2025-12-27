@@ -92,14 +92,38 @@
 
   /* ================================
      ADMIN SPACE: The Registry
-     Utilitarian slate aesthetic for user management
+     Utilitarian slate aesthetic for user management.
+
+     Overrides --primary so all shadcn components (Buttons, Badges, etc.)
+     within admin-space use slate accent instead of indigo.
      ================================ */
+
+  /* Admin space - light mode */
   .admin-space {
-    /* Registry accent: Slate */
+    /* Registry accent: Darker slate for light backgrounds */
+    --admin-accent: 215 20% 47%; /* ~#5f7285 */
+    --admin-accent-foreground: 0 0% 98%;
+
+    /* Override primary to slate accent */
+    --primary: 215 20% 47%;
+    --primary-foreground: 0 0% 98%;
+
+    /* Ring matches admin accent */
+    --ring: 215 20% 47%;
+
+    /* Status colors for admin UI */
+    --admin-success: 142 71% 35%; /* darker green for light mode */
+    --admin-warning: 48 96% 43%; /* darker yellow for light mode */
+    --admin-neutral: 240 4% 46%; /* #71717a */
+  }
+
+  /* Admin space - dark mode adjustments */
+  .dark .admin-space {
+    /* Registry accent: Lighter slate for dark backgrounds */
     --admin-accent: 215 16% 65%; /* #94a3b8 */
     --admin-accent-foreground: 0 0% 6%;
 
-    /* Override primary to use slate accent in admin views */
+    /* Override primary to slate accent */
     --primary: 215 16% 65%;
     --primary-foreground: 0 0% 6%;
 
@@ -109,13 +133,19 @@
     /* Ring matches admin accent */
     --ring: 215 16% 65%;
 
-    /* Status colors for admin UI */
+    /* Status colors - lighter for dark mode */
     --admin-success: 142 71% 45%; /* #22c55e */
     --admin-warning: 48 96% 53%; /* #eab308 */
     --admin-neutral: 240 4% 46%; /* #71717a */
   }
 
-  /* Admin-specific utility classes */
+  /* ================================
+     ADMIN UTILITY CLASSES
+
+     For upcoming RBAC features (#159-#161):
+     - badge-editor/badge-viewer: Role badges in user lists
+     - status-active/pending/expired: Invite status indicators
+     ================================ */
   .admin-space .badge-editor {
     background: hsl(var(--admin-accent) / 0.15);
     color: hsl(var(--admin-accent));
