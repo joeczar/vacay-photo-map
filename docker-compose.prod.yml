@@ -49,10 +49,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # All environment variables including DATABASE_URL loaded from env_file
+    # No variable substitution needed - api/.env.production contains complete values
     env_file:
       - ./api/.env.production
-    environment:
-      DATABASE_URL: postgresql://vacay:${POSTGRES_PASSWORD}@postgres:5432/vacay
     volumes:
       # Local photo storage fallback (used if R2 not configured)
       - ./data/photos:/data/photos
