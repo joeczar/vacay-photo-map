@@ -83,6 +83,25 @@
             <span v-if="trip.date_range">
               {{ formatDateRange(trip.date_range) }}
             </span>
+            <!-- Edit Button - only for admin/editor -->
+            <Button
+              v-if="userRole && (userRole === 'admin' || userRole === 'editor')"
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              @click.prevent.stop="navigateToEdit"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"
+                />
+              </svg>
+            </Button>
             <Button
               v-if="onDelete"
               variant="ghost"
@@ -112,12 +131,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import type { ApiTrip } from '@/utils/database'
 import { getImageUrl } from '@/utils/image'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
 import RoleBadge from '@/components/RoleBadge.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+const router = useRouter()
 
 const props = defineProps<{
   trip: ApiTrip & { photo_count: number; date_range: { start: string; end: string } }
@@ -140,6 +162,10 @@ const cardDestination = computed(() => {
   // Published trips navigate to trip view
   return `/trip/${props.trip.slug}`
 })
+
+function navigateToEdit() {
+  router.push(`/trip/${props.trip.slug}/edit`)
+}
 
 function handleDelete() {
   if (!props.onDelete) return
