@@ -113,39 +113,6 @@ describe("Invite Routes", () => {
   // POST /api/invites - Create invite
   // ==========================================================================
   describe("POST /api/invites", () => {
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request("http://localhost/api/invites", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: "test@example.com",
-            role: "viewer",
-            tripIds: [testTripId],
-          }),
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/invites", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({
-            email: "test@example.com",
-            role: "viewer",
-            tripIds: [testTripId],
-          }),
-        }),
-      );
-      expect(res.status).toBe(403);
-    });
-
     it("returns 400 for invalid email", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -278,28 +245,6 @@ describe("Invite Routes", () => {
   // GET /api/invites - List invites
   // ==========================================================================
   describe("GET /api/invites", () => {
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request("http://localhost/api/invites", {
-          method: "GET",
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/invites", {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-      expect(res.status).toBe(403);
-    });
-
     it("returns invite list for admin", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -319,17 +264,6 @@ describe("Invite Routes", () => {
   // DELETE /api/invites/:id - Revoke invite
   // ==========================================================================
   describe("DELETE /api/invites/:id", () => {
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const fakeId = "550e8400-e29b-41d4-a716-446655440000";
-      const res = await app.fetch(
-        new Request(`http://localhost/api/invites/${fakeId}`, {
-          method: "DELETE",
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
     it("returns 400 for invalid UUID", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();

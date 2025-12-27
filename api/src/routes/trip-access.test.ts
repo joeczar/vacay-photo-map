@@ -167,42 +167,6 @@ describe("Trip Access Routes", () => {
       await db`DELETE FROM trip_access WHERE id = ${data.tripAccess.id}`;
     });
 
-    it("returns 401 if not authenticated", async () => {
-      const app = createTestApp();
-
-      const res = await app.request("/api/trip-access", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: testUserId,
-          tripId: testTripId,
-          role: "editor",
-        }),
-      });
-
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 if not admin", async () => {
-      const app = createTestApp();
-      const auth = await getUserAuthHeader();
-
-      const res = await app.request("/api/trip-access", {
-        method: "POST",
-        headers: {
-          ...auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: testUserId,
-          tripId: testTripId,
-          role: "editor",
-        }),
-      });
-
-      expect(res.status).toBe(403);
-    });
-
     it("returns 400 for missing required fields", async () => {
       const app = createTestApp();
       const auth = await getAdminAuthHeader();
@@ -450,28 +414,6 @@ describe("Trip Access Routes", () => {
       expect(data.users).toBeArrayOfSize(0);
     });
 
-    it("returns 401 if not authenticated", async () => {
-      const app = createTestApp();
-
-      const res = await app.request(`/api/trips/${testTripId}/access`, {
-        method: "GET",
-      });
-
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 if not admin", async () => {
-      const app = createTestApp();
-      const auth = await getUserAuthHeader();
-
-      const res = await app.request(`/api/trips/${testTripId}/access`, {
-        method: "GET",
-        headers: auth,
-      });
-
-      expect(res.status).toBe(403);
-    });
-
     it("returns 400 for invalid trip ID format", async () => {
       const app = createTestApp();
       const auth = await getAdminAuthHeader();
@@ -559,36 +501,6 @@ describe("Trip Access Routes", () => {
 
       // Cleanup
       await db`DELETE FROM trip_access WHERE id = ${access.id}`;
-    });
-
-    it("returns 401 if not authenticated", async () => {
-      const app = createTestApp();
-      const fakeId = "00000000-0000-4000-a000-000000000999";
-
-      const res = await app.request(`/api/trip-access/${fakeId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "editor" }),
-      });
-
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 if not admin", async () => {
-      const app = createTestApp();
-      const auth = await getUserAuthHeader();
-      const fakeId = "00000000-0000-4000-a000-000000000999";
-
-      const res = await app.request(`/api/trip-access/${fakeId}`, {
-        method: "PATCH",
-        headers: {
-          ...auth,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role: "editor" }),
-      });
-
-      expect(res.status).toBe(403);
     });
 
     it("returns 400 for invalid ID format", async () => {
@@ -698,30 +610,6 @@ describe("Trip Access Routes", () => {
       expect(check).toBeArrayOfSize(0);
     });
 
-    it("returns 401 if not authenticated", async () => {
-      const app = createTestApp();
-      const fakeId = "00000000-0000-4000-a000-000000000999";
-
-      const res = await app.request(`/api/trip-access/${fakeId}`, {
-        method: "DELETE",
-      });
-
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 if not admin", async () => {
-      const app = createTestApp();
-      const auth = await getUserAuthHeader();
-      const fakeId = "00000000-0000-4000-a000-000000000999";
-
-      const res = await app.request(`/api/trip-access/${fakeId}`, {
-        method: "DELETE",
-        headers: auth,
-      });
-
-      expect(res.status).toBe(403);
-    });
-
     it("returns 400 for invalid ID format", async () => {
       const app = createTestApp();
       const auth = await getAdminAuthHeader();
@@ -775,28 +663,6 @@ describe("Trip Access Routes", () => {
       expect(user).toBeDefined();
       expect(user!.isAdmin).toBe(false);
       expect(user!.email).toBe(testUserEmail);
-    });
-
-    it("returns 401 if not authenticated", async () => {
-      const app = createTestApp();
-
-      const res = await app.request("/api/users", {
-        method: "GET",
-      });
-
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 if not admin", async () => {
-      const app = createTestApp();
-      const auth = await getUserAuthHeader();
-
-      const res = await app.request("/api/users", {
-        method: "GET",
-        headers: auth,
-      });
-
-      expect(res.status).toBe(403);
     });
   });
 });

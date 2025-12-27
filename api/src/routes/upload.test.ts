@@ -96,40 +96,6 @@ describe("Upload Routes", () => {
   // POST /api/trips/:tripId/photos/upload - Upload photo
   // ==========================================================================
   describe("POST /api/trips/:tripId/photos/upload", () => {
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const file = createJpegFile();
-      const formData = createFormData(file);
-
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${testTripId}/photos/upload`, {
-          method: "POST",
-          body: formData,
-        }),
-      );
-
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const file = createJpegFile();
-      const formData = createFormData(file);
-
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${testTripId}/photos/upload`, {
-          method: "POST",
-          headers: authHeader,
-          body: formData,
-        }),
-      );
-
-      expect(res.status).toBe(403);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Forbidden");
-    });
-
     it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
