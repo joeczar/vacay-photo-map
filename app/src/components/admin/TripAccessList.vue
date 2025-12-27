@@ -95,6 +95,7 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import type { TripAccessUser, Role } from '@/lib/trip-access'
+import { formatDate } from '@/utils/formatters'
 
 // Props & Emits
 interface Props {
@@ -121,18 +122,6 @@ function getRoleVariant(role: Role): 'default' | 'secondary' {
 // Helper: Capitalize role
 function capitalizeRole(role: Role): string {
   return role.charAt(0).toUpperCase() + role.slice(1)
-}
-
-// Helper: Format date with validation
-function formatDate(dateString: string): string {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
 }
 
 // Handler: Role change

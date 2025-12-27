@@ -195,6 +195,7 @@ import {
   revokeTripAccess
 } from '@/lib/trip-access'
 import type { Role, TripAccessUser, UserInfo } from '@/lib/trip-access'
+import { formatDate } from '@/utils/formatters'
 
 // Toast
 const { toast } = useToast()
@@ -237,18 +238,6 @@ const availableUsers = computed(() => {
   const accessUserIds = new Set(accessUsers.value.map(u => u.userId))
   return allUsers.value.filter(u => !u.isAdmin && !accessUserIds.has(u.id))
 })
-
-// Helper: Format date with validation
-function formatDate(dateString: string): string {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
-}
 
 // Load trips
 async function loadTrips() {

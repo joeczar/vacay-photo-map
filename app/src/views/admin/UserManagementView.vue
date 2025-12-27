@@ -138,6 +138,7 @@ import { useToast } from '@/components/ui/toast/use-toast'
 import { getAllUsers, getUserTripAccess } from '@/lib/trip-access'
 import type { UserInfo, Role } from '@/lib/trip-access'
 import { ChevronDown } from 'lucide-vue-next'
+import { formatDate } from '@/utils/formatters'
 
 // Toast
 const { toast } = useToast()
@@ -221,18 +222,6 @@ async function loadUserTripAccess(userId: string) {
     loadingTripAccess.value.delete(userId)
     loadingTripAccess.value = new Set(loadingTripAccess.value)
   }
-}
-
-// Format date helper with validation
-function formatDate(dateString: string): string {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  if (isNaN(date.getTime())) return '-'
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
 }
 
 // Load on mount
