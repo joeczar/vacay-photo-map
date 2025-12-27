@@ -93,7 +93,8 @@ const router = createRouter({
     {
       path: '/trip/:slug',
       name: 'trip',
-      component: () => import('../views/TripView.vue')
+      component: () => import('../views/TripView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

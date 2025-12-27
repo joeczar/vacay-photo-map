@@ -171,15 +171,11 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
 }
 
 /**
- * Get a trip by slug (public or with access token for private trips)
+ * Get a trip by slug (requires authentication)
  */
-export async function getTripBySlug(
-  slug: string,
-  token?: string
-): Promise<(ApiTrip & { photos: Photo[] }) | null> {
+export async function getTripBySlug(slug: string): Promise<(ApiTrip & { photos: Photo[] }) | null> {
   try {
-    const path = token ? `/api/trips/slug/${slug}?token=${token}` : `/api/trips/slug/${slug}`
-    const trip = await api.get<ApiTripWithPhotosResponse>(path)
+    const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/slug/${slug}`)
     return transformApiTripWithPhotos(trip)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -254,23 +250,6 @@ export async function deleteTrip(tripId: string): Promise<void> {
   requireAuth(getToken)
 
   await api.delete(`/api/trips/${tripId}`)
-}
-
-/**
- * Update trip protection settings
- * @param tripId - Trip UUID
- * @param isPublic - Whether the trip should be public
- * @param token - Plaintext token to hash (required when isPublic is false)
- * @param authToken - JWT for authorization
- */
-export async function updateTripProtection(
-  tripId: string,
-  isPublic: boolean,
-  token: string | undefined,
-  authToken: string
-): Promise<void> {
-  api.setToken(authToken)
-  await api.patch(`/api/trips/${tripId}/protection`, { isPublic, token })
 }
 
 /**
