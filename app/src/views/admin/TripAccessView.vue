@@ -112,6 +112,48 @@
         </CardContent>
       </Card>
     </template>
+
+    <!-- Role Change Dialog -->
+    <Dialog v-model:open="showRoleDialog">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Change Role?</DialogTitle>
+          <DialogDescription>
+            Change {{ pendingRoleChange?.user.email }}'s role from
+            {{ pendingRoleChange?.currentRole }} to {{ pendingRoleChange?.newRole }}?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" :disabled="isUpdatingRole" @click="showRoleDialog = false">
+            Cancel
+          </Button>
+          <Button :disabled="isUpdatingRole" @click="confirmRoleChange">
+            {{ isUpdatingRole ? 'Updating...' : 'Change Role' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Revoke Dialog -->
+    <Dialog v-model:open="showRevokeDialog">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Revoke Access?</DialogTitle>
+          <DialogDescription>
+            This will remove {{ pendingRevoke?.user.email }}'s access to this trip. They will no
+            longer be able to view or edit photos.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" :disabled="isRevoking" @click="showRevokeDialog = false">
+            Cancel
+          </Button>
+          <Button variant="destructive" :disabled="isRevoking" @click="confirmRevoke">
+            {{ isRevoking ? 'Revoking...' : 'Revoke Access' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </AdminLayout>
 </template>
 
@@ -127,6 +169,14 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
 import TripAccessList from '@/components/admin/TripAccessList.vue'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { getAllTripsAdmin } from '@/utils/database'
@@ -157,6 +207,24 @@ const loadingUsers = ref(false)
 const selectedUserId = ref<string | null>(null)
 const selectedRole = ref<Role>('viewer')
 const isGranting = ref(false)
+
+// Role change dialog state
+const showRoleDialog = ref(false)
+const pendingRoleChange = ref<{
+  accessId: string
+  user: TripAccessUser
+  currentRole: Role
+  newRole: Role
+} | null>(null)
+const isUpdatingRole = ref(false)
+
+// Revoke dialog state
+const showRevokeDialog = ref(false)
+const pendingRevoke = ref<{
+  accessId: string
+  user: TripAccessUser
+} | null>(null)
+const isRevoking = ref(false)
 
 // Computed: Users available to grant access (exclude admins and already-granted)
 const availableUsers = computed(() => {
@@ -270,21 +338,33 @@ async function handleGrantAccess() {
   }
 }
 
-// Update role (simple version for now - dialog in Commit 4)
-async function handleUpdateRole(payload: {
+// Open role change dialog
+function handleUpdateRole(payload: {
   accessId: string
   currentRole: Role
+  newRole: Role
   user: TripAccessUser
 }) {
-  try {
-    // Determine the new role (toggle between editor and viewer)
-    const newRole: Role = payload.currentRole === 'editor' ? 'viewer' : 'editor'
+  pendingRoleChange.value = {
+    accessId: payload.accessId,
+    user: payload.user,
+    currentRole: payload.currentRole,
+    newRole: payload.newRole
+  }
+  showRoleDialog.value = true
+}
 
-    await updateTripAccessRole(payload.accessId, newRole)
+// Confirm role change
+async function confirmRoleChange() {
+  if (!pendingRoleChange.value) return
+
+  isUpdatingRole.value = true
+  try {
+    await updateTripAccessRole(pendingRoleChange.value.accessId, pendingRoleChange.value.newRole)
 
     toast({
       title: 'Role Updated',
-      description: `Role updated to ${newRole}`
+      description: `Role updated to ${pendingRoleChange.value.newRole}`
     })
 
     // Refresh access list
@@ -298,17 +378,33 @@ async function handleUpdateRole(payload: {
       description: error instanceof Error ? error.message : 'Failed to update role',
       variant: 'destructive'
     })
+  } finally {
+    isUpdatingRole.value = false
+    showRoleDialog.value = false
+    pendingRoleChange.value = null
   }
 }
 
-// Revoke access (simple version for now - dialog in Commit 4)
-async function handleRevoke(payload: { accessId: string; user: TripAccessUser }) {
+// Open revoke dialog
+function handleRevoke(payload: { accessId: string; user: TripAccessUser }) {
+  pendingRevoke.value = {
+    accessId: payload.accessId,
+    user: payload.user
+  }
+  showRevokeDialog.value = true
+}
+
+// Confirm revoke
+async function confirmRevoke() {
+  if (!pendingRevoke.value) return
+
+  isRevoking.value = true
   try {
-    await revokeTripAccess(payload.accessId)
+    await revokeTripAccess(pendingRevoke.value.accessId)
 
     toast({
       title: 'Access Revoked',
-      description: `Access revoked for ${payload.user.email}`
+      description: `Access revoked for ${pendingRevoke.value.user.email}`
     })
 
     // Refresh access list
@@ -322,6 +418,10 @@ async function handleRevoke(payload: { accessId: string; user: TripAccessUser })
       description: error instanceof Error ? error.message : 'Failed to revoke access',
       variant: 'destructive'
     })
+  } finally {
+    isRevoking.value = false
+    showRevokeDialog.value = false
+    pendingRevoke.value = null
   }
 }
 

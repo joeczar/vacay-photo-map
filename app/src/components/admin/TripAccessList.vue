@@ -103,7 +103,10 @@ interface Props {
 }
 
 interface Emits {
-  (e: 'update-role', payload: { accessId: string; currentRole: Role; user: TripAccessUser }): void
+  (
+    e: 'update-role',
+    payload: { accessId: string; currentRole: Role; newRole: Role; user: TripAccessUser }
+  ): void
   (e: 'revoke', payload: { accessId: string; user: TripAccessUser }): void
 }
 
@@ -140,6 +143,7 @@ function handleRoleChange(user: TripAccessUser, value: unknown): void {
       emit('update-role', {
         accessId: user.id,
         currentRole: user.role,
+        newRole,
         user
       })
     }
