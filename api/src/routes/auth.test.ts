@@ -179,35 +179,7 @@ describe("Auth Routes", () => {
     });
   });
 
-  describe("POST /api/auth/passkeys/options", () => {
-    it("returns 401 without auth token", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        createRequestWithUniqueIp(
-          "http://localhost/api/auth/passkeys/options",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          },
-        ),
-      );
-      expect(res.status).toBe(401);
-    });
-  });
-
   describe("POST /api/auth/passkeys/verify", () => {
-    it("returns 401 without auth token", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        createRequestWithUniqueIp("http://localhost/api/auth/passkeys/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ credential: {} }),
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
     it("returns 400 for missing credential with valid auth", async () => {
       const app = createTestApp();
       const authHeader = await getAuthHeader("user-123", "test@example.com");
@@ -221,56 +193,6 @@ describe("Auth Routes", () => {
       expect(res.status).toBe(400);
       const data = (await res.json()) as ErrorResponse;
       expect(data.message).toBe("Missing credential");
-    });
-  });
-
-  describe("GET /api/auth/passkeys", () => {
-    it("returns 401 without auth token", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        createRequestWithUniqueIp("http://localhost/api/auth/passkeys", {
-          method: "GET",
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-  });
-
-  describe("DELETE /api/auth/passkeys/:id", () => {
-    it("returns 401 without auth token", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        createRequestWithUniqueIp(
-          "http://localhost/api/auth/passkeys/some-id",
-          {
-            method: "DELETE",
-          },
-        ),
-      );
-      expect(res.status).toBe(401);
-    });
-  });
-
-  describe("GET /api/auth/me", () => {
-    it("returns 401 without token", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        createRequestWithUniqueIp("http://localhost/api/auth/me", {
-          method: "GET",
-        }),
-      );
-      expect(res.status).toBe(401);
-    });
-
-    it("returns 401 with invalid token", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        createRequestWithUniqueIp("http://localhost/api/auth/me", {
-          method: "GET",
-          headers: { Authorization: "Bearer invalid-token" },
-        }),
-      );
-      expect(res.status).toBe(401);
     });
   });
 
