@@ -31,6 +31,11 @@
         </div>
       </div>
 
+      <!-- Error State -->
+      <div v-else-if="errorMessage" class="py-8 text-center">
+        <p class="text-sm text-destructive">{{ errorMessage }}</p>
+      </div>
+
       <!-- Empty State -->
       <div v-else-if="trips.length === 0" class="py-8 text-center">
         <p class="text-sm text-muted-foreground">No trips available. Create a trip first.</p>
@@ -38,24 +43,15 @@
 
       <!-- Trip List -->
       <div v-else class="space-y-2 max-h-64 overflow-y-auto border rounded-md p-4">
-        <div
-          v-for="trip in trips"
-          :key="trip.id"
-          class="flex items-center space-x-3 py-2 hover:bg-muted/50 rounded px-2 cursor-pointer"
-          @click="toggleTrip(trip.id)"
-        >
-          <input
-            type="checkbox"
+        <div v-for="trip in trips" :key="trip.id" class="flex items-center space-x-3 py-2">
+          <Checkbox
             :id="`trip-${trip.id}`"
-            :checked="modelValue.includes(trip.id)"
-            class="h-4 w-4 rounded border-primary text-primary focus:ring-primary"
-            @click.stop
-            @change="toggleTrip(trip.id)"
+            :model-value="modelValue.includes(trip.id)"
+            @update:model-value="() => toggleTrip(trip.id)"
           />
           <label
             :for="`trip-${trip.id}`"
-            class="flex-1 text-sm font-medium leading-none cursor-pointer"
-            @click.stop
+            class="flex-1 text-sm font-medium leading-none cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -ml-2"
           >
             {{ trip.title }}
             <span class="text-muted-foreground ml-2">({{ trip.photo_count }} photos)</span>
@@ -74,6 +70,7 @@
 import { ref, onMounted } from 'vue'
 import { getAllTripsAdmin, type TripWithMetadata } from '@/utils/database'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -101,11 +98,17 @@ const emit = defineEmits<Emits>()
 // State
 const trips = ref<TripWithMetadata[]>([])
 const loading = ref(true)
+const errorMessage = ref<string | null>(null)
+
+// Valid roles for runtime validation
+const validRoles: Role[] = ['editor', 'viewer']
 
 // Methods
 function handleRoleChange(value: unknown) {
-  if (typeof value === 'string') {
+  if (typeof value === 'string' && validRoles.includes(value as Role)) {
     emit('update:role', value as Role)
+  } else {
+    console.warn('Invalid role received from Select:', value)
   }
 }
 
@@ -128,6 +131,7 @@ onMounted(async () => {
     trips.value = await getAllTripsAdmin()
   } catch (error) {
     console.error('Failed to fetch trips:', error)
+    errorMessage.value = 'Failed to load trips. Please refresh the page.'
   } finally {
     loading.value = false
   }

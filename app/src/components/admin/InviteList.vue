@@ -8,7 +8,7 @@
     <!-- Invite Table -->
     <div v-else class="border rounded-lg overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full">
+        <table class="w-full" role="table" aria-label="Invite list">
           <thead class="bg-muted/50 border-b">
             <tr>
               <th class="px-4 py-3 text-left text-sm font-medium">Email</th>
@@ -58,12 +58,17 @@
                   <Button
                     variant="outline"
                     size="sm"
+                    :aria-label="`Copy invite link for ${invite.email}`"
                     @click="$emit('copy', invite.code)"
-                    title="Copy invite link"
                   >
                     Copy Link
                   </Button>
-                  <Button variant="outline" size="sm" @click="$emit('revoke', invite.id)">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    :aria-label="`Revoke invite for ${invite.email}`"
+                    @click="$emit('revoke', invite.id)"
+                  >
                     Revoke
                   </Button>
                 </div>
@@ -94,6 +99,9 @@ interface Emits {
 
 defineProps<Props>()
 defineEmits<Emits>()
+
+// Constants
+const MS_PER_DAY = 1000 * 60 * 60 * 24
 
 // Helper: Get badge variant based on status
 function getStatusVariant(status: InviteStatus): 'default' | 'secondary' | 'outline' {
@@ -133,7 +141,7 @@ function formatExpiration(expiresAt: string, status: InviteStatus): string {
   }
 
   const diffMs = expires.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  const diffDays = Math.ceil(diffMs / MS_PER_DAY)
 
   return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`
 }

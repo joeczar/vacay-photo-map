@@ -68,7 +68,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
@@ -88,6 +88,7 @@ import AuthLayout from '@/layouts/AuthLayout.vue'
 import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()
+const route = useRoute()
 const { isAuthenticated, setAuthState } = useAuth()
 
 // Redirect if already authenticated
@@ -105,10 +106,17 @@ const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthn
 // Check registration status on mount
 onMounted(async () => {
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
+    // Pass invite code to registration-status check if present
+    const inviteCode = route.query.invite as string | undefined
+    const url = new URL(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
+    if (inviteCode) {
+      url.searchParams.set('invite', inviteCode)
+    }
+
+    const response = await fetch(url.toString())
 
     if (response.ok) {
-      const { registrationOpen } = await response.json()
+      const { registrationOpen, email } = await response.json()
 
       if (!registrationOpen) {
         error.value = 'Registration is closed. The first user has already been registered.'
@@ -117,6 +125,9 @@ onMounted(async () => {
         setTimeout(() => {
           router.push('/login')
         }, 2000)
+      } else if (email) {
+        // Pre-fill email from invite
+        setFieldValue('email', email)
       }
     }
     // If API call fails, let user try - backend will validate
@@ -139,7 +150,7 @@ const registerSchema = toTypedSchema(
   })
 )
 
-const { handleSubmit, meta } = useForm({
+const { handleSubmit, meta, setFieldValue } = useForm({
   validationSchema: registerSchema,
   initialValues: { email: '', displayName: '' }
 })

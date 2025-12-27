@@ -39,6 +39,17 @@ export interface CreateInviteResponse {
 }
 
 /**
+ * Helper to get auth token and set on API client
+ * Throws if not authenticated
+ */
+function requireAuth(): void {
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
+  api.setToken(token)
+}
+
+/**
  * Create a new invite with trip assignments
  */
 export async function createInvite(
@@ -46,14 +57,13 @@ export async function createInvite(
   role: Role,
   tripIds: string[]
 ): Promise<CreateInviteResponse> {
-  const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth()
 
-  api.setToken(token)
+  // Normalize email to match backend behavior
+  const normalizedEmail = email.toLowerCase().trim()
 
   return await api.post<CreateInviteResponse>('/api/invites', {
-    email,
+    email: normalizedEmail,
     role,
     tripIds
   })
@@ -64,11 +74,7 @@ export async function createInvite(
  * Returns invites with computed status
  */
 export async function getAllInvites(): Promise<InviteListItem[]> {
-  const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth()
 
   const response = await api.get<{ invites: InviteListItem[] }>('/api/invites')
   return response.invites
@@ -79,11 +85,7 @@ export async function getAllInvites(): Promise<InviteListItem[]> {
  * Marks it as used to prevent acceptance while maintaining audit trail
  */
 export async function revokeInvite(id: string): Promise<void> {
-  const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth()
 
   await api.delete(`/api/invites/${id}`)
 }

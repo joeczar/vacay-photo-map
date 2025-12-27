@@ -114,8 +114,20 @@ const showTripError = ref(false)
 const invites = ref<InviteListItem[]>([])
 const loadingInvites = ref(true)
 
-// Get app URL from env
+// Get app URL from env - validated at build time by Vite
 const APP_URL = import.meta.env.VITE_APP_URL || 'http://localhost:5173'
+
+/**
+ * Copy text to clipboard with fallback for non-HTTPS contexts
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    return false
+  }
+}
 
 // Submit handler
 const onSubmit = handleSubmit(async values => {
@@ -133,22 +145,38 @@ const onSubmit = handleSubmit(async values => {
     // Generate invite link
     const inviteLink = `${APP_URL}/register?invite=${response.invite.code}`
 
-    // Copy to clipboard
-    await navigator.clipboard.writeText(inviteLink)
-
-    // Show success toast
-    toast({
-      title: 'Invite Created',
-      description: `Invite link copied to clipboard! Valid for 7 days.`
-    })
-
-    // Reset form
+    // Reset form BEFORE showing success (so user sees clean form)
     resetVeeForm()
     selectedTripIds.value = []
     selectedRole.value = 'viewer'
 
-    // Refresh invite list
-    await fetchInvites()
+    // Copy to clipboard with fallback
+    const copied = await copyToClipboard(inviteLink)
+
+    if (copied) {
+      toast({
+        title: 'Invite Created',
+        description: 'Invite link copied to clipboard! Valid for 7 days.'
+      })
+    } else {
+      // Fallback: show link in toast for manual copy
+      toast({
+        title: 'Invite Created',
+        description: `Copy this link: ${inviteLink}`,
+        duration: 15000 // Longer duration for manual copy
+      })
+    }
+
+    // Refresh invite list - handle failure gracefully
+    try {
+      await fetchInvites()
+    } catch {
+      toast({
+        title: 'Warning',
+        description: 'Invite created but list refresh failed. Please reload the page.',
+        variant: 'destructive'
+      })
+    }
   } catch (error) {
     console.error('Failed to create invite:', error)
     toast({
@@ -180,20 +208,21 @@ async function fetchInvites() {
 
 // Copy invite link
 async function handleCopyLink(code: string) {
-  try {
-    const inviteLink = `${APP_URL}/register?invite=${code}`
-    await navigator.clipboard.writeText(inviteLink)
+  const inviteLink = `${APP_URL}/register?invite=${code}`
+  const copied = await copyToClipboard(inviteLink)
 
+  if (copied) {
     toast({
       title: 'Link Copied',
       description: 'Invite link copied to clipboard'
     })
-  } catch (error) {
-    console.error('Failed to copy link:', error)
+  } else {
+    // Fallback: show link in toast for manual copy
     toast({
-      title: 'Error',
-      description: 'Failed to copy link to clipboard',
-      variant: 'destructive'
+      title: 'Copy Failed',
+      description: `Please copy manually: ${inviteLink}`,
+      variant: 'destructive',
+      duration: 15000
     })
   }
 }
