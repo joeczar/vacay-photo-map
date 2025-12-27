@@ -213,7 +213,7 @@ The production deployment uses Docker Compose's `env_file` directive to load env
 **How it works:**
 1. Root `.env.production` is loaded via `env_file` directive in docker-compose.prod.yml
 2. Variables (like `POSTGRES_PASSWORD`) are available to the postgres service
-3. API service mounts `api/.env.production` into the container
+3. API service loads its environment variables from `api/.env.production` via its own `env_file` directive
 4. Both files must contain the SAME database password (in different formats)
 
 **File Structure:**
