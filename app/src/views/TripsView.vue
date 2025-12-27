@@ -76,7 +76,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getAllTrips, type ApiTrip } from '@/utils/database'
+import { useRouter } from 'vue-router'
+import { getTripsWithAuth, type ApiTrip } from '@/utils/database'
+import { useAuth } from '@/composables/useAuth'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -84,6 +86,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import TripCard from '@/components/TripCard.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import EmptyState from '@/components/EmptyState.vue'
+
+const router = useRouter()
+const { isAuthenticated } = useAuth()
 
 const trips = ref<
   (ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]
@@ -95,7 +100,7 @@ async function loadTrips() {
   loading.value = true
   error.value = ''
   try {
-    trips.value = await getAllTrips()
+    trips.value = await getTripsWithAuth()
   } catch (err) {
     console.error('Error loading trips:', err)
     error.value = 'Failed to load trips'
@@ -104,5 +109,11 @@ async function loadTrips() {
   }
 }
 
-onMounted(loadTrips)
+onMounted(async () => {
+  if (!isAuthenticated.value) {
+    router.push('/login')
+    return
+  }
+  await loadTrips()
+})
 </script>

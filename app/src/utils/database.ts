@@ -204,6 +204,20 @@ export async function getAllTrips(): Promise<TripWithMetadata[]> {
 }
 
 /**
+ * Get trips accessible to authenticated user with metadata
+ * Returns trips based on user's access level (admin sees all, users see only accessible trips)
+ */
+export async function getTripsWithAuth(): Promise<TripWithMetadata[]> {
+  const { getToken } = useAuth()
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
+
+  api.setToken(token)
+  const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips')
+  return trips.map(transformApiTrip)
+}
+
+/**
  * Admin-only endpoint that returns all trips including drafts
  */
 export async function getAllTripsAdmin(): Promise<TripWithMetadata[]> {
