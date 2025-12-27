@@ -1,5 +1,5 @@
 <template>
-  <MainLayout>
+  <AdminLayout>
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-foreground">Manage Trips</h1>
@@ -66,14 +66,14 @@
         </div>
       </div>
     </div>
-  </MainLayout>
+  </AdminLayout>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { getAllTripsAdmin, deleteTrip } from '@/utils/database'
 import type { ApiTrip } from '@/utils/database'
-import MainLayout from '@/layouts/MainLayout.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 import TripCard from '@/components/TripCard.vue'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'

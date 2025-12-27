@@ -68,6 +68,24 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import('../views/admin/UserManagementView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/invites',
+      name: 'admin-invites',
+      component: () => import('../views/admin/InviteManagementView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/access',
+      name: 'admin-access',
+      component: () => import('../views/admin/TripAccessView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
       path: '/trip/:slug',
       name: 'trip',
       component: () => import('../views/TripView.vue')
