@@ -17,6 +17,7 @@ export type TripWithMetadata = ApiTrip & {
     start: string
     end: string
   }
+  userRole?: 'admin' | 'editor' | 'viewer'
 }
 
 // API Response Types (camelCase from backend)
@@ -34,6 +35,7 @@ interface ApiTripResponse {
     start: string
     end: string
   }
+  userRole?: 'admin' | 'editor' | 'viewer'
 }
 
 interface ApiPhotoResponse {
@@ -96,7 +98,8 @@ function transformApiTrip(apiTrip: ApiTripResponse): TripWithMetadata {
     date_range: {
       start: apiTrip.dateRange.start,
       end: apiTrip.dateRange.end
-    }
+    },
+    userRole: apiTrip.userRole
   }
 }
 

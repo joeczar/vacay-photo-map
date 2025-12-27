@@ -38,6 +38,21 @@ export interface CreateInviteResponse {
   tripIds: string[]
 }
 
+export interface ValidateInviteResponse {
+  valid: boolean
+  message?: string
+  invite?: {
+    email: string
+    role: 'editor' | 'viewer'
+    expiresAt: string
+  }
+  trips?: Array<{
+    id: string
+    slug: string
+    title: string
+  }>
+}
+
 /**
  * Helper to get auth token and set on API client
  * Throws if not authenticated
@@ -88,4 +103,12 @@ export async function revokeInvite(id: string): Promise<void> {
   requireAuth()
 
   await api.delete(`/api/invites/${id}`)
+}
+
+/**
+ * Validate an invite token (no auth required)
+ * Returns invite details and associated trips if valid
+ */
+export async function validateInvite(token: string): Promise<ValidateInviteResponse> {
+  return await api.get<ValidateInviteResponse>(`/api/invites/validate/${token}`)
 }
