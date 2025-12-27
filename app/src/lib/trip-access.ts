@@ -29,6 +29,16 @@ export interface UserInfo {
   isAdmin: boolean
 }
 
+export interface UserTripAccess {
+  id: string
+  tripId: string
+  tripTitle: string
+  tripSlug: string
+  role: Role
+  grantedAt: string
+  grantedByUserId: string | null
+}
+
 /**
  * Helper to get auth token and set on API client
  * Throws if not authenticated
@@ -99,4 +109,15 @@ export async function getAllUsers(): Promise<UserInfo[]> {
 
   const response = await api.get<{ users: UserInfo[] }>('/api/users')
   return response.users
+}
+
+/**
+ * Get all trips a user has access to (admin only)
+ * Single query - replaces N+1 pattern
+ */
+export async function getUserTripAccess(userId: string): Promise<UserTripAccess[]> {
+  requireAuth()
+
+  const response = await api.get<{ trips: UserTripAccess[] }>(`/api/users/${userId}/trip-access`)
+  return response.trips
 }

@@ -135,9 +135,8 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/components/ui/toast/use-toast'
-import { getAllUsers, getTripAccessList } from '@/lib/trip-access'
+import { getAllUsers, getUserTripAccess } from '@/lib/trip-access'
 import type { UserInfo, Role } from '@/lib/trip-access'
-import { getAllTripsAdmin } from '@/utils/database'
 import { ChevronDown } from 'lucide-vue-next'
 
 // Toast
@@ -191,38 +190,25 @@ function toggleUserExpanded(userId: string) {
   expandedUsers.value = new Set(expandedUsers.value)
 }
 
-// Load trip access for a specific user
+// Load trip access for a specific user (single API call)
 async function loadUserTripAccess(userId: string) {
   loadingTripAccess.value.add(userId)
   loadingTripAccess.value = new Set(loadingTripAccess.value)
 
   try {
-    // Get all trips first
-    const trips = await getAllTripsAdmin()
+    // Single API call - backend joins trip_access with trips table
+    const accessList = await getUserTripAccess(userId)
 
-    // Fetch all trip access lists in parallel (fixes N+1 query pattern)
-    const tripAccessResults = await Promise.all(
-      trips.map(async trip => {
-        const tripUsers = await getTripAccessList(trip.id)
-        const userAccess = tripUsers.find(u => u.userId === userId)
-        if (userAccess) {
-          return {
-            tripId: trip.id,
-            tripTitle: trip.title,
-            role: userAccess.role,
-            grantedAt: userAccess.grantedAt
-          }
-        }
-        return null
-      })
+    // Map to TripAccessInfo format
+    userTripAccess.value.set(
+      userId,
+      accessList.map(a => ({
+        tripId: a.tripId,
+        tripTitle: a.tripTitle,
+        role: a.role,
+        grantedAt: a.grantedAt
+      }))
     )
-
-    // Filter out nulls
-    const accessList = tripAccessResults.filter(
-      (access): access is TripAccessInfo => access !== null
-    )
-
-    userTripAccess.value.set(userId, accessList)
     userTripAccess.value = new Map(userTripAccess.value)
   } catch (error) {
     console.error('Failed to load trip access:', error)
