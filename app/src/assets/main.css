@@ -117,15 +117,15 @@
 
   /* Admin-specific utility classes */
   .admin-space .badge-editor {
-    background: hsl(215 16% 65% / 0.15);
-    color: hsl(215 16% 65%);
-    border: 1px solid hsl(215 16% 65% / 0.3);
+    background: hsl(var(--admin-accent) / 0.15);
+    color: hsl(var(--admin-accent));
+    border: 1px solid hsl(var(--admin-accent) / 0.3);
   }
 
   .admin-space .badge-viewer {
-    background: hsl(240 4% 46% / 0.1);
-    color: hsl(240 4% 46%);
-    border: 1px solid hsl(240 4% 46% / 0.2);
+    background: hsl(var(--admin-neutral) / 0.1);
+    color: hsl(var(--admin-neutral));
+    border: 1px solid hsl(var(--admin-neutral) / 0.2);
   }
 
   .admin-space .status-active {
