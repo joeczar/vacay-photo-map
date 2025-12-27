@@ -7,7 +7,6 @@ import type { AuthEnv } from "../types/auth";
 import { getDbClient } from "../db/client";
 import {
   getAdminAuthHeader,
-  getUserAuthHeader,
   TEST_ADMIN_USER_ID,
   TEST_USER_ID,
   uniqueIp,

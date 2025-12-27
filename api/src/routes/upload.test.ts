@@ -8,7 +8,6 @@ import type { AuthEnv } from "../types/auth";
 import { rm, mkdir } from "fs/promises";
 import {
   getAdminAuthHeader,
-  getUserAuthHeader,
   createJpegFile,
   createPngFile,
   createWebpFile,
