@@ -379,7 +379,6 @@ type Photo = Database['public']['Tables']['photos']['Row']
 const route = useRoute()
 const router = useRouter()
 const slug = route.params.slug as string
-const token = route.query.token as string | undefined
 
 // Auth & Theme
 const { isAuthenticated } = useAuth()
@@ -561,7 +560,7 @@ onMounted(async () => {
   mq.addEventListener?.('change', updateDesktop)
 
   try {
-    const data = await getTripBySlug(slug, token)
+    const data = await getTripBySlug(slug)
     if (!data) {
       error.value = 'Trip not found'
     } else {

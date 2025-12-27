@@ -453,56 +453,6 @@ describe("Trip Routes", () => {
   });
 
   // ==========================================================================
-  // PATCH /api/trips/:id/protection - Update protection settings
-  // ==========================================================================
-  describe("PATCH /api/trips/:id/protection", () => {
-    const validUuid = "550e8400-e29b-41d4-a716-446655440000";
-
-    it("returns 400 for missing isPublic field", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}/protection`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({}),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("isPublic must be a boolean");
-    });
-
-    it("returns 400 for token too short", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}/protection`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ isPublic: false, token: "short" }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Token must be at least 8 characters");
-    });
-
-    it("returns 404 for non-existent trip", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${validUuid}/protection`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ isPublic: true }),
-        }),
-      );
-      expect(res.status).toBe(404);
-    });
-  });
-
-  // ==========================================================================
   // GET /api/trips/admin - List all trips (admin only)
   // ==========================================================================
   describe("GET /api/trips/admin", () => {

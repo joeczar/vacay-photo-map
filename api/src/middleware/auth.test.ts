@@ -458,11 +458,6 @@ describe("Protected Endpoints Auth Enforcement", () => {
     { method: "PATCH", path: `/api/trips/${testUuid}`, desc: "Update trip" },
     { method: "DELETE", path: `/api/trips/${testUuid}`, desc: "Delete trip" },
     {
-      method: "PATCH",
-      path: `/api/trips/${testUuid}/protection`,
-      desc: "Update trip protection",
-    },
-    {
       method: "DELETE",
       path: `/api/trips/photos/${testUuid}`,
       desc: "Delete photo",
@@ -535,11 +530,6 @@ describe("Protected Endpoints Auth Enforcement", () => {
     { method: "POST", path: "/api/trips", desc: "Create trip" },
     { method: "PATCH", path: `/api/trips/${testUuid}`, desc: "Update trip" },
     { method: "DELETE", path: `/api/trips/${testUuid}`, desc: "Delete trip" },
-    {
-      method: "PATCH",
-      path: `/api/trips/${testUuid}/protection`,
-      desc: "Update trip protection",
-    },
     {
       method: "DELETE",
       path: `/api/trips/photos/${testUuid}`,
