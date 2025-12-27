@@ -21,6 +21,10 @@ services:
       # Expose for dev access via Tailscale
       # Secure via Tailscale ACLs or bind to Tailscale IP only
       - "${POSTGRES_HOST:-127.0.0.1}:5432:5432"
+    # Load environment variables from .env.production first
+    # Then override specific variables below (environment section takes precedence)
+    env_file:
+      - ./.env.production
     environment:
       POSTGRES_USER: vacay
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
