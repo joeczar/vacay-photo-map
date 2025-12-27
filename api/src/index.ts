@@ -60,7 +60,10 @@ async function startServer() {
     await connectWithRetry();
     console.log(`Server ready on port ${port}`);
   } catch (error) {
-    console.error("Failed to connect to database:", error);
+    console.error(
+      "Failed to connect to database:",
+      error instanceof Error ? error.message : error,
+    );
     process.exit(1);
   }
 }
