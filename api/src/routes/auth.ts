@@ -959,18 +959,64 @@ auth.post("/logout", (_c) => {
 });
 
 // =============================================================================
-// GET /registration-status - Check if registration is open (first-user-only)
+// GET /registration-status - Check if registration is open
+// Allows registration if: no users yet OR valid invite code provided
 // =============================================================================
 auth.get("/registration-status", async (c) => {
   const db = getDbClient();
+  const inviteCode = c.req.query("invite");
 
+  // Check if any users exist
   const [{ exists }] = await db<{ exists: boolean }[]>`
     SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
   `;
 
+  // No users yet - registration open for first user
+  if (!exists) {
+    return c.json({
+      registrationOpen: true,
+      reason: "no_users_yet",
+    });
+  }
+
+  // Users exist - check for valid invite code
+  if (
+    inviteCode &&
+    inviteCode.length === 32 &&
+    /^[A-Za-z0-9_-]+$/.test(inviteCode)
+  ) {
+    const inviteRows = await db<
+      {
+        id: string;
+        email: string | null;
+        used_at: Date | null;
+        expires_at: Date;
+      }[]
+    >`
+      SELECT id, email, used_at, expires_at
+      FROM invites
+      WHERE code = ${inviteCode}
+    `;
+
+    if (inviteRows.length > 0) {
+      const invite = inviteRows[0];
+      const isUsed = invite.used_at !== null;
+      const isExpired = new Date(invite.expires_at) <= new Date();
+
+      if (!isUsed && !isExpired) {
+        return c.json({
+          registrationOpen: true,
+          reason: "valid_invite",
+          email: invite.email,
+        });
+      }
+    }
+  }
+
+  // No valid invite - registration closed
   return c.json({
-    registrationOpen: !exists,
-    reason: exists ? "first_user_registered" : "no_users_yet",
+    registrationOpen: false,
+    reason: "first_user_registered",
   });
 });
 

@@ -11,7 +11,7 @@ type PhotoInsert = TablesInsert<'photos'>
 export type ApiTrip = Omit<Trip, 'access_token_hash'>
 
 // Trip with metadata (used for list views)
-type TripWithMetadata = ApiTrip & {
+export type TripWithMetadata = ApiTrip & {
   photo_count: number
   date_range: {
     start: string
