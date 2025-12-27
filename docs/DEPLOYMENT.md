@@ -108,31 +108,56 @@ git clone https://github.com/joeczar/vacay-photo-map.git
 cd vacay-photo-map
 ```
 
-### 2. Create Production Environment File
+### 2. Create Production Environment Files
+
+**CRITICAL: Password Synchronization Required**
+
+You need TWO separate environment files with the SAME database password:
+
+#### Step 2a: Generate a Strong Password
 
 ```bash
-cp api/.env.production.example api/.env.production
-# Edit with your production values
-nano api/.env.production
+# Generate a secure password (save this for the next steps)
+openssl rand -base64 32
 ```
 
-Key values to configure:
-- `DATABASE_URL` - Use a strong password
-- `JWT_SECRET` - Generate with `openssl rand -hex 32`
-- `RP_ID` / `RP_ORIGIN` - Your production domain
-- R2 credentials (optional)
+#### Step 2b: Create Root Environment File
 
-### 3. Create Root Environment File (for Docker Compose)
-
-The root `.env.production` provides `POSTGRES_PASSWORD` for Docker Compose:
+The root `.env.production` is loaded by Docker Compose via env_file directive:
 
 ```bash
 cp .env.production.example .env.production
-# Edit with your PostgreSQL password
 nano .env.production
 ```
 
-**Note:** This is separate from `api/.env.production` - you need both files.
+Set `POSTGRES_PASSWORD` to your generated password:
+```bash
+POSTGRES_PASSWORD=your_strong_password_here
+```
+
+#### Step 2c: Create API Environment File
+
+```bash
+cp api/.env.production.example api/.env.production
+nano api/.env.production
+```
+
+**CRITICAL:** Use the SAME password in `DATABASE_URL`:
+```bash
+# If your password is: abc123xyz
+# Then DATABASE_URL should be:
+DATABASE_URL=postgresql://vacay:abc123xyz@postgres:5432/vacay
+```
+
+**Common Mistakes:**
+- Using `${POSTGRES_PASSWORD}` in DATABASE_URL (env_file doesn't support substitution)
+- Using different passwords in the two files
+- Leaving placeholder text like `REPLACE_WITH_STRONG_PASSWORD`
+
+Other key values to configure in `api/.env.production`:
+- `JWT_SECRET` - Generate with `openssl rand -hex 32`
+- `RP_ID` / `RP_ORIGIN` - Your production domain
+- R2 credentials (optional)
 
 ### 4. Authenticate with GitHub Container Registry
 
@@ -155,6 +180,10 @@ docker network create proxy
 ### 6. Start Services
 
 ```bash
+# The --env-file flag is optional (docker-compose.prod.yml includes env_file directive)
+docker compose -p vacay-prod -f docker-compose.prod.yml up -d
+
+# Alternatively, you can still use --env-file explicitly:
 docker compose -p vacay-prod -f docker-compose.prod.yml --env-file .env.production up -d
 ```
 
@@ -176,6 +205,33 @@ curl http://localhost:80/health
 # View logs
 docker compose -p vacay-prod -f docker-compose.prod.yml logs -f api
 ```
+
+## Environment Variable Loading
+
+The production deployment uses Docker Compose's `env_file` directive to load environment variables:
+
+**How it works:**
+1. Root `.env.production` is loaded via `env_file` directive in docker-compose.prod.yml
+2. Variables (like `POSTGRES_PASSWORD`) are available to the postgres service
+3. API service loads its environment variables from `api/.env.production` via its own `env_file` directive
+4. Both files must contain the SAME database password (in different formats)
+
+**File Structure:**
+```
+.env.production              # Docker Compose environment
+  └─ POSTGRES_PASSWORD=xyz   # Used by postgres service
+
+api/.env.production          # API runtime environment
+  └─ DATABASE_URL=postgresql://vacay:xyz@...
+                                         ^^^
+                                    MUST MATCH
+```
+
+**Why two files?**
+- Docker Compose needs `POSTGRES_PASSWORD` to initialize the database
+- The API needs the full `DATABASE_URL` connection string
+- Docker's env_file doesn't support variable substitution, so you can't reference `${POSTGRES_PASSWORD}`
+- Therefore, the password must be written literally in both places
 
 ## How Deployments Work
 
@@ -253,7 +309,17 @@ docker compose -p vacay-prod -f docker-compose.prod.yml ps
 
 1. Check PostgreSQL is running: `docker compose -p vacay-prod -f docker-compose.prod.yml ps postgres`
 2. Verify DATABASE_URL in `api/.env.production`
-3. Check password matches in `.env.production` (POSTGRES_PASSWORD)
+3. **COMMON ISSUE: Password mismatch** - The password in `DATABASE_URL` must match `POSTGRES_PASSWORD` in root `.env.production`
+   ```bash
+   # Check root password
+   grep POSTGRES_PASSWORD .env.production
+
+   # Check API password (extract from DATABASE_URL)
+   grep DATABASE_URL api/.env.production
+
+   # They must match exactly
+   ```
+4. Ensure you're using the actual password, not `${POSTGRES_PASSWORD}` or a placeholder
 
 ### WebAuthn/Passkeys Not Working
 

@@ -21,9 +21,13 @@ services:
       # Expose for dev access via Tailscale
       # Secure via Tailscale ACLs or bind to Tailscale IP only
       - "${POSTGRES_HOST:-127.0.0.1}:5432:5432"
+    # Load environment variables from .env.production
+    # POSTGRES_PASSWORD is loaded from env_file, not substituted here
+    # Only POSTGRES_USER and POSTGRES_DB are explicitly set for clarity
+    env_file:
+      - ./.env.production
     environment:
       POSTGRES_USER: vacay
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: vacay
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -45,10 +49,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # All environment variables including DATABASE_URL loaded from env_file
+    # No variable substitution needed - api/.env.production contains complete values
     env_file:
       - ./api/.env.production
-    environment:
-      DATABASE_URL: postgresql://vacay:${POSTGRES_PASSWORD}@postgres:5432/vacay
     volumes:
       # Local photo storage fallback (used if R2 not configured)
       - ./data/photos:/data/photos
