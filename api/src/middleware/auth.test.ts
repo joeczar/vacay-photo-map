@@ -467,6 +467,11 @@ describe("Protected Endpoints Auth Enforcement", () => {
       path: `/api/trips/photos/${testUuid}`,
       desc: "Delete photo",
     },
+    {
+      method: "POST",
+      path: `/api/trips/${testUuid}/photos`,
+      desc: "Add photos to trip",
+    },
     // Trip access routes (requireAdmin)
     { method: "POST", path: "/api/trip-access", desc: "Grant trip access" },
     {
@@ -539,6 +544,11 @@ describe("Protected Endpoints Auth Enforcement", () => {
       method: "DELETE",
       path: `/api/trips/photos/${testUuid}`,
       desc: "Delete photo",
+    },
+    {
+      method: "POST",
+      path: `/api/trips/${testUuid}/photos`,
+      desc: "Add photos to trip",
     },
     // Trip access routes (requireAdmin)
     { method: "POST", path: "/api/trip-access", desc: "Grant trip access" },
