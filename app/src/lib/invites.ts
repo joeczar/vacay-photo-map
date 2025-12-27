@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api, requireAuth } from './api'
 import { useAuth } from '@/composables/useAuth'
 
 export type Role = 'editor' | 'viewer'
@@ -38,15 +38,19 @@ export interface CreateInviteResponse {
   tripIds: string[]
 }
 
-/**
- * Helper to get auth token and set on API client
- * Throws if not authenticated
- */
-function requireAuth(): void {
-  const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-  api.setToken(token)
+export interface ValidateInviteResponse {
+  valid: boolean
+  message?: string
+  invite?: {
+    email: string
+    role: 'editor' | 'viewer'
+    expiresAt: string
+  }
+  trips?: Array<{
+    id: string
+    slug: string
+    title: string
+  }>
 }
 
 /**
@@ -57,7 +61,8 @@ export async function createInvite(
   role: Role,
   tripIds: string[]
 ): Promise<CreateInviteResponse> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   // Normalize email to match backend behavior
   const normalizedEmail = email.toLowerCase().trim()
@@ -74,7 +79,8 @@ export async function createInvite(
  * Returns invites with computed status
  */
 export async function getAllInvites(): Promise<InviteListItem[]> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   const response = await api.get<{ invites: InviteListItem[] }>('/api/invites')
   return response.invites
@@ -85,7 +91,16 @@ export async function getAllInvites(): Promise<InviteListItem[]> {
  * Marks it as used to prevent acceptance while maintaining audit trail
  */
 export async function revokeInvite(id: string): Promise<void> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   await api.delete(`/api/invites/${id}`)
+}
+
+/**
+ * Validate an invite token (no auth required)
+ * Returns invite details and associated trips if valid
+ */
+export async function validateInvite(token: string): Promise<ValidateInviteResponse> {
+  return await api.get<ValidateInviteResponse>(`/api/invites/validate/${token}`)
 }

@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api, requireAuth } from './api'
 import { useAuth } from '@/composables/useAuth'
 
 export type Role = 'editor' | 'viewer'
@@ -40,17 +40,6 @@ export interface UserTripAccess {
 }
 
 /**
- * Helper to get auth token and set on API client
- * Throws if not authenticated
- */
-function requireAuth(): void {
-  const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-  api.setToken(token)
-}
-
-/**
  * Grant a user access to a trip
  */
 export async function grantTripAccess(
@@ -58,7 +47,8 @@ export async function grantTripAccess(
   tripId: string,
   role: Role
 ): Promise<TripAccess> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   const response = await api.post<{ tripAccess: TripAccess }>('/api/trip-access', {
     userId,
@@ -72,7 +62,8 @@ export async function grantTripAccess(
  * Get all users with access to a trip
  */
 export async function getTripAccessList(tripId: string): Promise<TripAccessUser[]> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   const response = await api.get<{ users: TripAccessUser[] }>(`/api/trips/${tripId}/access`)
   return response.users
@@ -82,7 +73,8 @@ export async function getTripAccessList(tripId: string): Promise<TripAccessUser[
  * Update a user's role for a trip
  */
 export async function updateTripAccessRole(accessId: string, role: Role): Promise<TripAccess> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   const response = await api.patch<{ tripAccess: TripAccess }>(`/api/trip-access/${accessId}`, {
     role
@@ -96,7 +88,8 @@ export async function updateTripAccessRole(accessId: string, role: Role): Promis
 export async function revokeTripAccess(
   accessId: string
 ): Promise<{ success: boolean; message: string }> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   return await api.delete<{ success: boolean; message: string }>(`/api/trip-access/${accessId}`)
 }
@@ -105,7 +98,8 @@ export async function revokeTripAccess(
  * Get all users in the system (admin only)
  */
 export async function getAllUsers(): Promise<UserInfo[]> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   const response = await api.get<{ users: UserInfo[] }>('/api/users')
   return response.users
@@ -116,7 +110,8 @@ export async function getAllUsers(): Promise<UserInfo[]> {
  * Single query - replaces N+1 pattern
  */
 export async function getUserTripAccess(userId: string): Promise<UserTripAccess[]> {
-  requireAuth()
+  const { getToken } = useAuth()
+  requireAuth(getToken)
 
   const response = await api.get<{ trips: UserTripAccess[] }>(`/api/users/${userId}/trip-access`)
   return response.trips

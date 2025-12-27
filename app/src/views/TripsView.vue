@@ -55,47 +55,72 @@
     <!-- Trip Grid -->
     <div v-else>
       <div class="flex items-center justify-between mb-8">
-        <h2 class="text-2xl font-bold text-foreground">All Trips</h2>
-        <span class="text-sm text-muted-foreground bg-secondary px-3 py-1 rounded-full"
-          >{{ trips.length }} trips</span
-        >
+        <h2 class="text-2xl font-bold text-foreground">Your Trips</h2>
+        <div class="flex items-center gap-3">
+          <Select v-model="selectedRole">
+            <SelectTrigger class="w-32">
+              <SelectValue placeholder="All roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="editor">Editor</SelectItem>
+              <SelectItem value="viewer">Viewer</SelectItem>
+            </SelectContent>
+          </Select>
+          <span class="text-sm text-muted-foreground bg-secondary px-3 py-1 rounded-full">
+            {{ filteredTrips.length }} trips
+          </span>
+        </div>
       </div>
 
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <template v-for="(trip, i) in trips" :key="trip.id">
-          <!-- On large screens, let featured span full row for balance -->
-          <div v-if="i === 0 && trips.length > 1" class="md:col-span-2 lg:col-span-3">
-            <TripCard :trip="trip" featured />
-          </div>
-          <TripCard v-else :trip="trip" />
-        </template>
+        <TripCard
+          v-for="(trip, i) in filteredTrips"
+          :key="trip.id"
+          :trip="trip"
+          :user-role="trip.userRole"
+          :featured="i === 0 && filteredTrips.length > 1"
+          :class="{ 'md:col-span-2 lg:col-span-3': i === 0 && filteredTrips.length > 1 }"
+        />
       </div>
     </div>
   </MainLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { getAllTrips, type ApiTrip } from '@/utils/database'
+import { ref, computed, onMounted } from 'vue'
+import { getTripsWithAuth, type TripWithMetadata } from '@/utils/database'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
 import TripCard from '@/components/TripCard.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
-const trips = ref<
-  (ApiTrip & { photo_count: number; date_range: { start: string; end: string } })[]
->([])
+const trips = ref<TripWithMetadata[]>([])
 const loading = ref(true)
 const error = ref('')
+const selectedRole = ref<'all' | 'admin' | 'editor' | 'viewer'>('all')
+
+const filteredTrips = computed(() => {
+  if (selectedRole.value === 'all') return trips.value
+  return trips.value.filter(trip => trip.userRole === selectedRole.value)
+})
 
 async function loadTrips() {
   loading.value = true
   error.value = ''
   try {
-    trips.value = await getAllTrips()
+    trips.value = await getTripsWithAuth()
   } catch (err) {
     console.error('Error loading trips:', err)
     error.value = 'Failed to load trips'

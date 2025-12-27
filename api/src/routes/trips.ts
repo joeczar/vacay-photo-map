@@ -59,6 +59,7 @@ interface TripResponse {
     start: string;
     end: string;
   };
+  userRole?: "admin" | "editor" | "viewer";
 }
 
 interface TripWithPhotosResponse extends TripResponse {
@@ -165,6 +166,7 @@ function toTripResponse(
   trip: DbTrip,
   photoCount: number,
   dateRange: { start: string; end: string },
+  userRole?: "admin" | "editor" | "viewer",
 ): TripResponse {
   return {
     id: trip.id,
@@ -177,6 +179,7 @@ function toTripResponse(
     updatedAt: trip.updated_at,
     photoCount,
     dateRange,
+    ...(userRole ? { userRole } : {}),
   };
 }
 
@@ -245,19 +248,23 @@ trips.get("/", requireAuth, async (c) => {
   const user = c.var.user!;
   const db = getDbClient();
 
-  let tripList: DbTrip[];
+  interface DbTripWithRole extends DbTrip {
+    role: "admin" | "editor" | "viewer";
+  }
+
+  let tripList: DbTripWithRole[];
 
   if (user.isAdmin) {
-    // Admins see all trips
-    tripList = await db<DbTrip[]>`
-      SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
+    // Admins see all trips with 'admin' role
+    tripList = await db<DbTripWithRole[]>`
+      SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at, 'admin' as role
       FROM trips
       ORDER BY created_at DESC
     `;
   } else {
     // Non-admins only see trips they have access to
-    tripList = await db<DbTrip[]>`
-      SELECT DISTINCT t.id, t.slug, t.title, t.description, t.cover_photo_url, t.is_public, t.created_at, t.updated_at
+    tripList = await db<DbTripWithRole[]>`
+      SELECT DISTINCT t.id, t.slug, t.title, t.description, t.cover_photo_url, t.is_public, t.created_at, t.updated_at, ta.role
       FROM trips t
       INNER JOIN trip_access ta ON ta.trip_id = t.id
       WHERE ta.user_id = ${user.id}
@@ -296,7 +303,7 @@ trips.get("/", requireAuth, async (c) => {
       stats,
       trip.created_at,
     );
-    return toTripResponse(trip, photoCount, dateRange);
+    return toTripResponse(trip, photoCount, dateRange, trip.role);
   });
 
   return c.json({

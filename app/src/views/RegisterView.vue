@@ -17,6 +17,36 @@
           <AlertDescription>{{ error }}</AlertDescription>
         </Alert>
 
+        <!-- Invite validation loading -->
+        <Alert v-if="inviteStatus === 'loading'" variant="default" class="mb-4">
+          <AlertDescription>Validating invite...</AlertDescription>
+        </Alert>
+
+        <!-- Invite valid - show details -->
+        <Alert v-if="inviteStatus === 'valid' && inviteData?.invite" variant="default" class="mb-4">
+          <AlertDescription>
+            <p class="font-medium">Invite valid for {{ inviteData.invite.email }}</p>
+            <div v-if="inviteData.trips && inviteData.trips.length > 0" class="mt-3">
+              <p class="text-sm font-medium mb-2">You'll get access to:</p>
+              <div class="space-y-1">
+                <div
+                  v-for="trip in inviteData.trips"
+                  :key="trip.id"
+                  class="flex items-center justify-between text-sm"
+                >
+                  <span>{{ trip.title }}</span>
+                  <RoleBadge :role="inviteData.invite.role" />
+                </div>
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+
+        <!-- Invite invalid -->
+        <Alert v-if="inviteStatus === 'invalid'" variant="destructive" class="mb-4">
+          <AlertDescription>{{ inviteError }}</AlertDescription>
+        </Alert>
+
         <form @submit="onSubmit" class="space-y-4">
           <FormField v-slot="{ componentField }" name="email">
             <FormItem>
@@ -27,6 +57,8 @@
                   placeholder="you@example.com"
                   v-bind="componentField"
                   :disabled="isRegistering || !webAuthnSupported"
+                  :readonly="inviteStatus === 'valid'"
+                  class="read-only:bg-muted read-only:cursor-not-allowed"
                 />
               </FormControl>
               <FormMessage />
@@ -79,12 +111,14 @@ import type {
 } from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
+import { validateInvite, type ValidateInviteResponse } from '@/lib/invites'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import AuthLayout from '@/layouts/AuthLayout.vue'
+import RoleBadge from '@/components/RoleBadge.vue'
 import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()
@@ -99,6 +133,9 @@ if (isAuthenticated.value) {
 // State
 const isRegistering = ref(false)
 const error = ref('')
+const inviteStatus = ref<'idle' | 'loading' | 'valid' | 'invalid'>('idle')
+const inviteData = ref<ValidateInviteResponse | null>(null)
+const inviteError = ref('')
 
 // Check WebAuthn support
 const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthnSupport()
@@ -108,6 +145,33 @@ onMounted(async () => {
   try {
     // Pass invite code to registration-status check if present
     const inviteCode = route.query.invite as string | undefined
+
+    // Validate invite if present
+    if (inviteCode) {
+      inviteStatus.value = 'loading'
+      try {
+        const response = await validateInvite(inviteCode)
+
+        if (response.valid && response.invite) {
+          inviteStatus.value = 'valid'
+          inviteData.value = response
+          // Pre-fill email from invite
+          setFieldValue('email', response.invite.email)
+        } else {
+          inviteStatus.value = 'invalid'
+          inviteError.value = response.message || 'Invalid or expired invite'
+        }
+      } catch (err) {
+        inviteStatus.value = 'invalid'
+        if (err instanceof ApiError) {
+          inviteError.value = err.message || 'Failed to validate invite'
+        } else {
+          inviteError.value = 'Failed to validate invite'
+        }
+        console.error('[REGISTER] Failed to validate invite:', err)
+      }
+    }
+
     const url = new URL(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
     if (inviteCode) {
       url.searchParams.set('invite', inviteCode)
@@ -116,7 +180,7 @@ onMounted(async () => {
     const response = await fetch(url.toString())
 
     if (response.ok) {
-      const { registrationOpen, email } = await response.json()
+      const { registrationOpen } = await response.json()
 
       if (!registrationOpen) {
         error.value = 'Registration is closed. The first user has already been registered.'
@@ -125,9 +189,6 @@ onMounted(async () => {
         setTimeout(() => {
           router.push('/login')
         }, 2000)
-      } else if (email) {
-        // Pre-fill email from invite
-        setFieldValue('email', email)
       }
     }
     // If API call fails, let user try - backend will validate
