@@ -161,10 +161,16 @@ const onSubmit = handleSubmit(async values => {
   error.value = ''
 
   try {
+    // Extract invite code from URL query params (if present)
+    const inviteCode = route.query.invite as string | undefined
+
     // Step 1: Get registration options from backend
     const { options } = await api.post<{ options: PublicKeyCredentialCreationOptionsJSON }>(
       '/api/auth/register/options',
-      { email: values.email }
+      {
+        email: values.email,
+        inviteCode
+      }
     )
 
     // Step 2: Create passkey credential (browser prompts user)
