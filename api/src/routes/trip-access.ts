@@ -286,4 +286,54 @@ tripAccess.get("/users", requireAdmin, async (c) => {
   });
 });
 
+// =============================================================================
+// GET /api/users/:userId/trip-access - Get all trips a user has access to (admin only)
+// =============================================================================
+tripAccess.get("/users/:userId/trip-access", requireAdmin, async (c) => {
+  const userId = c.req.param("userId");
+
+  // Validate UUID
+  if (!isValidUUID(userId)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid user ID format" },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Check if user exists
+  const userCheck = await db<{ id: string }[]>`
+    SELECT id FROM user_profiles WHERE id = ${userId}
+  `;
+
+  if (userCheck.length === 0) {
+    return c.json({ error: "Not Found", message: "User not found" }, 404);
+  }
+
+  // Get all trip access for user with trip metadata
+  // Uses idx_trip_access_user index for efficient lookup
+  const rows = await db<(TripAccessRow & { title: string; slug: string })[]>`
+    SELECT
+      ta.id, ta.user_id, ta.trip_id, ta.role, ta.granted_at, ta.granted_by_user_id,
+      t.title, t.slug
+    FROM trip_access ta
+    JOIN trips t ON t.id = ta.trip_id
+    WHERE ta.user_id = ${userId}
+    ORDER BY ta.granted_at DESC
+  `;
+
+  return c.json({
+    trips: rows.map((row) => ({
+      id: row.id,
+      tripId: row.trip_id,
+      tripTitle: row.title,
+      tripSlug: row.slug,
+      role: row.role,
+      grantedAt: row.granted_at,
+      grantedByUserId: row.granted_by_user_id,
+    })),
+  });
+});
+
 export { tripAccess };
