@@ -4,23 +4,6 @@
       <!-- Admin-only actions -->
       <template v-if="isAuthenticated">
         <Button
-          variant="outline"
-          class="w-full justify-start"
-          @click="shareSheetOpen = true"
-          v-ripple
-        >
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-            />
-          </svg>
-          Share
-        </Button>
-
-        <Button
           variant="destructive"
           class="w-full justify-start"
           @click="deleteDialogOpen = true"
@@ -239,204 +222,6 @@
         </DialogContent>
       </Dialog>
 
-      <!-- Share Sheet -->
-      <Sheet v-model:open="shareSheetOpen">
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Share Trip</SheetTitle>
-            <SheetDescription> Control who can access this trip </SheetDescription>
-          </SheetHeader>
-
-          <div class="py-6 space-y-6">
-            <!-- Public/Private Toggle -->
-            <div class="flex items-center justify-between">
-              <div class="space-y-0.5">
-                <Label for="public-toggle" class="text-base">Public Trip</Label>
-                <p class="text-sm text-muted-foreground">
-                  {{
-                    localIsPublic
-                      ? 'Anyone can view this trip'
-                      : 'Only people with the link can view'
-                  }}
-                </p>
-              </div>
-              <Switch
-                id="public-toggle"
-                :checked="localIsPublic"
-                :disabled="isUpdatingProtection"
-                @update:checked="handlePublicToggle"
-              />
-            </div>
-
-            <Separator />
-
-            <!-- Share Link Section (only for private trips) -->
-            <div v-if="!localIsPublic" class="space-y-4">
-              <div class="space-y-2">
-                <Label class="text-base">Share Link</Label>
-                <p class="text-sm text-muted-foreground">
-                  {{
-                    shareLink
-                      ? 'Share this link with people you want to access the trip'
-                      : 'Generate a secure link to share this trip'
-                  }}
-                </p>
-              </div>
-
-              <!-- Link Preview -->
-              <div v-if="shareLink" class="space-y-3">
-                <div class="flex items-center gap-2">
-                  <Input :value="shareLink" readonly class="font-mono text-xs" />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    @click="copyShareLink"
-                    :disabled="isCopying"
-                    v-ripple
-                    aria-label="Copy share link"
-                  >
-                    <svg
-                      v-if="copySuccess"
-                      class="w-4 h-4 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    <svg
-                      v-else
-                      class="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                    </svg>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    class="ml-1"
-                    @click="shareViaNative"
-                    aria-label="Share link"
-                    v-ripple
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M15 8a3 3 0 10-6 0v8a3 3 0 106 0V8z"
-                      />
-                    </svg>
-                    Share
-                  </Button>
-                </div>
-
-                <!-- Regenerate Link -->
-                <Button
-                  variant="outline"
-                  class="w-full"
-                  @click="regenerateDialogOpen = true"
-                  v-ripple
-                  :disabled="isUpdatingProtection"
-                >
-                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  Regenerate Link
-                </Button>
-              </div>
-
-              <!-- Generate Link Button -->
-              <Button
-                v-else
-                class="w-full btn-gradient-primary"
-                @click="generateShareLink"
-                :disabled="isUpdatingProtection"
-                v-ripple
-              >
-                <svg
-                  v-if="isUpdatingProtection"
-                  class="w-4 h-4 mr-2 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    class="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="4"
-                  ></circle>
-                  <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                <svg
-                  v-else
-                  class="w-4 h-4 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                  />
-                </svg>
-                {{ isUpdatingProtection ? 'Generating...' : 'Generate Share Link' }}
-              </Button>
-            </div>
-
-            <!-- Error Message -->
-            <Alert v-if="protectionError" variant="destructive">
-              <AlertDescription>{{ protectionError }}</AlertDescription>
-            </Alert>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <!-- Regenerate Link Confirmation Dialog -->
-      <Dialog v-model:open="regenerateDialogOpen">
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Regenerate Share Link?</DialogTitle>
-            <DialogDescription>
-              This will create a new share link and invalidate the old one. Anyone with the previous
-              link will no longer be able to access this trip.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" @click="regenerateDialogOpen = false" v-ripple>Cancel</Button>
-            <Button @click="confirmRegenerate" :disabled="isUpdatingProtection" v-ripple>
-              {{ isUpdatingProtection ? 'Regenerating...' : 'Regenerate' }}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <!-- Lightbox -->
       <div
         v-if="selectedPhoto"
@@ -553,17 +338,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { LMap, LTileLayer, LMarker, LIcon, LPopup, LPolyline } from '@vue-leaflet/vue-leaflet'
-import { getTripBySlug, deleteTrip, updateTripProtection, type ApiTrip } from '@/utils/database'
-import { generateTripToken } from '@/utils/tokenGenerator'
+import { getTripBySlug, deleteTrip, type ApiTrip } from '@/utils/database'
 import { useAuth } from '@/composables/useAuth'
 import { useDarkMode } from '@/composables/useDarkMode'
-import { useToast } from '@/components/ui/toast/use-toast'
-import { useShare } from '@/composables/useShare'
 import type { Database } from '@/lib/database.types'
 import TripLayout from '@/layouts/TripLayout.vue'
 import { Button } from '@/components/ui/button'
@@ -578,17 +360,6 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle
-} from '@/components/ui/sheet'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { getImageUrl } from '@/utils/image'
 import { useAccentColor } from '@/composables/useAccentColor'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
@@ -611,10 +382,8 @@ const slug = route.params.slug as string
 const token = route.query.token as string | undefined
 
 // Auth & Theme
-const { isAuthenticated, getToken } = useAuth()
+const { isAuthenticated } = useAuth()
 const { isDark } = useDarkMode()
-const { toast } = useToast()
-const { share } = useShare()
 
 // State
 const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
@@ -626,16 +395,6 @@ const zoom = ref(12)
 const map = ref<{ leafletObject: L.Map } | null>(null)
 const isDeleting = ref(false)
 const deleteDialogOpen = ref(false)
-
-// Share state
-const shareSheetOpen = ref(false)
-const localIsPublic = ref(true)
-const shareLink = ref('')
-const isUpdatingProtection = ref(false)
-const protectionError = ref('')
-const regenerateDialogOpen = ref(false)
-const isCopying = ref(false)
-const copySuccess = ref(false)
 
 // Mobile view mode: map or photos
 const viewMode = ref<'map' | 'photos'>('map')
@@ -787,15 +546,6 @@ function onPointerEnd(e: PointerEvent) {
   dragY.value = 0
 }
 
-// Sync localIsPublic with trip data when sheet opens
-watch(shareSheetOpen, open => {
-  if (open && trip.value) {
-    localIsPublic.value = trip.value.is_public
-    shareLink.value = ''
-    protectionError.value = ''
-  }
-})
-
 // Load trip data
 onMounted(async () => {
   // Determine initial layout mode for mobile/desktop
@@ -908,20 +658,6 @@ function onMapReady() {
   }
 }
 
-// Share via native share sheet or clipboard fallback
-async function shareViaNative() {
-  // Prefer generated share link when available; otherwise, fall back to public URL
-  const url = shareLink.value
-    ? shareLink.value
-    : `${window.location.origin}/trip/${slug}${token ? `?token=${token}` : ''}`
-
-  await share({
-    title: trip.value?.title || 'Trip',
-    text: trip.value?.description || 'Check out my trip',
-    url
-  })
-}
-
 // Image URL helpers (srcset empty until we add server-side resizing)
 function gridSrcset(_p: Photo) {
   return ''
@@ -990,106 +726,6 @@ function formatDate(dateString: string): string {
     month: 'long',
     day: 'numeric'
   })
-}
-
-// Share methods
-async function handlePublicToggle(checked: boolean) {
-  if (!trip.value || !getToken()) return
-
-  protectionError.value = ''
-  isUpdatingProtection.value = true
-
-  try {
-    if (checked) {
-      // Making public - clear token
-      await updateTripProtection(trip.value.id, true, undefined, getToken()!)
-      trip.value.is_public = true
-      shareLink.value = ''
-      toast({
-        title: 'Trip is now public',
-        description: 'Anyone can view this trip'
-      })
-    } else {
-      // Making private - generate token immediately
-      const newToken = generateTripToken()
-      await updateTripProtection(trip.value.id, false, newToken, getToken()!)
-      trip.value.is_public = false
-      shareLink.value = buildShareLink(newToken)
-      toast({
-        title: 'Trip is now private',
-        description: 'Share the link below with people you want to access it'
-      })
-    }
-    localIsPublic.value = checked
-  } catch (err) {
-    console.error('Error updating trip protection:', err)
-    protectionError.value = err instanceof Error ? err.message : 'Failed to update trip protection'
-  } finally {
-    isUpdatingProtection.value = false
-  }
-}
-
-async function generateShareLink() {
-  if (!trip.value || !getToken()) return
-
-  protectionError.value = ''
-  isUpdatingProtection.value = true
-
-  try {
-    const newToken = generateTripToken()
-    await updateTripProtection(trip.value.id, false, newToken, getToken()!)
-    trip.value.is_public = false
-    localIsPublic.value = false
-    shareLink.value = buildShareLink(newToken)
-    toast({
-      title: 'Share link generated',
-      description: 'Copy the link and share it with others'
-    })
-  } catch (err) {
-    console.error('Error generating share link:', err)
-    protectionError.value = err instanceof Error ? err.message : 'Failed to generate share link'
-  } finally {
-    isUpdatingProtection.value = false
-  }
-}
-
-async function confirmRegenerate() {
-  regenerateDialogOpen.value = false
-  await generateShareLink()
-}
-
-function buildShareLink(tokenValue: string): string {
-  const baseUrl = window.location.origin
-  return `${baseUrl}/trip/${slug}?token=${tokenValue}`
-}
-
-async function copyShareLink() {
-  if (!shareLink.value) return
-
-  isCopying.value = true
-
-  try {
-    await navigator.clipboard.writeText(shareLink.value)
-    copySuccess.value = true
-    toast({
-      title: 'Link copied',
-      description: 'Share link has been copied to clipboard'
-    })
-
-    // Reset success icon after 2 seconds
-    setTimeout(() => {
-      copySuccess.value = false
-    }, 2000)
-  } catch (err) {
-    console.error('Failed to copy:', err)
-    toast({
-      title: 'Copy failed',
-      description: 'Could not copy to clipboard. Please select and copy manually.',
-      variant: 'destructive'
-    })
-  } finally {
-    isCopying.value = false
-  }
 }
 </script>
 
