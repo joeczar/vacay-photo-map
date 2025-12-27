@@ -163,7 +163,11 @@ onMounted(async () => {
         }
       } catch (err) {
         inviteStatus.value = 'invalid'
-        inviteError.value = 'Failed to validate invite'
+        if (err instanceof ApiError) {
+          inviteError.value = err.message || 'Failed to validate invite'
+        } else {
+          inviteError.value = 'Failed to validate invite'
+        }
         console.error('[REGISTER] Failed to validate invite:', err)
       }
     }

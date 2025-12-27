@@ -249,15 +249,15 @@ trips.get("/", requireAuth, async (c) => {
   const db = getDbClient();
 
   interface DbTripWithRole extends DbTrip {
-    role?: "admin" | "editor" | "viewer";
+    role: "admin" | "editor" | "viewer";
   }
 
   let tripList: DbTripWithRole[];
 
   if (user.isAdmin) {
-    // Admins see all trips
+    // Admins see all trips with 'admin' role
     tripList = await db<DbTripWithRole[]>`
-      SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
+      SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at, 'admin' as role
       FROM trips
       ORDER BY created_at DESC
     `;
@@ -303,9 +303,7 @@ trips.get("/", requireAuth, async (c) => {
       stats,
       trip.created_at,
     );
-    // For admins, userRole is "admin"; for non-admins, use the role from trip_access
-    const userRole = user.isAdmin ? "admin" : trip.role;
-    return toTripResponse(trip, photoCount, dateRange, userRole);
+    return toTripResponse(trip, photoCount, dateRange, trip.role);
   });
 
   return c.json({

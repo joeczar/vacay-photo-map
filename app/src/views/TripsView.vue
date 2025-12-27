@@ -75,13 +75,14 @@
       </div>
 
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <template v-for="(trip, i) in filteredTrips" :key="trip.id">
-          <!-- On large screens, let featured span full row for balance -->
-          <div v-if="i === 0 && filteredTrips.length > 1" class="md:col-span-2 lg:col-span-3">
-            <TripCard :trip="trip" :user-role="trip.userRole" featured />
-          </div>
-          <TripCard v-else :trip="trip" :user-role="trip.userRole" />
-        </template>
+        <TripCard
+          v-for="(trip, i) in filteredTrips"
+          :key="trip.id"
+          :trip="trip"
+          :user-role="trip.userRole"
+          :featured="i === 0 && filteredTrips.length > 1"
+          :class="{ 'md:col-span-2 lg:col-span-3': i === 0 && filteredTrips.length > 1 }"
+        />
       </div>
     </div>
   </MainLayout>
@@ -89,9 +90,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { getTripsWithAuth, type TripWithMetadata } from '@/utils/database'
-import { useAuth } from '@/composables/useAuth'
 import MainLayout from '@/layouts/MainLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -106,9 +105,6 @@ import {
 import TripCard from '@/components/TripCard.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import EmptyState from '@/components/EmptyState.vue'
-
-const router = useRouter()
-const { isAuthenticated } = useAuth()
 
 const trips = ref<TripWithMetadata[]>([])
 const loading = ref(true)
@@ -133,11 +129,5 @@ async function loadTrips() {
   }
 }
 
-onMounted(async () => {
-  if (!isAuthenticated.value) {
-    router.push('/login')
-    return
-  }
-  await loadTrips()
-})
+onMounted(loadTrips)
 </script>

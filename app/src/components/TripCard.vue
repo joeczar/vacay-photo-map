@@ -85,7 +85,7 @@
             </span>
             <!-- Edit Button - only for admin/editor -->
             <Button
-              v-if="userRole && (userRole === 'admin' || userRole === 'editor')"
+              v-if="userRole && ['admin', 'editor'].includes(userRole)"
               variant="ghost"
               size="icon"
               class="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
