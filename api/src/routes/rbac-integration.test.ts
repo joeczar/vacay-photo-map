@@ -4,7 +4,7 @@ import { describe, expect, it, beforeAll, afterAll } from "bun:test";
 import { Hono } from "hono";
 import { invites } from "./invites";
 import { tripAccess } from "./trip-access";
-import { trips } from "./trips";
+import { trips, type TripWithPhotosResponse } from "./trips";
 import type { AuthEnv } from "../types/auth";
 import { getDbClient } from "../db/client";
 import {
@@ -61,34 +61,6 @@ interface TripAccessResponse {
     grantedAt: string;
     grantedByUserId: string | null;
   };
-}
-
-interface TripWithPhotosResponse {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  coverPhotoUrl: string | null;
-  isPublic: boolean;
-  createdAt: string;
-  updatedAt: string;
-  photoCount: number;
-  dateRange: {
-    start: string;
-    end: string;
-  };
-  photos: Array<{
-    id: string;
-    storageKey: string;
-    url: string;
-    thumbnailUrl: string;
-    latitude: number | null;
-    longitude: number | null;
-    takenAt: string;
-    caption: string | null;
-    album: string | null;
-    createdAt: string;
-  }>;
 }
 
 interface ErrorResponse {

@@ -45,7 +45,7 @@ interface DbPhoto {
 // Response Types
 // =============================================================================
 
-interface TripResponse {
+export interface TripResponse {
   id: string;
   slug: string;
   title: string;
@@ -62,11 +62,17 @@ interface TripResponse {
   userRole?: "admin" | "editor" | "viewer";
 }
 
-interface TripWithPhotosResponse extends TripResponse {
+export interface TripWithPhotosResponse extends TripResponse {
   photos: PhotoResponse[];
+  pagination: {
+    total: number;
+    hasMore: boolean;
+    limit: number;
+    offset: number;
+  };
 }
 
-interface PhotoResponse {
+export interface PhotoResponse {
   id: string;
   storageKey: string;
   url: string;
@@ -91,6 +97,38 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_SLUG_LENGTH = 100;
 const VALID_ROTATIONS = [0, 90, 180, 270] as const;
+
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+
+type PaginationResult =
+  | { valid: true; limit: number; offset: number }
+  | { valid: false; error: string };
+
+function parsePaginationParams(
+  limitParam: string | undefined,
+  offsetParam: string | undefined,
+): PaginationResult {
+  let limit = DEFAULT_LIMIT;
+  if (limitParam) {
+    const parsed = parseInt(limitParam, 10);
+    if (isNaN(parsed) || parsed < 1) {
+      return { valid: false, error: "Limit must be a positive integer" };
+    }
+    limit = Math.min(parsed, MAX_LIMIT);
+  }
+
+  let offset = 0;
+  if (offsetParam) {
+    const parsed = parseInt(offsetParam, 10);
+    if (isNaN(parsed) || parsed < 0) {
+      return { valid: false, error: "Offset must be a non-negative integer" };
+    }
+    offset = parsed;
+  }
+
+  return { valid: true, limit, offset };
+}
 
 function isValidSlug(slug: string): boolean {
   return (
@@ -214,32 +252,65 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
 async function buildTripWithPhotosResponse(
   trip: DbTrip,
   db: ReturnType<typeof getDbClient>,
+  limit: number = 50,
+  offset: number = 0,
 ): Promise<TripWithPhotosResponse> {
-  // Fetch photos for this trip
+  // Get count and date range in a single query (reduces DB round trips)
+  const statsResults = await db<
+    {
+      count: string;
+      min_taken_at: Date | null;
+      max_taken_at: Date | null;
+    }[]
+  >`
+    SELECT
+      COUNT(*)::text as count,
+      MIN(taken_at) as min_taken_at,
+      MAX(taken_at) as max_taken_at
+    FROM photos
+    WHERE trip_id = ${trip.id}
+  `;
+  if (statsResults.length === 0 || !statsResults[0].count) {
+    throw new Error(`Failed to get photo stats for trip ${trip.id}`);
+  }
+  const stats = statsResults[0];
+  const total = parseInt(stats.count, 10);
+  if (isNaN(total) || total < 0) {
+    throw new Error(`Invalid photo count for trip ${trip.id}: ${stats.count}`);
+  }
+
+  const dateRange = {
+    start: stats.min_taken_at
+      ? stats.min_taken_at.toISOString()
+      : trip.created_at.toISOString(),
+    end: stats.max_taken_at
+      ? stats.max_taken_at.toISOString()
+      : trip.created_at.toISOString(),
+  };
+
+  // Fetch paginated photos for this trip
   const photos = await db<DbPhoto[]>`
     SELECT id, trip_id, storage_key, url, thumbnail_url,
            latitude, longitude, taken_at, caption, album, rotation, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
     ORDER BY taken_at ASC
+    LIMIT ${limit}
+    OFFSET ${offset}
   `;
 
-  // Compute photo metadata
-  const photoCount = photos.length;
-  const dateRange = {
-    start:
-      photos.length > 0
-        ? photos[0].taken_at.toISOString()
-        : trip.created_at.toISOString(),
-    end:
-      photos.length > 0
-        ? photos[photos.length - 1].taken_at.toISOString()
-        : trip.created_at.toISOString(),
-  };
+  // Calculate if there are more photos
+  const hasMore = offset + photos.length < total;
 
   return {
-    ...toTripResponse(trip, photoCount, dateRange),
+    ...toTripResponse(trip, total, dateRange),
     photos: photos.map(toPhotoResponse),
+    pagination: {
+      total,
+      hasMore,
+      limit,
+      offset,
+    },
   };
 }
 
@@ -386,6 +457,16 @@ trips.get("/slug/:slug", requireAuth, async (c) => {
   const user = c.var.user!;
   const db = getDbClient();
 
+  // Validate pagination params
+  const pagination = parsePaginationParams(
+    c.req.query("limit"),
+    c.req.query("offset"),
+  );
+  if (!pagination.valid) {
+    return c.json({ error: "Bad Request", message: pagination.error }, 400);
+  }
+  const { limit, offset } = pagination;
+
   // Find trip by slug
   const tripResults = await db<DbTrip[]>`
     SELECT id, slug, title, description, cover_photo_url, is_public,
@@ -416,7 +497,7 @@ trips.get("/slug/:slug", requireAuth, async (c) => {
   }
 
   // Build response with photos and metadata
-  const response = await buildTripWithPhotosResponse(trip, db);
+  const response = await buildTripWithPhotosResponse(trip, db, limit, offset);
   return c.json(response);
 });
 
@@ -438,6 +519,16 @@ trips.get("/id/:id", requireAdmin, async (c) => {
     );
   }
 
+  // Validate pagination params
+  const pagination = parsePaginationParams(
+    c.req.query("limit"),
+    c.req.query("offset"),
+  );
+  if (!pagination.valid) {
+    return c.json({ error: "Bad Request", message: pagination.error }, 400);
+  }
+  const { limit, offset } = pagination;
+
   // Find trip by UUID
   const tripResults = await db<DbTrip[]>`
     SELECT id, slug, title, description, cover_photo_url, is_public,
@@ -453,7 +544,7 @@ trips.get("/id/:id", requireAdmin, async (c) => {
   const trip = tripResults[0];
 
   // Build response with photos and metadata
-  const response = await buildTripWithPhotosResponse(trip, db);
+  const response = await buildTripWithPhotosResponse(trip, db, limit, offset);
   return c.json(response);
 });
 
