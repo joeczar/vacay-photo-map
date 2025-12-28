@@ -26,7 +26,7 @@ An interactive web application for viewing vacation photos on a map with timelin
 - **Storage**: Cloudflare R2 (with local filesystem fallback)
 - **Authentication**: WebAuthn/Passkeys (@simplewebauthn) + JWT (jose)
 - **Image Processing**: Sharp (thumbnails and optimization)
-- **Hosting**: Netlify (frontend), self-hosted (API)
+- **Hosting**: Vercel (frontend), self-hosted (API)
 
 ## Project Structure
 
@@ -287,25 +287,28 @@ See [docs/PROJECT_ROADMAP.md](./docs/PROJECT_ROADMAP.md) for the development roa
 
 ## Deployment
 
-### Frontend Deployment (Netlify)
+### Frontend Deployment (Vercel)
 
-The frontend is configured for Netlify deployment via `netlify.toml`.
+The frontend is configured for Vercel deployment via `vercel.json`.
 
-**Environment Variables (Netlify Dashboard):**
+**Environment Variables (Vercel Dashboard):**
 ```env
 VITE_API_URL=https://your-api-domain.com
-VITE_APP_URL=https://your-site.netlify.app
+VITE_APP_URL=https://your-domain.com
 VITE_WEBAUTHN_RP_NAME=Vacay Photo Map
 VITE_WEBAUTHN_RP_ID=your-domain.com
+VITE_CDN_URL=https://your-cdn-domain.com  # Optional
 ```
 
-**Deploy:**
+**Deploy via CLI:**
 ```bash
-pnpm build
-netlify deploy --prod --dir=app/dist
+vercel           # Preview deployment
+vercel --prod    # Production deployment
 ```
 
-Or connect your GitHub repository to Netlify for automatic deployments on push to `main`.
+Or connect your GitHub repository to Vercel for automatic deployments:
+- Push to `main` → Production deployment
+- Open PR → Preview deployment with unique URL
 
 ### API Deployment (Self-Hosted)
 
