@@ -16,7 +16,7 @@ compatibility_date = "2024-01-01"
 #    (Enter: https://raw-images.joeczar.com)
 #
 # 4. Deploy the worker:
-#    wrangler deploy --env production
+#    wrangler deploy --env production --zone-id $CLOUDFLARE_ZONE_ID
 # =============================================================================
 
 [[r2_buckets]]
@@ -27,3 +27,7 @@ bucket_name = "vacay-photos"
 # Using custom_domain instead of routes - cleaner and Worker "owns" the domain
 [env.production]
 routes = [{ pattern = "images.joeczar.com", custom_domain = true }]
+
+[[env.production.r2_buckets]]
+binding = "PHOTOS_BUCKET"
+bucket_name = "vacay-photos"
