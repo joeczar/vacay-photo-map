@@ -968,19 +968,7 @@ trips.patch("/photos/:id", requireAdmin, async (c) => {
 
   const db = getDbClient();
 
-  // Check if photo exists
-  const photoResults = await db<DbPhoto[]>`
-    SELECT id, trip_id, storage_key, url, thumbnail_url,
-           latitude, longitude, taken_at, caption, album, rotation, created_at
-    FROM photos
-    WHERE id = ${id}
-  `;
-
-  if (photoResults.length === 0) {
-    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
-  }
-
-  // Update photo rotation
+  // Update photo rotation (returns empty if photo doesn't exist)
   const [updatedPhoto] = await db<DbPhoto[]>`
     UPDATE photos
     SET rotation = ${rotation}
@@ -988,6 +976,10 @@ trips.patch("/photos/:id", requireAdmin, async (c) => {
     RETURNING id, trip_id, storage_key, url, thumbnail_url,
               latitude, longitude, taken_at, caption, album, rotation, created_at
   `;
+
+  if (!updatedPhoto) {
+    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
+  }
 
   return c.json(toPhotoResponse(updatedPhoto));
 });

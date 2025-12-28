@@ -842,65 +842,28 @@ describe("Trip Routes", () => {
       expect(data.message).toBe("Rotation field is required.");
     });
 
-    it("returns 400 for invalid rotation value: 45", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ rotation: 45 }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
-    });
-
-    it("returns 400 for invalid rotation value: 360", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ rotation: 360 }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
-    });
-
-    it("returns 400 for string rotation value", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ rotation: "90" }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
-    });
-
-    it("returns 400 for null rotation value", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ rotation: null }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
-    });
+    it.each([
+      { rotation: 45, description: "45 degrees" },
+      { rotation: 360, description: "360 degrees" },
+      { rotation: "90", description: "string value" },
+      { rotation: null, description: "null value" },
+    ])(
+      "returns 400 for invalid rotation: $description",
+      async ({ rotation }) => {
+        const app = createTestApp();
+        const authHeader = await getAdminAuthHeader();
+        const res = await app.fetch(
+          new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", ...authHeader },
+            body: JSON.stringify({ rotation }),
+          }),
+        );
+        expect(res.status).toBe(400);
+        const data = (await res.json()) as ErrorResponse;
+        expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
+      },
+    );
 
     it("returns 404 for non-existent photo", async () => {
       const app = createTestApp();
