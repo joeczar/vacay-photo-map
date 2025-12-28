@@ -19,7 +19,11 @@ interface Env {
   R2_ORIGIN_URL: string // e.g., https://raw-images.joeczar.com
 }
 
-/** Valid rotation values in degrees */
+/**
+ * Valid rotation values in degrees.
+ * Note: 0 is accepted as "no rotation" for API consistency, but won't be passed
+ * to Cloudflare (only 90, 180, 270 are valid cf.image rotate values).
+ */
 type ValidRotation = 0 | 90 | 180 | 270
 
 interface TransformOptions {
@@ -29,6 +33,8 @@ interface TransformOptions {
   format: string // 'auto' is valid but not in @cloudflare/workers-types
 }
 
+// Accept 0 as input (means "no rotation"), but it won't be passed to Cloudflare
+// since we use `transforms.rotate && { rotate: ... }` which is falsy for 0
 const VALID_ROTATIONS: readonly ValidRotation[] = [0, 90, 180, 270]
 const DEFAULT_QUALITY = 80
 const MAX_QUALITY = 100
@@ -142,9 +148,9 @@ export default {
 
 function isValidKey(key: string): boolean {
   // Key format: tripId/filename.ext
-  // Both tripId and filename should be UUIDs (hex chars + hyphens)
-  // Currently accepts any hex-hyphen pattern for flexibility
-  const pattern = /^[a-f0-9-]+\/[a-f0-9-]+\.(jpg|jpeg|png|webp)$/i
+  // Both tripId and filename must be valid UUIDs (strict format)
+  const uuidPattern = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+  const pattern = new RegExp(`^${uuidPattern}/${uuidPattern}\\.(jpg|jpeg|png|webp)$`, 'i')
   return pattern.test(key)
 }
 
