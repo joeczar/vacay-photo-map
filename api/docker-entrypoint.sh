@@ -1,12 +1,14 @@
 #!/bin/sh
-set -e
 
 log() {
   echo "[$(date -Iseconds)] [entrypoint] $1"
 }
 
 log "Running migrations..."
-bun scripts/migrate.ts
+if ! bun scripts/migrate.ts; then
+  log "ERROR: Migration failed! Check logs above for details."
+  exit 1
+fi
 log "Migrations complete"
 
 log "Starting server..."

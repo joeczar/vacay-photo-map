@@ -27,3 +27,7 @@ bucket_name = "vacay-photos"
 # Using custom_domain instead of routes - cleaner and Worker "owns" the domain
 [env.production]
 routes = [{ pattern = "images.joeczar.com", custom_domain = true }]
+
+[[env.production.r2_buckets]]
+binding = "PHOTOS_BUCKET"
+bucket_name = "vacay-photos"

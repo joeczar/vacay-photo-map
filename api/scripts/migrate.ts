@@ -62,44 +62,34 @@ const migrate = async () => {
   validateSchemaSql(schemaSql)
 
   // Execute within a transaction for atomicity
+  // Verification inside transaction ensures rollback if verification fails
   await db.begin(async (tx) => {
     await tx.unsafe(schemaSql)
-  })
 
-  // Verify critical tables exist
-  const verification = await db`
-    SELECT
-      EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_profiles') as has_users,
-      EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'trips') as has_trips,
-      EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'photos') as has_photos
-  `
-  const result = verification[0]
-  if (!result?.has_users || !result?.has_trips || !result?.has_photos) {
-    throw new Error('Migration verification failed: required tables not found')
-  }
+    // Verify critical tables exist (inside transaction for atomic rollback)
+    const verification = await tx`
+      SELECT
+        EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_profiles') as has_users,
+        EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'trips') as has_trips,
+        EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'photos') as has_photos
+    `
+    const result = verification[0]
+    if (!result?.has_users || !result?.has_trips || !result?.has_photos) {
+      throw new Error('Migration verification failed: required tables not found')
+    }
+  })
 
   console.info('Schema applied and verified successfully.')
 }
 
 migrate()
-  .then(() => {
+  .then(async () => {
     console.info('Migration completed successfully')
+    await closeDbClient()
   })
   .catch(async (error) => {
     console.error('Migration failed:', error)
-    // Clean up before exiting
-    try {
-      await closeDbClient()
-    } catch {
-      // Ignore cleanup errors to preserve original error
-    }
+    // Clean up before exiting (ignore cleanup errors to preserve original error)
+    await closeDbClient().catch(() => {})
     process.exit(1)
-  })
-  .finally(async () => {
-    // Clean up on success path
-    try {
-      await closeDbClient()
-    } catch (cleanupError) {
-      console.error('Warning: Error during database cleanup:', cleanupError)
-    }
   })
