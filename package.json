@@ -18,9 +18,13 @@
     "test:api": "pnpm --filter vacay-photo-map-api test",
     "type-check": "pnpm --filter vacay-photo-map-app type-check",
     "type-check:api": "pnpm --filter vacay-photo-map-api type-check",
-    "check:all": "pnpm type-check && pnpm type-check:api && pnpm lint:check && pnpm format:check",
+    "type-check:worker": "pnpm --filter vacay-image-transformer type-check",
+    "check:all": "pnpm type-check && pnpm type-check:api && pnpm type-check:worker && pnpm lint:check && pnpm format:check",
     "migrate:api": "pnpm --filter vacay-photo-map-api migrate",
     "seed:api": "pnpm --filter vacay-photo-map-api seed",
+    "worker:dev": "pnpm --filter vacay-image-transformer dev",
+    "worker:deploy": "pnpm --filter vacay-image-transformer deploy",
+    "worker:tail": "pnpm --filter vacay-image-transformer tail",
     "prepare": "husky"
   },
   "devDependencies": {

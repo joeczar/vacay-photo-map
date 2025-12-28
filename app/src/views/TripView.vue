@@ -127,7 +127,9 @@
                       :class="selectedPhoto?.id === photo.id ? 'border-primary border-4' : ''"
                     >
                       <img
-                        :src="getImageUrl(photo.thumbnail_url)"
+                        :src="
+                          getImageUrl(photo.thumbnail_url, { width: 80, rotation: photo.rotation })
+                        "
                         :alt="photo.caption || 'Photo'"
                         class="w-full h-full object-cover"
                       />
@@ -360,7 +362,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { getImageUrl } from '@/utils/image'
+import { getImageUrl, buildSrcset } from '@/utils/image'
 import { useAccentColor } from '@/composables/useAccentColor'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -657,25 +659,26 @@ function onMapReady() {
   }
 }
 
-// Image URL helpers (srcset empty until we add server-side resizing)
-function gridSrcset(_p: Photo) {
-  return ''
+// Image URL helpers with responsive srcset
+function gridSrcset(p: Photo) {
+  return buildSrcset(p.url, [200, 400, 600, 800], p.rotation)
 }
 function gridFallback(p: Photo) {
-  return getImageUrl(p.url)
+  return getImageUrl(p.url, { width: 400, rotation: p.rotation })
 }
-function popupSrcset(_p: Photo) {
-  return ''
+function popupSrcset(p: Photo) {
+  return buildSrcset(p.url, [300, 600], p.rotation)
 }
 function popupFallback(p: Photo) {
-  return getImageUrl(p.url)
+  return getImageUrl(p.url, { width: 600, rotation: p.rotation })
 }
-function lightboxSrcset(_p: Photo | null) {
-  return ''
+function lightboxSrcset(p: Photo | null) {
+  if (!p) return ''
+  return buildSrcset(p.url, [800, 1200, 1600, 1920], p.rotation)
 }
 function lightboxFallback(p: Photo | null) {
   if (!p) return ''
-  return getImageUrl(p.url)
+  return getImageUrl(p.url, { width: 1200, rotation: p.rotation })
 }
 
 function selectPhoto(photo: Photo) {

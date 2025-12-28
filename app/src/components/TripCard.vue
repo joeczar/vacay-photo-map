@@ -133,7 +133,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { ApiTrip } from '@/utils/database'
-import { getImageUrl } from '@/utils/image'
+import { getImageUrl, buildSrcset } from '@/utils/image'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
 import RoleBadge from '@/components/RoleBadge.vue'
 import { Badge } from '@/components/ui/badge'
@@ -149,9 +149,13 @@ const props = defineProps<{
   userRole?: 'admin' | 'editor' | 'viewer'
 }>()
 
-const coverSrcset = computed(() => '')
+const coverSrcset = computed(() => {
+  if (!props.trip.cover_photo_url) return ''
+  return buildSrcset(props.trip.cover_photo_url, [300, 600, 900])
+})
+
 const coverFallback = computed(() =>
-  props.trip.cover_photo_url ? getImageUrl(props.trip.cover_photo_url) : ''
+  props.trip.cover_photo_url ? getImageUrl(props.trip.cover_photo_url, { width: 600 }) : ''
 )
 
 const cardDestination = computed(() => {
