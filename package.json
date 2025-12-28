@@ -21,6 +21,9 @@
     "check:all": "pnpm type-check && pnpm type-check:api && pnpm lint:check && pnpm format:check",
     "migrate:api": "pnpm --filter vacay-photo-map-api migrate",
     "seed:api": "pnpm --filter vacay-photo-map-api seed",
+    "worker:dev": "pnpm --filter vacay-image-transformer dev",
+    "worker:deploy": "pnpm --filter vacay-image-transformer deploy",
+    "worker:tail": "pnpm --filter vacay-image-transformer tail",
     "prepare": "husky"
   },
   "devDependencies": {
