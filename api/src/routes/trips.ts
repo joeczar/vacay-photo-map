@@ -220,32 +220,61 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
 async function buildTripWithPhotosResponse(
   trip: DbTrip,
   db: ReturnType<typeof getDbClient>,
+  limit: number = 50,
+  offset: number = 0,
 ): Promise<TripWithPhotosResponse> {
-  // Fetch photos for this trip
+  // Get total count of photos for this trip
+  const [countResult] = await db<{ count: string }[]>`
+    SELECT COUNT(*)::text as count
+    FROM photos
+    WHERE trip_id = ${trip.id}
+  `;
+  const total = parseInt(countResult.count, 10);
+
+  // Get date range using MIN/MAX (critical - array indexing breaks with pagination)
+  const [dateStats] = await db<
+    {
+      min_taken_at: Date | null;
+      max_taken_at: Date | null;
+    }[]
+  >`
+    SELECT MIN(taken_at) as min_taken_at, MAX(taken_at) as max_taken_at
+    FROM photos
+    WHERE trip_id = ${trip.id}
+  `;
+
+  const dateRange = {
+    start: dateStats?.min_taken_at
+      ? dateStats.min_taken_at.toISOString()
+      : trip.created_at.toISOString(),
+    end: dateStats?.max_taken_at
+      ? dateStats.max_taken_at.toISOString()
+      : trip.created_at.toISOString(),
+  };
+
+  // Fetch paginated photos for this trip
   const photos = await db<DbPhoto[]>`
     SELECT id, trip_id, storage_key, url, thumbnail_url,
            latitude, longitude, taken_at, caption, album, rotation, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
     ORDER BY taken_at ASC
+    LIMIT ${limit}
+    OFFSET ${offset}
   `;
 
-  // Compute photo metadata
-  const photoCount = photos.length;
-  const dateRange = {
-    start:
-      photos.length > 0
-        ? photos[0].taken_at.toISOString()
-        : trip.created_at.toISOString(),
-    end:
-      photos.length > 0
-        ? photos[photos.length - 1].taken_at.toISOString()
-        : trip.created_at.toISOString(),
-  };
+  // Calculate if there are more photos
+  const hasMore = offset + photos.length < total;
 
   return {
-    ...toTripResponse(trip, photoCount, dateRange),
+    ...toTripResponse(trip, total, dateRange),
     photos: photos.map(toPhotoResponse),
+    pagination: {
+      total,
+      hasMore,
+      limit,
+      offset,
+    },
   };
 }
 
