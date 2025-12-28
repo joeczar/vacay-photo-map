@@ -30,6 +30,13 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
 
+# Copy migration scripts (needed at runtime for auto-migrations)
+COPY scripts ./scripts
+
+# Copy and make entrypoint executable (must be before USER bun)
+COPY docker-entrypoint.sh ./
+RUN chmod 755 docker-entrypoint.sh
+
 # Run as non-root user for security
 USER bun
 
@@ -40,5 +47,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health/ready || exit 1
 
-# Start the application
-CMD ["bun", "run", "src/index.ts"]
+# Start with entrypoint that runs migrations first
+CMD ["./docker-entrypoint.sh"]

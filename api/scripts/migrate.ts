@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { closeDbClient, getDbClient } from '../src/db/client'
+import { closeDbClient, connectWithRetry, getDbClient } from '../src/db/client'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const schemaPath = path.join(__dirname, '..', 'src', 'db', 'schema.sql')
@@ -50,6 +50,9 @@ function validateSchemaSql(sql: string): void {
 }
 
 const migrate = async () => {
+  // Wait for database to be available (handles container startup ordering)
+  await connectWithRetry(5, 2000)
+
   const db = getDbClient()
   const schemaSql = await readFile(schemaPath, 'utf8')
 
@@ -58,15 +61,45 @@ const migrate = async () => {
   // Validate SQL before execution
   validateSchemaSql(schemaSql)
 
-  await db.unsafe(schemaSql)
-  console.info('Schema applied successfully.')
+  // Execute within a transaction for atomicity
+  await db.begin(async (tx) => {
+    await tx.unsafe(schemaSql)
+  })
+
+  // Verify critical tables exist
+  const verification = await db`
+    SELECT
+      EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_profiles') as has_users,
+      EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'trips') as has_trips,
+      EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'photos') as has_photos
+  `
+  const result = verification[0]
+  if (!result?.has_users || !result?.has_trips || !result?.has_photos) {
+    throw new Error('Migration verification failed: required tables not found')
+  }
+
+  console.info('Schema applied and verified successfully.')
 }
 
 migrate()
-  .catch((error) => {
+  .then(() => {
+    console.info('Migration completed successfully')
+  })
+  .catch(async (error) => {
     console.error('Migration failed:', error)
-    process.exitCode = 1
+    // Clean up before exiting
+    try {
+      await closeDbClient()
+    } catch {
+      // Ignore cleanup errors to preserve original error
+    }
+    process.exit(1)
   })
   .finally(async () => {
-    await closeDbClient()
+    // Clean up on success path
+    try {
+      await closeDbClient()
+    } catch (cleanupError) {
+      console.error('Warning: Error during database cleanup:', cleanupError)
+    }
   })
