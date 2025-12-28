@@ -964,4 +964,198 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(204);
     });
   });
+
+  // ==========================================================================
+  // GET /api/trips/slug/:slug - Pagination tests
+  // ==========================================================================
+  describe("GET /api/trips/slug/:slug - pagination", () => {
+    // Helper: create trip with N photos, returns { tripId, slug, cleanup }
+    async function createTripWithPhotos(
+      db: ReturnType<typeof getDbClient>,
+      photoCount: number,
+      hoursApart = 1,
+    ) {
+      const slug = `pagination-test-${Date.now()}`;
+      const [trip] = await db<{ id: string }[]>`
+        INSERT INTO trips (slug, title, is_public)
+        VALUES (${slug}, 'Pagination Test', true)
+        RETURNING id
+      `;
+      for (let i = 0; i < photoCount; i++) {
+        const takenAt = new Date(Date.now() + i * hoursApart * 3600 * 1000);
+        await db`
+          INSERT INTO photos (trip_id, storage_key, url, thumbnail_url, latitude, longitude, taken_at)
+          VALUES (${trip.id}, ${`photo-${i}`}, ${`/photos/${i}.jpg`}, ${`/thumbs/${i}.jpg`}, 40.7128, -74.006, ${takenAt})
+        `;
+      }
+      return {
+        tripId: trip.id,
+        slug,
+        cleanup: () => db`DELETE FROM trips WHERE id = ${trip.id}`,
+      };
+    }
+
+    it("returns pagination metadata with defaults (limit=50, offset=0)", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const { slug, cleanup } = await createTripWithPhotos(db, 5);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/slug/${slug}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripWithPhotosResponse;
+      expect(data.photos.length).toBe(5);
+      expect(data.pagination).toEqual({
+        total: 5,
+        limit: 50,
+        offset: 0,
+        hasMore: false,
+      });
+
+      await cleanup();
+    });
+
+    it("paginates correctly with hasMore calculation", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const { slug, cleanup } = await createTripWithPhotos(db, 5);
+
+      // First page: hasMore = true
+      const res1 = await app.fetch(
+        new Request(
+          `http://localhost/api/trips/slug/${slug}?limit=2&offset=0`,
+          {
+            method: "GET",
+            headers: authHeader,
+          },
+        ),
+      );
+      const data1 = (await res1.json()) as TripWithPhotosResponse;
+      expect(data1.photos.length).toBe(2);
+      expect(data1.pagination.hasMore).toBe(true);
+
+      // Last page: hasMore = false
+      const res2 = await app.fetch(
+        new Request(
+          `http://localhost/api/trips/slug/${slug}?limit=2&offset=4`,
+          {
+            method: "GET",
+            headers: authHeader,
+          },
+        ),
+      );
+      const data2 = (await res2.json()) as TripWithPhotosResponse;
+      expect(data2.photos.length).toBe(1);
+      expect(data2.pagination.hasMore).toBe(false);
+
+      await cleanup();
+    });
+
+    it("caps limit at 100", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const { slug, cleanup } = await createTripWithPhotos(db, 1);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/slug/${slug}?limit=500`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      const data = (await res.json()) as TripWithPhotosResponse;
+      expect(data.pagination.limit).toBe(100);
+
+      await cleanup();
+    });
+
+    it("returns 400 for invalid pagination params", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const invalidParams = [
+        { query: "limit=invalid", expectedMsg: "positive integer" },
+        { query: "limit=-1", expectedMsg: "positive integer" },
+        { query: "offset=invalid", expectedMsg: "non-negative integer" },
+        { query: "offset=-1", expectedMsg: "non-negative integer" },
+      ];
+
+      for (const { query, expectedMsg } of invalidParams) {
+        const res = await app.fetch(
+          new Request(`http://localhost/api/trips/slug/any-trip?${query}`, {
+            method: "GET",
+            headers: authHeader,
+          }),
+        );
+        expect(res.status).toBe(400);
+        const data = (await res.json()) as { message: string };
+        expect(data.message).toContain(expectedMsg);
+      }
+    });
+
+    it("maintains consistent date_range across pages (MIN/MAX fix)", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const { slug, cleanup } = await createTripWithPhotos(db, 5, 24); // 24 hours apart
+
+      const [res1, res2] = await Promise.all([
+        app.fetch(
+          new Request(
+            `http://localhost/api/trips/slug/${slug}?limit=2&offset=0`,
+            {
+              method: "GET",
+              headers: authHeader,
+            },
+          ),
+        ),
+        app.fetch(
+          new Request(
+            `http://localhost/api/trips/slug/${slug}?limit=2&offset=3`,
+            {
+              method: "GET",
+              headers: authHeader,
+            },
+          ),
+        ),
+      ]);
+
+      const data1 = (await res1.json()) as TripWithPhotosResponse;
+      const data2 = (await res2.json()) as TripWithPhotosResponse;
+
+      // Both pages must have the same date_range (full trip span)
+      expect(data1.dateRange).toEqual(data2.dateRange);
+
+      await cleanup();
+    });
+
+    it("works on admin /id/:id endpoint", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const { tripId, cleanup } = await createTripWithPhotos(db, 3);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/id/${tripId}?limit=2`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripWithPhotosResponse;
+      expect(data.photos.length).toBe(2);
+      expect(data.pagination.hasMore).toBe(true);
+
+      await cleanup();
+    });
+  });
 });
