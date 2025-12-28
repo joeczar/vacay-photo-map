@@ -44,5 +44,6 @@ jobs:
             VITE_APP_URL=${{ vars.VITE_APP_URL }}
             VITE_WEBAUTHN_RP_NAME=${{ vars.VITE_WEBAUTHN_RP_NAME }}
             VITE_WEBAUTHN_RP_ID=${{ vars.VITE_WEBAUTHN_RP_ID }}
+            VITE_CDN_URL=${{ vars.VITE_CDN_URL }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository }}/frontend:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ github.repository }}/frontend:buildcache,mode=max
