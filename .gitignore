@@ -71,3 +71,5 @@ supabase/.temp/
 
 # OS
 Thumbs.db
+.vercel
+.env*.local
