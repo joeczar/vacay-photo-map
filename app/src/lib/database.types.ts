@@ -79,7 +79,7 @@ export interface Database {
         Row: {
           id: string
           trip_id: string
-          cloudinary_public_id: string
+          storage_key: string
           url: string
           thumbnail_url: string
           latitude: number | null
@@ -93,7 +93,7 @@ export interface Database {
         Insert: {
           id?: string
           trip_id: string
-          cloudinary_public_id: string
+          storage_key: string
           url: string
           thumbnail_url: string
           latitude?: number | null
@@ -107,7 +107,7 @@ export interface Database {
         Update: {
           id?: string
           trip_id?: string
-          cloudinary_public_id?: string
+          storage_key?: string
           url?: string
           thumbnail_url?: string
           latitude?: number | null

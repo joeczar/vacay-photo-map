@@ -29,7 +29,7 @@ interface DbTrip {
 interface DbPhoto {
   id: string;
   trip_id: string;
-  cloudinary_public_id: string;
+  storage_key: string;
   url: string;
   thumbnail_url: string;
   latitude: string | null; // Decimal comes as string from postgres
@@ -68,7 +68,7 @@ interface TripWithPhotosResponse extends TripResponse {
 
 interface PhotoResponse {
   id: string;
-  cloudinaryPublicId: string;
+  storageKey: string;
   url: string;
   thumbnailUrl: string;
   latitude: number | null;
@@ -90,6 +90,7 @@ const UUID_REGEX =
 const MAX_TITLE_LENGTH = 200;
 const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_SLUG_LENGTH = 100;
+const VALID_ROTATIONS = [0, 90, 180, 270] as const;
 
 function isValidSlug(slug: string): boolean {
   return (
@@ -125,6 +126,13 @@ function isValidUrl(url: string | undefined | null): boolean {
   } catch {
     return false;
   }
+}
+
+function isValidRotation(rotation: unknown): rotation is number {
+  return (
+    typeof rotation === "number" &&
+    VALID_ROTATIONS.includes(rotation as (typeof VALID_ROTATIONS)[number])
+  );
 }
 
 // Check if error is a unique constraint violation
@@ -186,7 +194,7 @@ function toTripResponse(
 function toPhotoResponse(photo: DbPhoto): PhotoResponse {
   return {
     id: photo.id,
-    cloudinaryPublicId: photo.cloudinary_public_id,
+    storageKey: photo.storage_key,
     url: photo.url,
     thumbnailUrl: photo.thumbnail_url,
     latitude: photo.latitude ? parseFloat(photo.latitude) : null,
@@ -209,7 +217,7 @@ async function buildTripWithPhotosResponse(
 ): Promise<TripWithPhotosResponse> {
   // Fetch photos for this trip
   const photos = await db<DbPhoto[]>`
-    SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
+    SELECT id, trip_id, storage_key, url, thumbnail_url,
            latitude, longitude, taken_at, caption, album, rotation, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
@@ -741,7 +749,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
   const tripId = c.req.param("id");
   const body = await c.req.json<{
     photos: Array<{
-      cloudinaryPublicId: string;
+      storageKey: string;
       url: string;
       thumbnailUrl: string;
       latitude: number | null;
@@ -775,7 +783,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
   // Validate individual photo objects
   for (const photo of photos) {
     if (
-      !photo.cloudinaryPublicId ||
+      !photo.storageKey ||
       !photo.url ||
       !photo.thumbnailUrl ||
       !photo.takenAt
@@ -784,7 +792,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
         {
           error: "Bad Request",
           message:
-            "Each photo must include cloudinaryPublicId, url, thumbnailUrl, and takenAt.",
+            "Each photo must include storageKey, url, thumbnailUrl, and takenAt.",
         },
         400,
       );
@@ -829,7 +837,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
     INSERT INTO photos ${db(
       photos.map((p) => ({
         trip_id: tripId,
-        cloudinary_public_id: p.cloudinaryPublicId,
+        storage_key: p.storageKey,
         url: p.url,
         thumbnail_url: p.thumbnailUrl,
         latitude: p.latitude,
@@ -918,6 +926,62 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
 
   // 204 No Content
   return c.body(null, 204);
+});
+
+// =============================================================================
+// PATCH /api/trips/photos/:id - Update photo rotation (admin only)
+// =============================================================================
+trips.patch("/photos/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{
+    rotation?: number;
+  }>();
+
+  const { rotation } = body;
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid photo ID format." },
+      400,
+    );
+  }
+
+  // Validate rotation field is provided
+  if (rotation === undefined) {
+    return c.json(
+      { error: "Bad Request", message: "Rotation field is required." },
+      400,
+    );
+  }
+
+  // Validate rotation value
+  if (!isValidRotation(rotation)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Rotation must be one of: 0, 90, 180, 270.",
+      },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Update photo rotation (returns empty if photo doesn't exist)
+  const [updatedPhoto] = await db<DbPhoto[]>`
+    UPDATE photos
+    SET rotation = ${rotation}
+    WHERE id = ${id}
+    RETURNING id, trip_id, storage_key, url, thumbnail_url,
+              latitude, longitude, taken_at, caption, album, rotation, created_at
+  `;
+
+  if (!updatedPhoto) {
+    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
+  }
+
+  return c.json(toPhotoResponse(updatedPhoto));
 });
 
 export { trips };

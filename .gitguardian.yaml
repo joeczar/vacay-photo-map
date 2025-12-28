@@ -1,0 +1,7 @@
+# GitGuardian configuration
+# Ignore development passwords in docker-compose files
+paths-ignore:
+  - docker-compose.dev.yml
+  - docker-compose.yml
+  - "**/.env.example"
+  - "**/.env.*.example"

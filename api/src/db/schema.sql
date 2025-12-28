@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS sections (
 CREATE TABLE IF NOT EXISTS photos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
-  cloudinary_public_id TEXT NOT NULL,
+  storage_key TEXT NOT NULL,
   url TEXT NOT NULL,
   thumbnail_url TEXT NOT NULL,
   latitude DECIMAL(10, 8),
