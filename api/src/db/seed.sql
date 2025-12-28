@@ -35,7 +35,7 @@ trip_id_source AS (
 )
 INSERT INTO photos (
   trip_id,
-  cloudinary_public_id,
+  storage_key,
   url,
   thumbnail_url,
   latitude,
@@ -53,5 +53,5 @@ SELECT
   NOW() - INTERVAL '10 days',
   'Bike ride along the canals'
 WHERE NOT EXISTS (
-  SELECT 1 FROM photos WHERE cloudinary_public_id = 'seed-cover'
+  SELECT 1 FROM photos WHERE storage_key = 'seed-cover'
 );

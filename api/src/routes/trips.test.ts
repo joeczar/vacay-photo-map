@@ -47,7 +47,7 @@ interface TripListResponse {
 interface TripWithPhotosResponse extends TripResponse {
   photos: Array<{
     id: string;
-    cloudinaryPublicId: string;
+    storageKey: string;
     url: string;
     thumbnailUrl: string;
     latitude: number | null;
@@ -584,7 +584,7 @@ describe("Trip Routes", () => {
       // Create test photo
       const [photo] = await db`
         INSERT INTO photos (
-          trip_id, cloudinary_public_id, url, thumbnail_url,
+          trip_id, storage_key, url, thumbnail_url,
           latitude, longitude, taken_at
         )
         VALUES (
@@ -726,7 +726,7 @@ describe("Trip Routes", () => {
       // Create test photo record
       const [photo] = await db`
         INSERT INTO photos (
-          trip_id, cloudinary_public_id, url, thumbnail_url,
+          trip_id, storage_key, url, thumbnail_url,
           latitude, longitude, taken_at
         )
         VALUES (
@@ -933,7 +933,7 @@ describe("Trip Routes", () => {
       // Create test photo with default rotation (0)
       const [photo] = await db`
         INSERT INTO photos (
-          trip_id, cloudinary_public_id, url, thumbnail_url,
+          trip_id, storage_key, url, thumbnail_url,
           latitude, longitude, taken_at, rotation
         )
         VALUES (
@@ -954,7 +954,7 @@ describe("Trip Routes", () => {
       );
 
       expect(res.status).toBe(200);
-      const data = await res.json();
+      const data = (await res.json()) as { rotation: number };
       expect(data.rotation).toBe(90);
 
       // Verify rotation was updated in database

@@ -14,4 +14,4 @@ echo "Listing trips (slug, is_public)..."
 $COMPOSE exec -T postgres psql -U vacay -d vacay -c "SELECT slug, is_public FROM trips;"
 
 echo "Listing photos joined to trips (first 5)..."
-$COMPOSE exec -T postgres psql -U vacay -d vacay -c "SELECT p.cloudinary_public_id, t.slug FROM photos p JOIN trips t ON t.id = p.trip_id LIMIT 5;"
+$COMPOSE exec -T postgres psql -U vacay -d vacay -c "SELECT p.storage_key, t.slug FROM photos p JOIN trips t ON t.id = p.trip_id LIMIT 5;"

@@ -512,7 +512,7 @@ const onSubmit = handleSubmit(async formValues => {
         const metadata = exifData.get(file) as PhotoMetadata
         return {
           trip_id: tripId,
-          cloudinary_public_id: uploadResult.publicId,
+          storage_key: uploadResult.publicId,
           url: uploadResult.url,
           thumbnail_url: uploadResult.thumbnailUrl,
           latitude: metadata.latitude || null,
@@ -612,7 +612,7 @@ async function retryFailedUploads() {
       await createPhotos([
         {
           trip_id: currentTripId.value,
-          cloudinary_public_id: result.publicId,
+          storage_key: result.publicId,
           url: result.url,
           thumbnail_url: result.thumbnailUrl,
           latitude: exifData.latitude || null,

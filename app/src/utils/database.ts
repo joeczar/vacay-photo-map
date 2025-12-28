@@ -41,7 +41,7 @@ interface ApiTripResponse {
 interface ApiPhotoResponse {
   id: string
   tripId: string
-  cloudinaryPublicId: string
+  storageKey: string
   url: string
   thumbnailUrl: string
   latitude: number | null
@@ -59,7 +59,7 @@ interface ApiTripWithPhotosResponse extends ApiTripResponse {
 
 // API input type for creating photos (camelCase for API)
 interface ApiPhotoInsert {
-  cloudinaryPublicId: string
+  storageKey: string
   url: string
   thumbnailUrl: string
   latitude: number | null
@@ -72,7 +72,7 @@ interface ApiPhotoInsert {
 // Transform database types (snake_case) to API format (camelCase)
 function transformPhotoToApi(photo: PhotoInsert): ApiPhotoInsert {
   return {
-    cloudinaryPublicId: photo.cloudinary_public_id,
+    storageKey: photo.storage_key,
     url: photo.url,
     thumbnailUrl: photo.thumbnail_url,
     latitude: photo.latitude ?? null,
@@ -107,7 +107,7 @@ function transformApiPhoto(apiPhoto: ApiPhotoResponse): Photo {
   return {
     id: apiPhoto.id,
     trip_id: apiPhoto.tripId,
-    cloudinary_public_id: apiPhoto.cloudinaryPublicId,
+    storage_key: apiPhoto.storageKey,
     url: apiPhoto.url,
     thumbnail_url: apiPhoto.thumbnailUrl,
     latitude: apiPhoto.latitude,

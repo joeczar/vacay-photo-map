@@ -79,7 +79,7 @@ interface TripWithPhotosResponse {
   };
   photos: Array<{
     id: string;
-    cloudinaryPublicId: string;
+    storageKey: string;
     url: string;
     thumbnailUrl: string;
     latitude: number | null;

@@ -157,7 +157,7 @@ trips             # Photo trips/albums
 photos            # Individual photos
 ├── id            # UUID primary key
 ├── trip_id       # FK to trips, indexed
-├── cloudinary_public_id  # R2 key (legacy name)
+├── storage_key   # R2/local storage key
 ├── url           # Photo URL (/api/photos/:key)
 ├── thumbnail_url # Thumbnail URL
 ├── latitude/longitude  # GPS coordinates from EXIF
@@ -169,7 +169,6 @@ photos            # Individual photos
 
 **Notes:**
 - Photos are stored in Cloudflare R2 if configured, otherwise local filesystem
-- `cloudinary_public_id` is actually the R2 object key (naming kept for backwards compatibility)
 - One user can have multiple passkeys (multiple authenticators per user_id)
 
 ## Available Scripts

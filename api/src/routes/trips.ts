@@ -29,7 +29,7 @@ interface DbTrip {
 interface DbPhoto {
   id: string;
   trip_id: string;
-  cloudinary_public_id: string;
+  storage_key: string;
   url: string;
   thumbnail_url: string;
   latitude: string | null; // Decimal comes as string from postgres
@@ -68,7 +68,7 @@ interface TripWithPhotosResponse extends TripResponse {
 
 interface PhotoResponse {
   id: string;
-  cloudinaryPublicId: string;
+  storageKey: string;
   url: string;
   thumbnailUrl: string;
   latitude: number | null;
@@ -194,7 +194,7 @@ function toTripResponse(
 function toPhotoResponse(photo: DbPhoto): PhotoResponse {
   return {
     id: photo.id,
-    cloudinaryPublicId: photo.cloudinary_public_id,
+    storageKey: photo.storage_key,
     url: photo.url,
     thumbnailUrl: photo.thumbnail_url,
     latitude: photo.latitude ? parseFloat(photo.latitude) : null,
@@ -217,7 +217,7 @@ async function buildTripWithPhotosResponse(
 ): Promise<TripWithPhotosResponse> {
   // Fetch photos for this trip
   const photos = await db<DbPhoto[]>`
-    SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
+    SELECT id, trip_id, storage_key, url, thumbnail_url,
            latitude, longitude, taken_at, caption, album, rotation, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
@@ -749,7 +749,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
   const tripId = c.req.param("id");
   const body = await c.req.json<{
     photos: Array<{
-      cloudinaryPublicId: string;
+      storageKey: string;
       url: string;
       thumbnailUrl: string;
       latitude: number | null;
@@ -783,7 +783,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
   // Validate individual photo objects
   for (const photo of photos) {
     if (
-      !photo.cloudinaryPublicId ||
+      !photo.storageKey ||
       !photo.url ||
       !photo.thumbnailUrl ||
       !photo.takenAt
@@ -792,7 +792,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
         {
           error: "Bad Request",
           message:
-            "Each photo must include cloudinaryPublicId, url, thumbnailUrl, and takenAt.",
+            "Each photo must include storageKey, url, thumbnailUrl, and takenAt.",
         },
         400,
       );
@@ -837,7 +837,7 @@ trips.post("/:id/photos", requireAdmin, async (c) => {
     INSERT INTO photos ${db(
       photos.map((p) => ({
         trip_id: tripId,
-        cloudinary_public_id: p.cloudinaryPublicId,
+        storage_key: p.storageKey,
         url: p.url,
         thumbnail_url: p.thumbnailUrl,
         latitude: p.latitude,
@@ -970,7 +970,7 @@ trips.patch("/photos/:id", requireAdmin, async (c) => {
 
   // Check if photo exists
   const photoResults = await db<DbPhoto[]>`
-    SELECT id, trip_id, cloudinary_public_id, url, thumbnail_url,
+    SELECT id, trip_id, storage_key, url, thumbnail_url,
            latitude, longitude, taken_at, caption, album, rotation, created_at
     FROM photos
     WHERE id = ${id}
@@ -985,7 +985,7 @@ trips.patch("/photos/:id", requireAdmin, async (c) => {
     UPDATE photos
     SET rotation = ${rotation}
     WHERE id = ${id}
-    RETURNING id, trip_id, cloudinary_public_id, url, thumbnail_url,
+    RETURNING id, trip_id, storage_key, url, thumbnail_url,
               latitude, longitude, taken_at, caption, album, rotation, created_at
   `;
 
