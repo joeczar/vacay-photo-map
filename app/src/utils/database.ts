@@ -55,7 +55,16 @@ interface ApiPhotoResponse {
 
 interface ApiTripWithPhotosResponse extends ApiTripResponse {
   photos: ApiPhotoResponse[]
+  pagination?: {
+    total: number
+    hasMore: boolean
+    limit: number
+    offset: number
+  }
 }
+
+// Export pagination type for use in composables
+export type PaginationMeta = NonNullable<ApiTripWithPhotosResponse['pagination']>
 
 // API input type for creating photos (camelCase for API)
 interface ApiPhotoInsert {
@@ -177,6 +186,30 @@ export async function getTripBySlug(slug: string): Promise<(ApiTrip & { photos: 
   try {
     const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/slug/${slug}`)
     return transformApiTripWithPhotos(trip)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+/**
+ * Get a trip by slug with pagination (requires authentication)
+ */
+export async function getTripBySlugPaginated(
+  slug: string,
+  offset: number = 0,
+  limit: number = 50
+): Promise<(ApiTrip & { photos: Photo[]; pagination: PaginationMeta }) | null> {
+  try {
+    const trip = await api.get<ApiTripWithPhotosResponse>(
+      `/api/trips/slug/${slug}?limit=${limit}&offset=${offset}`
+    )
+    return {
+      ...transformApiTripWithPhotos(trip),
+      pagination: trip.pagination || { total: 0, hasMore: false, limit, offset }
+    }
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return null
