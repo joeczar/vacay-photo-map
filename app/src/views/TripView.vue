@@ -49,7 +49,7 @@
                   clip-rule="evenodd"
                 />
               </svg>
-              {{ trip.photos.length }} photos
+              {{ total }} photos
             </Badge>
             <Badge v-if="dateRange" variant="outline">{{ dateRange }}</Badge>
             <Badge v-if="photosWithLocation" variant="outline"
@@ -172,7 +172,7 @@
             <h3 class="text-lg font-semibold mb-4">All Photos</h3>
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
               <Card
-                v-for="photo in trip.photos"
+                v-for="photo in photos"
                 :key="photo.id"
                 class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
                 :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
@@ -200,6 +200,19 @@
                   </svg>
                 </div>
               </Card>
+
+              <!-- Infinite scroll sentinel -->
+              <div
+                v-if="hasMore"
+                ref="sentinelRef"
+                class="col-span-full flex items-center justify-center py-8"
+              >
+                <div v-if="loadingMore" class="flex gap-3">
+                  <Skeleton class="w-24 h-24 rounded" />
+                  <Skeleton class="w-24 h-24 rounded" />
+                  <Skeleton class="w-24 h-24 rounded" />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -211,8 +224,8 @@
           <DialogHeader>
             <DialogTitle>Delete Trip?</DialogTitle>
             <DialogDescription>
-              This will permanently delete "{{ trip.title }}" and all
-              {{ trip.photos.length }} photos. This action cannot be undone.
+              This will permanently delete "{{ trip.title }}" and all {{ total }} photos. This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -301,7 +314,7 @@
             </svg>
           </Button>
           <Button
-            v-if="currentPhotoIndex < trip.photos.length - 1"
+            v-if="currentPhotoIndex < photos.length - 1"
             variant="ghost"
             size="icon"
             @click.stop="nextPhoto"
@@ -340,12 +353,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { LMap, LTileLayer, LMarker, LIcon, LPopup, LPolyline } from '@vue-leaflet/vue-leaflet'
-import { getTripBySlug, deleteTrip, type ApiTrip } from '@/utils/database'
+import { deleteTrip } from '@/utils/database'
 import { useAuth } from '@/composables/useAuth'
 import { useDarkMode } from '@/composables/useDarkMode'
 import type { Database } from '@/lib/database.types'
@@ -364,9 +377,11 @@ import {
 } from '@/components/ui/dialog'
 import { getImageUrl, buildSrcset } from '@/utils/image'
 import { useAccentColor } from '@/composables/useAccentColor'
+import { useInfinitePhotos } from '@/composables/useInfinitePhotos'
 import ProgressiveImage from '@/components/ProgressiveImage.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import LoadingState from '@/components/LoadingState.vue'
+import { Skeleton } from '@/components/ui/skeleton'
 
 // Fix Leaflet default icon issue with bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -386,10 +401,18 @@ const slug = route.params.slug as string
 const { isAuthenticated } = useAuth()
 const { isDark } = useDarkMode()
 
-// State
-const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
-const loading = ref(true)
-const error = ref('')
+// Infinite scroll composable
+const {
+  photos,
+  tripMetadata: trip,
+  loading,
+  loadingMore,
+  hasMore,
+  total,
+  error,
+  sentinelRef
+} = useInfinitePhotos(slug)
+
 const selectedPhoto = ref<Photo | null>(null)
 const zoom = ref(12)
 // Vue-leaflet map component ref with leafletObject accessor
@@ -547,6 +570,20 @@ function onPointerEnd(e: PointerEvent) {
   dragY.value = 0
 }
 
+// Watch for trip metadata to set accent color
+watch(
+  trip,
+  tripData => {
+    if (!tripData) return
+    const cover = tripData.cover_photo_url || photos.value[0]?.url
+    if (cover) {
+      const { setAccentFromImage } = useAccentColor()
+      setAccentFromImage(cover)
+    }
+  },
+  { immediate: true }
+)
+
 // Load trip data
 onMounted(async () => {
   // Determine initial layout mode for mobile/desktop
@@ -560,39 +597,11 @@ onMounted(async () => {
   }
   updateDesktop()
   mq.addEventListener?.('change', updateDesktop)
-
-  try {
-    const data = await getTripBySlug(slug)
-    if (!data) {
-      error.value = 'Trip not found'
-    } else {
-      trip.value = data
-      // Subtle: derive accent color from cover/first photo
-      const cover = data.cover_photo_url || data.photos[0]?.url
-      if (cover) {
-        const { setAccentFromImage } = useAccentColor()
-        // Fire and forget; no need to await
-        setAccentFromImage(cover)
-      }
-    }
-  } catch (err) {
-    console.error('Error loading trip:', err)
-
-    // Handle 401 Unauthorized specifically
-    if (err instanceof Error && 'status' in err && (err as { status: number }).status === 401) {
-      error.value = 'This trip is private. Please use the link provided by the trip owner.'
-    } else {
-      error.value = 'Failed to load trip'
-    }
-  } finally {
-    loading.value = false
-  }
 })
 
 // Computed properties
 const photosWithCoordinates = computed(() => {
-  if (!trip.value) return []
-  return trip.value.photos.filter(p => p.latitude !== null && p.longitude !== null)
+  return photos.value.filter(p => p.latitude !== null && p.longitude !== null)
 })
 
 const photosWithLocation = computed(() => photosWithCoordinates.value.length)
@@ -617,9 +626,9 @@ const routeCoordinates = computed(() => {
 })
 
 const dateRange = computed(() => {
-  if (!trip.value || trip.value.photos.length === 0) return ''
+  if (photos.value.length === 0) return ''
 
-  const dates = trip.value.photos
+  const dates = photos.value
     .map(p => new Date(p.taken_at))
     .sort((a, b) => a.getTime() - b.getTime())
   const start = dates[0]
@@ -633,8 +642,8 @@ const dateRange = computed(() => {
 })
 
 const currentPhotoIndex = computed(() => {
-  if (!selectedPhoto.value || !trip.value) return -1
-  return trip.value.photos.findIndex(p => p.id === selectedPhoto.value!.id)
+  if (!selectedPhoto.value) return -1
+  return photos.value.findIndex(p => p.id === selectedPhoto.value!.id)
 })
 
 const tileLayerUrl = computed(() => {
@@ -695,13 +704,13 @@ function closePhoto() {
 }
 
 function nextPhoto() {
-  if (!trip.value || currentPhotoIndex.value >= trip.value.photos.length - 1) return
-  selectedPhoto.value = trip.value.photos[currentPhotoIndex.value + 1]
+  if (currentPhotoIndex.value >= photos.value.length - 1) return
+  selectedPhoto.value = photos.value[currentPhotoIndex.value + 1]
 }
 
 function previousPhoto() {
-  if (!trip.value || currentPhotoIndex.value <= 0) return
-  selectedPhoto.value = trip.value.photos[currentPhotoIndex.value - 1]
+  if (currentPhotoIndex.value <= 0) return
+  selectedPhoto.value = photos.value[currentPhotoIndex.value - 1]
 }
 
 async function confirmDelete() {
