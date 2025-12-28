@@ -16,7 +16,7 @@ compatibility_date = "2024-01-01"
 #    (Enter: https://raw-images.joeczar.com)
 #
 # 4. Deploy the worker:
-#    wrangler deploy --env production --zone-id $CLOUDFLARE_ZONE_ID
+#    wrangler deploy --env production
 # =============================================================================
 
 [[r2_buckets]]

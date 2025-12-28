@@ -123,6 +123,19 @@ BEGIN
   END IF;
 END $$;
 
+-- Ensure storage_key has NOT NULL constraint (align with table definition)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'photos'
+      AND column_name = 'storage_key'
+      AND is_nullable = 'YES'
+  ) THEN
+    ALTER TABLE photos ALTER COLUMN storage_key SET NOT NULL;
+  END IF;
+END $$;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
 CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);
