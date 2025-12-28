@@ -17,11 +17,16 @@ const LIMIT = 50
  * - Accumulates photos as user scrolls
  * - Handles error states including 401 (private trips)
  * - Watches slug changes and reloads
+ * - Cancels stale requests on slug change
  *
  * @param tripSlug - Trip slug (reactive ref or string)
+ * @param sentinelRef - Template ref for the sentinel element (for intersection observer)
  * @returns Object containing photos array, trip metadata, loading states, and control functions
  */
-export function useInfinitePhotos(tripSlug: Ref<string> | string) {
+export function useInfinitePhotos(
+  tripSlug: Ref<string> | string,
+  sentinelRef: Ref<HTMLElement | null>
+) {
   const slug = typeof tripSlug === 'string' ? ref(tripSlug) : tripSlug
 
   // State
@@ -34,14 +39,16 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
   const offset = ref(0)
   const error = ref('')
 
-  // Sentinel element for intersection observer
-  const sentinelRef = ref<HTMLElement | null>(null)
+  // Request tracking to prevent race conditions
+  let currentRequestId = 0
 
   /**
    * Load initial page of photos
    * Resets all state before fetching
+   * Uses request ID to ignore stale responses
    */
   async function loadInitialPhotos() {
+    const requestId = ++currentRequestId
     loading.value = true
     error.value = ''
     photos.value = []
@@ -49,6 +56,9 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
 
     try {
       const data = await getTripBySlugPaginated(slug.value, 0, LIMIT)
+
+      // Ignore stale response if slug changed during fetch
+      if (requestId !== currentRequestId) return
 
       if (!data) {
         error.value = 'Trip not found'
@@ -63,6 +73,9 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
       hasMore.value = pagination.hasMore
       offset.value = LIMIT
     } catch (err) {
+      // Ignore errors from stale requests
+      if (requestId !== currentRequestId) return
+
       console.error('[useInfinitePhotos] Error loading photos:', err)
 
       // Handle 401 Unauthorized specifically
@@ -72,7 +85,10 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
         error.value = 'Failed to load trip'
       }
     } finally {
-      loading.value = false
+      // Only update loading if this is still the current request
+      if (requestId === currentRequestId) {
+        loading.value = false
+      }
     }
   }
 
@@ -84,10 +100,14 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
   async function loadMorePhotos() {
     if (loadingMore.value || !hasMore.value) return
 
+    const requestId = currentRequestId
     loadingMore.value = true
 
     try {
       const data = await getTripBySlugPaginated(slug.value, offset.value, LIMIT)
+
+      // Ignore stale response
+      if (requestId !== currentRequestId) return
 
       if (!data) return
 
@@ -97,10 +117,15 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
       hasMore.value = pagination.hasMore
       offset.value += LIMIT
     } catch (err) {
+      // Ignore errors from stale requests
+      if (requestId !== currentRequestId) return
+
       console.error('[useInfinitePhotos] Error loading more photos:', err)
       // Don't update error.value - show existing photos
     } finally {
-      loadingMore.value = false
+      if (requestId === currentRequestId) {
+        loadingMore.value = false
+      }
     }
   }
 
@@ -115,13 +140,14 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
     { threshold: 0.1 }
   )
 
-  // Watch slug changes and reload
-  watch(slug, () => {
-    loadInitialPhotos()
-  })
-
-  // Initial load
-  loadInitialPhotos()
+  // Watch slug changes and reload (immediate: true handles initial load)
+  watch(
+    slug,
+    () => {
+      loadInitialPhotos()
+    },
+    { immediate: true }
+  )
 
   return {
     photos,
@@ -131,7 +157,6 @@ export function useInfinitePhotos(tripSlug: Ref<string> | string) {
     hasMore,
     total,
     error,
-    loadMorePhotos,
-    sentinelRef
+    loadMorePhotos
   }
 }

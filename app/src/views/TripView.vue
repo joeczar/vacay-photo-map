@@ -400,6 +400,10 @@ const slug = route.params.slug as string
 // Auth & Theme
 const { isAuthenticated } = useAuth()
 const { isDark } = useDarkMode()
+const { setAccentFromImage } = useAccentColor()
+
+// Sentinel element ref for infinite scroll (must be created before composable)
+const sentinelRef = ref<HTMLElement | null>(null)
 
 // Infinite scroll composable
 const {
@@ -409,9 +413,8 @@ const {
   loadingMore,
   hasMore,
   total,
-  error,
-  sentinelRef
-} = useInfinitePhotos(slug)
+  error
+} = useInfinitePhotos(slug, sentinelRef)
 
 const selectedPhoto = ref<Photo | null>(null)
 const zoom = ref(12)
@@ -577,7 +580,6 @@ watch(
     if (!tripData) return
     const cover = tripData.cover_photo_url || photos.value[0]?.url
     if (cover) {
-      const { setAccentFromImage } = useAccentColor()
       setAccentFromImage(cover)
     }
   },
