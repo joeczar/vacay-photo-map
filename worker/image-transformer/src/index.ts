@@ -30,7 +30,7 @@ interface TransformOptions {
   width?: number
   rotate?: ValidRotation
   quality: number
-  format: string // 'auto' is valid but not in @cloudflare/workers-types
+  format: 'avif' | 'webp' | 'jpeg'
 }
 
 // Accept 0 as input (means "no rotation"), but it won't be passed to Cloudflare
@@ -82,7 +82,7 @@ export default {
     }
 
     // Parse transformation parameters
-    const transforms = parseTransforms(url.searchParams)
+    const transforms = parseTransforms(url.searchParams, request)
 
     try {
       // Validate R2_ORIGIN_URL is configured
@@ -108,8 +108,7 @@ export default {
             ...(transforms.width && { width: transforms.width }),
             ...(transforms.rotate && { rotate: transforms.rotate }),
             quality: transforms.quality,
-            // 'auto' is valid per Cloudflare docs but not in @cloudflare/workers-types
-            format: transforms.format as 'webp',
+            format: transforms.format,
           },
           // Cache the transformed image at the edge
           cacheTtl: 31536000, // 1 year
@@ -154,11 +153,24 @@ function isValidKey(key: string): boolean {
   return pattern.test(key)
 }
 
-function parseTransforms(params: URLSearchParams): TransformOptions {
+/**
+ * Detect best image format based on browser Accept header
+ * Priority: AVIF > WebP > JPEG (fallback)
+ */
+function detectBestFormat(acceptHeader: string | null): 'avif' | 'webp' | 'jpeg' {
+  if (!acceptHeader) return 'jpeg'
+  if (acceptHeader.includes('image/avif')) return 'avif'
+  if (acceptHeader.includes('image/webp')) return 'webp'
+  return 'jpeg'
+}
+
+function parseTransforms(params: URLSearchParams, request: Request): TransformOptions {
   const transforms: TransformOptions = {
     quality: DEFAULT_QUALITY,
-    format: 'auto', // Cloudflare auto-selects WebP/AVIF based on browser Accept header
+    format: detectBestFormat(request.headers.get('Accept')),
   }
+
+  console.log(`[image-transformer] Format: ${transforms.format}`)
 
   // Parse width
   const width = params.get('w')
