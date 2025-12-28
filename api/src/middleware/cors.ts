@@ -12,7 +12,7 @@ export const corsMiddleware = cors({
     if (ALLOWED_ORIGINS.includes(origin)) return origin;
 
     // Allow Vercel preview deployments (restricted to this project)
-    const vercelPreviewRegex = /^https:\/\/vacay-photo-.*\.vercel\.app$/;
+    const vercelPreviewRegex = /^https:\/\/vacay-photo-map-.*\.vercel\.app$/;
     if (vercelPreviewRegex.test(origin)) return origin;
 
     return null;
