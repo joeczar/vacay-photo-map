@@ -80,3 +80,14 @@ class ApiClient {
 }
 
 export const api = new ApiClient()
+
+/**
+ * Helper to set up authenticated API client
+ * Throws if not authenticated
+ * @returns void - api.setToken is called as side effect
+ */
+export function requireAuth(getToken: () => string | null): void {
+  const token = getToken()
+  if (!token) throw new Error('Authentication required')
+  api.setToken(token)
+}

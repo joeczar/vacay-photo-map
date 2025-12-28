@@ -1,5 +1,4 @@
-// Upload client for self-hosted photo storage
-// Replaces Cloudinary with our own API endpoint
+// Upload client for self-hosted photo storage (R2/local)
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 

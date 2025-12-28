@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Space — Theme Options</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .space {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 20px 48px;
+      gap: 48px;
+    }
+
+    .space-info {
+      flex: 0 0 180px;
+    }
+
+    .space-label {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 8px;
+      opacity: 0.4;
+    }
+
+    .space-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .space-tagline {
+      font-size: 11px;
+      opacity: 0.5;
+    }
+
+    .space-ui {
+      flex: 1;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    /* Shared UI elements */
+    .user-card {
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 180px;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .user-email {
+      font-size: 9px;
+      font-family: 'JetBrains Mono', monospace;
+      opacity: 0.5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .badge {
+      font-size: 9px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      font-size: 12px;
+    }
+
+    .status-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .divider {
+      width: 1px;
+      height: 40px;
+      opacity: 0.2;
+    }
+
+    /* ================================
+       THE VAULT — Secure Data Management
+       ================================ */
+    .vault {
+      background: #0a0d10;
+      background-image:
+        radial-gradient(ellipse at 70% 30%, rgba(34, 211, 211, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 70%, rgba(34, 211, 211, 0.04) 0%, transparent 40%);
+      color: #e8f4f4;
+      border-bottom: 1px solid #1a2a2a;
+    }
+
+    .vault .space-label { color: #5a8a8a; }
+    .vault .space-tagline { color: #7aadad; }
+
+    .vault .user-card {
+      background: #0d1214;
+      border: 1px solid #1a2a2a;
+    }
+
+    .vault .avatar {
+      background: linear-gradient(135deg, #22d3d3, #0d9488);
+      color: #0a0d10;
+    }
+
+    .vault .badge {
+      background: rgba(34, 211, 211, 0.15);
+      color: #22d3d3;
+      border: 1px solid rgba(34, 211, 211, 0.3);
+    }
+
+    .vault .badge.viewer {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .vault .btn {
+      background: #22d3d3;
+      color: #0a0d10;
+    }
+
+    .vault .btn:hover {
+      background: #2dd4d4;
+    }
+
+    .vault .divider { background: #22d3d3; }
+
+    .vault .status-dot.active { background: #22d3d3; }
+    .vault .status-dot.pending { background: #f59e0b; }
+    .vault .status-dot.expired { background: #6b7280; }
+
+    /* ================================
+       THE OFFICE — Professional Trust
+       ================================ */
+    .office {
+      background: #0c0f14;
+      background-image:
+        radial-gradient(ellipse at 60% 20%, rgba(96, 165, 250, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 30% 80%, rgba(96, 165, 250, 0.04) 0%, transparent 40%);
+      color: #e8eef8;
+      border-bottom: 1px solid #1a2030;
+    }
+
+    .office .space-label { color: #6080a0; }
+    .office .space-tagline { color: #80a0c0; }
+
+    .office .user-card {
+      background: #0f1218;
+      border: 1px solid #1a2030;
+    }
+
+    .office .avatar {
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      color: #0c0f14;
+    }
+
+    .office .badge {
+      background: rgba(96, 165, 250, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(96, 165, 250, 0.3);
+    }
+
+    .office .badge.viewer {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .office .btn {
+      background: #60a5fa;
+      color: #0c0f14;
+    }
+
+    .office .btn:hover {
+      background: #70b0fa;
+    }
+
+    .office .divider { background: #60a5fa; }
+
+    .office .status-dot.active { background: #60a5fa; }
+    .office .status-dot.pending { background: #fbbf24; }
+    .office .status-dot.expired { background: #6b7280; }
+
+    /* ================================
+       THE GATE — Access Control
+       ================================ */
+    .gate {
+      background: #0a0c0a;
+      background-image:
+        radial-gradient(ellipse at 50% 30%, rgba(74, 222, 128, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(74, 222, 128, 0.04) 0%, transparent 40%);
+      color: #e8f4e8;
+      border-bottom: 1px solid #1a2a1a;
+    }
+
+    .gate .space-label { color: #5a8a5a; }
+    .gate .space-tagline { color: #7aad7a; }
+
+    .gate .user-card {
+      background: #0d120d;
+      border: 1px solid #1a2a1a;
+    }
+
+    .gate .avatar {
+      background: linear-gradient(135deg, #4ade80, #22c55e);
+      color: #0a0c0a;
+    }
+
+    .gate .badge {
+      background: rgba(74, 222, 128, 0.15);
+      color: #4ade80;
+      border: 1px solid rgba(74, 222, 128, 0.3);
+    }
+
+    .gate .badge.viewer {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .gate .btn {
+      background: #4ade80;
+      color: #0a0c0a;
+    }
+
+    .gate .btn:hover {
+      background: #5aee90;
+    }
+
+    .gate .divider { background: #4ade80; }
+
+    .gate .status-dot.active { background: #4ade80; }
+    .gate .status-dot.pending { background: #fb923c; }
+    .gate .status-dot.expired { background: #ef4444; }
+
+    /* ================================
+       THE REGISTRY — Utilitarian Neutral
+       ================================ */
+    .registry {
+      background: #0f0f12;
+      background-image:
+        radial-gradient(ellipse at 40% 40%, rgba(148, 163, 184, 0.08) 0%, transparent 50%);
+      color: #e4e4e7;
+      border-bottom: 1px solid #27272a;
+    }
+
+    .registry .space-label { color: #71717a; }
+    .registry .space-tagline { color: #a1a1aa; }
+
+    .registry .user-card {
+      background: #18181b;
+      border: 1px solid #27272a;
+    }
+
+    .registry .avatar {
+      background: linear-gradient(135deg, #94a3b8, #64748b);
+      color: #0f0f12;
+    }
+
+    .registry .badge {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+
+    .registry .badge.viewer {
+      background: rgba(113, 113, 122, 0.1);
+      color: #71717a;
+      border-color: rgba(113, 113, 122, 0.2);
+    }
+
+    .registry .btn {
+      background: #94a3b8;
+      color: #0f0f12;
+    }
+
+    .registry .btn:hover {
+      background: #a4b3c8;
+    }
+
+    .registry .divider { background: #94a3b8; }
+
+    .registry .status-dot.active { background: #22c55e; }
+    .registry .status-dot.pending { background: #eab308; }
+    .registry .status-dot.expired { background: #71717a; }
+  </style>
+</head>
+<body>
+
+  <!-- THE VAULT -->
+  <section class="space vault">
+    <div class="space-info">
+      <span class="space-label">Option 1</span>
+      <h1 class="space-title">The Vault</h1>
+      <p class="space-tagline">Secure data. Modern admin.</p>
+    </div>
+    <div class="space-ui">
+      <div class="user-card">
+        <div class="avatar">SC</div>
+        <div class="user-info">
+          <div class="user-name">Sarah Chen</div>
+          <div class="user-email">sarah@example.com</div>
+        </div>
+        <span class="badge">Editor</span>
+      </div>
+      <div class="user-card">
+        <div class="avatar">MR</div>
+        <div class="user-info">
+          <div class="user-name">Mike Ross</div>
+          <div class="user-email">mike@example.com</div>
+        </div>
+        <span class="badge viewer">Viewer</span>
+      </div>
+      <div class="divider"></div>
+      <button class="btn"><span class="btn-icon">+</span> Invite User</button>
+      <div class="status-group">
+        <div class="status-item"><span class="status-dot active"></span> 3 Active</div>
+        <div class="status-item"><span class="status-dot pending"></span> 1 Pending</div>
+        <div class="status-item"><span class="status-dot expired"></span> 2 Expired</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE OFFICE -->
+  <section class="space office">
+    <div class="space-info">
+      <span class="space-label">Option 2</span>
+      <h1 class="space-title">The Office</h1>
+      <p class="space-tagline">Trust. Professional.</p>
+    </div>
+    <div class="space-ui">
+      <div class="user-card">
+        <div class="avatar">SC</div>
+        <div class="user-info">
+          <div class="user-name">Sarah Chen</div>
+          <div class="user-email">sarah@example.com</div>
+        </div>
+        <span class="badge">Editor</span>
+      </div>
+      <div class="user-card">
+        <div class="avatar">MR</div>
+        <div class="user-info">
+          <div class="user-name">Mike Ross</div>
+          <div class="user-email">mike@example.com</div>
+        </div>
+        <span class="badge viewer">Viewer</span>
+      </div>
+      <div class="divider"></div>
+      <button class="btn"><span class="btn-icon">+</span> Invite User</button>
+      <div class="status-group">
+        <div class="status-item"><span class="status-dot active"></span> 3 Active</div>
+        <div class="status-item"><span class="status-dot pending"></span> 1 Pending</div>
+        <div class="status-item"><span class="status-dot expired"></span> 2 Expired</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE GATE -->
+  <section class="space gate">
+    <div class="space-info">
+      <span class="space-label">Option 3</span>
+      <h1 class="space-title">The Gate</h1>
+      <p class="space-tagline">Access control. Permissions.</p>
+    </div>
+    <div class="space-ui">
+      <div class="user-card">
+        <div class="avatar">SC</div>
+        <div class="user-info">
+          <div class="user-name">Sarah Chen</div>
+          <div class="user-email">sarah@example.com</div>
+        </div>
+        <span class="badge">Editor</span>
+      </div>
+      <div class="user-card">
+        <div class="avatar">MR</div>
+        <div class="user-info">
+          <div class="user-name">Mike Ross</div>
+          <div class="user-email">mike@example.com</div>
+        </div>
+        <span class="badge viewer">Viewer</span>
+      </div>
+      <div class="divider"></div>
+      <button class="btn"><span class="btn-icon">+</span> Invite User</button>
+      <div class="status-group">
+        <div class="status-item"><span class="status-dot active"></span> 3 Active</div>
+        <div class="status-item"><span class="status-dot pending"></span> 1 Pending</div>
+        <div class="status-item"><span class="status-dot expired"></span> 2 Expired</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- THE REGISTRY -->
+  <section class="space registry">
+    <div class="space-info">
+      <span class="space-label">Option 4</span>
+      <h1 class="space-title">The Registry</h1>
+      <p class="space-tagline">Utilitarian. Neutral.</p>
+    </div>
+    <div class="space-ui">
+      <div class="user-card">
+        <div class="avatar">SC</div>
+        <div class="user-info">
+          <div class="user-name">Sarah Chen</div>
+          <div class="user-email">sarah@example.com</div>
+        </div>
+        <span class="badge">Editor</span>
+      </div>
+      <div class="user-card">
+        <div class="avatar">MR</div>
+        <div class="user-info">
+          <div class="user-name">Mike Ross</div>
+          <div class="user-email">mike@example.com</div>
+        </div>
+        <span class="badge viewer">Viewer</span>
+      </div>
+      <div class="divider"></div>
+      <button class="btn"><span class="btn-icon">+</span> Invite User</button>
+      <div class="status-group">
+        <div class="status-item"><span class="status-dot active"></span> 3 Active</div>
+        <div class="status-item"><span class="status-dot pending"></span> 1 Pending</div>
+        <div class="status-item"><span class="status-dot expired"></span> 2 Expired</div>
+      </div>
+    </div>
+  </section>
+
+</body>
+</html>

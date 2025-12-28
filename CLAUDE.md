@@ -1,5 +1,16 @@
 # CLAUDE.md
 
+## ⚠️ Dev Server Startup - READ FIRST
+
+**ALWAYS use this single command to start the dev environment:**
+```bash
+pnpm dev:docker
+```
+
+This starts Postgres, frontend (5173), and API (4000) together. **NEVER run `pnpm dev` or `pnpm dev:api` separately.**
+
+---
+
 ## Testing Policy
 
 **CRITICAL: Test every change before committing.**
@@ -19,11 +30,98 @@ Try TDD if you have a difficult feature
 **Always use shadcn-vue components first.** New York style, Slate base, CSS variables for theming.
 
 - Add components: `pnpm dlx shadcn-vue@latest add [component]`
-- Don't use shadcn for: Leaflet maps, EXIF utils, Cloudinary client
+- Don't use shadcn for: Leaflet maps, EXIF utils
 
 ## Development
 
 Run from root: `pnpm dev`, `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm type-check`
+
+### Starting Dev Environment
+
+**IMPORTANT: Use this single command to start everything:**
+```bash
+pnpm dev:docker   # Starts postgres + frontend + API all at once
+```
+
+This runs concurrently: docker compose, frontend (localhost:5173), API (localhost:4000).
+
+### Development Modes
+
+**Local development (manual, if needed):**
+```bash
+docker compose -p vacay-dev up -d postgres  # Start local database
+pnpm dev       # Frontend at localhost:5173
+pnpm dev:api   # API at localhost:4000
+```
+
+**Dev tunnel (mobile/WebAuthn testing):**
+```bash
+# Cloudflare Tunnel provides public HTTPS URLs for testing on real devices
+# Frontend: https://photos-dev.joeczar.com → localhost:5173
+# API: https://photos-dev-api.joeczar.com → localhost:4000
+
+docker compose -p vacay-dev up -d postgres  # Start local database
+pnpm dev       # Frontend
+pnpm dev:api   # API
+
+# Navigate to https://photos-dev.joeczar.com for mobile testing
+```
+
+**Note:** Dev tunnel requires Cloudflare Tunnel configured on server. Environment files (`app/.env`, `api/.env`) are already configured for this setup.
+
+### Remote Development (Tailscale + Prod DB)
+
+Develop locally against production database without touching your local `.env`:
+
+**1. Server setup (one-time):**
+```bash
+# Add to server's .env.production
+POSTGRES_HOST=0.0.0.0
+
+# Restart postgres
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d postgres
+```
+
+**2. Local setup (one-time):**
+```bash
+cp api/.env.prod.example api/.env.prod
+# Edit api/.env.prod with your Tailscale IP and prod credentials
+```
+
+**3. Run:**
+```bash
+pnpm dev:prod  # Uses api/.env.prod automatically
+```
+
+**Port Configuration:**
+- Local dev database: `localhost:5433` (avoids conflicts with existing PostgreSQL)
+- Dev API server: `localhost:4000` (avoids conflicts with production API on 3000)
+- Production database: `5432` (standard PostgreSQL port)
+- All can run simultaneously without interference
+
+**Database project naming:**
+```bash
+# CRITICAL: Use project name to avoid conflicts with production docker compose
+docker compose -p vacay-dev up -d postgres  # Development database
+docker compose -p vacay-prod up -d postgres # Production database (different project)
+```
+
+**First user registration:** Navigate to localhost:5173/register (or https://photos-dev.joeczar.com/register for dev tunnel) - first user becomes admin.
+
+### Dev Server Management
+
+Claude Code hooks automatically manage dev server lifecycle:
+
+- **SessionStart**: Ensures postgres is running
+- **Stop**: Cleans up orphaned vite/bun processes on exit
+
+**Manual commands:**
+```bash
+.claude/hooks/check-dev-status.sh  # Check what's running
+.claude/hooks/cleanup-dev.sh       # Force cleanup orphaned processes
+```
+
+The `dev-server` skill (`.claude/skills/dev-server/`) provides Claude with commands for starting, stopping, and troubleshooting dev servers.
 
 ## Git Workflow
 
@@ -73,13 +171,22 @@ Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn au
 ## Environment Variables
 
 **App (`app/.env`):**
-- `VITE_API_URL` - API endpoint (http://localhost:3000 for dev)
+- `VITE_API_URL` - API endpoint
+  - Local dev: `http://localhost:4000`
+  - Dev tunnel: `https://photos-dev-api.joeczar.com`
 - `VITE_APP_URL` - Frontend URL for redirects
+  - Local dev: `http://localhost:5173`
+  - Dev tunnel: `https://photos-dev.joeczar.com`
 - `VITE_WEBAUTHN_RP_NAME` - Display name for passkeys
-- `VITE_WEBAUTHN_RP_ID` - Domain for WebAuthn (localhost for dev)
+- `VITE_WEBAUTHN_RP_ID` - Domain for WebAuthn
+  - Local dev: `localhost`
+  - Dev tunnel: `photos-dev.joeczar.com`
 
 **API (`api/.env`):**
 - Required: `DATABASE_URL`, `JWT_SECRET`, `RP_ID`, `RP_NAME`, `RP_ORIGIN`, `FRONTEND_URL`
+  - `RP_ID` matches `VITE_WEBAUTHN_RP_ID` (localhost or photos-dev.joeczar.com)
+  - `RP_ORIGIN` matches `VITE_APP_URL`
+  - `FRONTEND_URL` matches `VITE_APP_URL`
 - Optional: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
 - See `api/.env.example` for full list
 

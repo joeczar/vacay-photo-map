@@ -1,0 +1,105 @@
+# =============================================================================
+# Production Stack
+# =============================================================================
+# This file deploys the full production stack from ghcr.io images.
+# For development, use: docker-compose.yml (DB only) or docker-compose.dev.yml (DB + API)
+#
+# CRITICAL: Always use -p vacay-prod to avoid conflicts with development
+#
+# Usage:
+#   docker compose -p vacay-prod -f docker-compose.prod.yml --env-file .env.production up -d
+#   docker compose -p vacay-prod -f docker-compose.prod.yml down
+#   docker compose -p vacay-prod -f docker-compose.prod.yml logs -f api
+# =============================================================================
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: vacay-postgres
+    restart: unless-stopped
+    ports:
+      # Expose for dev access via Tailscale
+      # Secure via Tailscale ACLs or bind to Tailscale IP only
+      - "${POSTGRES_HOST:-127.0.0.1}:5432:5432"
+    # Load environment variables from .env.production
+    # POSTGRES_PASSWORD is loaded from env_file, not substituted here
+    # Only POSTGRES_USER and POSTGRES_DB are explicitly set for clarity
+    env_file:
+      - ./.env.production
+    environment:
+      POSTGRES_USER: vacay
+      POSTGRES_DB: vacay
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./api/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vacay -d vacay']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - proxy
+      - internal
+
+  api:
+    image: ghcr.io/joeczar/vacay-photo-map/api:latest
+    container_name: vacay-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # All environment variables including DATABASE_URL loaded from env_file
+    # No variable substitution needed - api/.env.production contains complete values
+    env_file:
+      - ./api/.env.production
+    volumes:
+      # Local photo storage fallback (used if R2 not configured)
+      - ./data/photos:/data/photos
+    networks:
+      - proxy
+      - internal
+
+  frontend:
+    image: ghcr.io/joeczar/vacay-photo-map/frontend:latest
+    container_name: vacay-frontend
+    restart: unless-stopped
+    networks:
+      - proxy
+
+  watchtower:
+    # Using nicholas-fedor's maintained fork - containrrr/watchtower was archived Dec 2025
+    # and is incompatible with Docker 29+ (requires API v1.44+)
+    # See: https://github.com/containrrr/watchtower/issues/2122
+    image: nickfedor/watchtower:1.13.1@sha256:fee923fe9ae4e226539de0f6036b28d8ae8bdc7df3525217a2e6513cd4964643
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_LABEL_ENABLE: "false"
+    command: --interval 300 vacay-api vacay-frontend
+    networks:
+      - internal
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
+    volumes:
+      - uptime-kuma-data:/app/data
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+  internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  uptime-kuma-data:

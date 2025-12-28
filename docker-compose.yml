@@ -1,20 +1,36 @@
+# =============================================================================
+# Development Database Only
+# =============================================================================
+# This file provides the dev/test postgres database on port 5433.
+# For production, use: docker-compose.prod.yml
+# For hot-reload API dev, use: docker-compose.dev.yml
+#
+# CRITICAL: Always use -p vacay-dev to avoid conflicts with production
+#
+# Usage:
+#   docker compose -p vacay-dev up -d postgres     # Start dev DB only
+#   docker compose -p vacay-dev down               # Stop dev DB
+#   docker compose -p vacay-dev down -v            # Stop and delete volume
+# =============================================================================
+
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: vacay-postgres
+    container_name: ${POSTGRES_CONTAINER:-vacay-postgres-dev}
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-vacay}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vacay}
       POSTGRES_DB: ${POSTGRES_DB:-vacay}
     ports:
-      - '5432:5432'
+      - '${DEV_DB_PORT:-5433}:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
       - ./api/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ./api/src/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U vacay -d vacay']
+      # Uses container's env vars (set above)
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,4 +53,4 @@ services:
   #     DATABASE_URL: postgresql://vacay:vacay@postgres:5432/vacay
 
 volumes:
-  postgres_data:
+  postgres_dev_data:

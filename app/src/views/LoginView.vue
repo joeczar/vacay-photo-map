@@ -43,9 +43,16 @@
         </form>
 
         <!-- Dev-only registration link -->
-        <div v-if="isDev" class="mt-4 text-center text-sm text-muted-foreground">
+        <div v-if="registrationOpen" class="mt-4 text-center text-sm text-muted-foreground">
           Need an account?
           <router-link to="/register" class="text-primary hover:underline"> Register </router-link>
+        </div>
+
+        <!-- Recovery link -->
+        <div class="mt-2 text-center text-sm text-muted-foreground">
+          <router-link to="/recover" class="text-primary hover:underline">
+            Lost access? Recover account
+          </router-link>
         </div>
       </CardContent>
     </Card>
@@ -53,16 +60,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import {
-  startAuthentication,
-  type PublicKeyCredentialRequestOptionsJSON,
-  type AuthenticationResponseJSON
-} from '@simplewebauthn/browser'
+import { startAuthentication } from '@simplewebauthn/browser'
+import type {
+  PublicKeyCredentialRequestOptionsJSON,
+  AuthenticationResponseJSON
+} from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -89,8 +96,22 @@ const error = ref('')
 // Check WebAuthn support
 const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthnSupport()
 
-// Check if in dev mode
-const isDev = computed(() => import.meta.env.DEV)
+// Check if registration is open
+const registrationOpen = ref(false)
+
+onMounted(async () => {
+  try {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
+
+    if (response.ok) {
+      const { registrationOpen: isOpen } = await response.json()
+      registrationOpen.value = isOpen
+    }
+  } catch (error) {
+    // Fail closed - keep registrationOpen as false
+    console.error('[LOGIN] Failed to fetch registration status:', error)
+  }
+})
 
 // Form validation schema
 const loginSchema = toTypedSchema(

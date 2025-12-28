@@ -15,6 +15,10 @@ import { getDbClient } from "../db/client";
 import { signToken } from "../utils/jwt";
 import { requireAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
+import {
+  sendTelegramMessage,
+  generateRecoveryCode,
+} from "../services/telegram";
 
 // WebAuthn Relying Party configuration
 const getConfig = () => {
@@ -43,6 +47,7 @@ interface ChallengeEntry {
   expires: number;
   userId?: string; // For adding passkeys to existing users
   webauthnUserId?: string; // Stable WebAuthn user ID (base64url encoded)
+  inviteCode?: string; // Validated invite code for registration
 }
 
 const challenges = new Map<string, ChallengeEntry>();
@@ -60,13 +65,14 @@ setInterval(() => {
 function storeChallenge(
   email: string,
   challenge: string,
-  options?: { userId?: string; webauthnUserId?: string },
+  options?: { userId?: string; webauthnUserId?: string; inviteCode?: string },
 ): void {
   challenges.set(email.toLowerCase(), {
     challenge,
     expires: Date.now() + CHALLENGE_TTL_MS,
     userId: options?.userId,
     webauthnUserId: options?.webauthnUserId,
+    inviteCode: options?.inviteCode,
   });
 }
 
@@ -246,10 +252,10 @@ auth.post("/register/options", async (c) => {
   const body = await c.req.json<{
     email: string;
     displayName?: string;
-    inviteCode?: string; // TODO: Implement invite system - see issue #XX
+    inviteCode?: string;
   }>();
 
-  const { email, displayName } = body;
+  const { email, displayName, inviteCode } = body;
 
   if (!email || !isValidEmail(email)) {
     return c.json(
@@ -260,6 +266,45 @@ auth.post("/register/options", async (c) => {
 
   const db = getDbClient();
   const config = getConfig();
+
+  // Validate invite code if provided
+  let validatedInviteCode: string | undefined;
+  if (inviteCode) {
+    const [invite] = await db<
+      {
+        id: string;
+        email: string | null;
+      }[]
+    >`
+      SELECT id, email
+      FROM invites
+      WHERE code = ${inviteCode}
+        AND used_at IS NULL
+        AND expires_at > NOW()
+    `;
+
+    if (!invite) {
+      return c.json(
+        { error: "Bad Request", message: "Invalid or expired invite code" },
+        400,
+      );
+    }
+
+    if (
+      invite.email !== null &&
+      invite.email.toLowerCase() !== email.toLowerCase()
+    ) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message: "Invite email does not match registration email",
+        },
+        400,
+      );
+    }
+
+    validatedInviteCode = inviteCode;
+  }
 
   // Check if email already exists
   const existing = await db<(DbUser & { authenticator_count: number })[]>`
@@ -319,6 +364,7 @@ auth.post("/register/options", async (c) => {
   storeChallenge(email, options.challenge, {
     webauthnUserId: webauthnUserIdBase64,
     userId: existingUserId,
+    inviteCode: validatedInviteCode,
   });
 
   return c.json({ options });
@@ -423,9 +469,18 @@ auth.post("/register/verify", async (c) => {
     } else {
       // New user - create user and authenticator in transaction
       result = await db.begin(async (tx) => {
+        // Lock table to prevent race condition on first user creation
+        await tx`LOCK TABLE user_profiles IN SHARE ROW EXCLUSIVE MODE`;
+
+        // Check if this is the first user - they become admin automatically
+        const [{ exists }] = await tx<{ exists: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
+        `;
+        const isFirstUser = !exists;
+
         const [user] = await tx<DbUser[]>`
           INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
-          VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, FALSE)
+          VALUES (${email.toLowerCase()}, ${webauthnUserId}, ${sanitizedDisplayName}, ${isFirstUser})
           RETURNING id, email, webauthn_user_id, display_name, is_admin, created_at, updated_at
         `;
 
@@ -441,6 +496,53 @@ auth.post("/register/verify", async (c) => {
             ${credential.response.transports || null}
           )
         `;
+
+        // Process invite if provided
+        if (entry.inviteCode) {
+          // Re-validate invite (could have been used between options and verify)
+          const [invite] = await tx<
+            {
+              id: string;
+              role: string;
+              created_by_user_id: string;
+            }[]
+          >`
+            SELECT id, role, created_by_user_id
+            FROM invites
+            WHERE code = ${entry.inviteCode}
+              AND used_at IS NULL
+              AND expires_at > NOW()
+          `;
+
+          if (!invite) {
+            throw new Error("Invite no longer valid");
+          }
+
+          // Fetch all trips associated with this invite
+          const tripAccess = await tx<{ trip_id: string }[]>`
+            SELECT trip_id
+            FROM invite_trip_access
+            WHERE invite_id = ${invite.id}
+          `;
+
+          // Grant trip access for each trip (bulk insert)
+          if (tripAccess.length > 0) {
+            const accessRows = tripAccess.map((ta) => ({
+              user_id: user.id,
+              trip_id: ta.trip_id,
+              role: invite.role,
+              granted_by_user_id: invite.created_by_user_id,
+            }));
+            await tx`INSERT INTO trip_access ${tx(accessRows)}`;
+          }
+
+          // Mark invite as used
+          await tx`
+            UPDATE invites
+            SET used_at = NOW(), used_by_user_id = ${user.id}
+            WHERE id = ${invite.id}
+          `;
+        }
 
         return user;
       });
@@ -854,6 +956,246 @@ auth.get("/me", requireAuth, async (c) => {
 // =============================================================================
 auth.post("/logout", (_c) => {
   return _c.json({ success: true });
+});
+
+// =============================================================================
+// GET /registration-status - Check if registration is open
+// Allows registration if: no users yet OR valid invite code provided
+// =============================================================================
+auth.get("/registration-status", async (c) => {
+  const db = getDbClient();
+  const inviteCode = c.req.query("invite");
+
+  // Check if any users exist
+  const [{ exists }] = await db<{ exists: boolean }[]>`
+    SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
+  `;
+
+  // No users yet - registration open for first user
+  if (!exists) {
+    return c.json({
+      registrationOpen: true,
+      reason: "no_users_yet",
+    });
+  }
+
+  // Users exist - check for valid invite code
+  if (
+    inviteCode &&
+    inviteCode.length === 32 &&
+    /^[A-Za-z0-9_-]+$/.test(inviteCode)
+  ) {
+    const inviteRows = await db<
+      {
+        id: string;
+        email: string | null;
+        used_at: Date | null;
+        expires_at: Date;
+      }[]
+    >`
+      SELECT id, email, used_at, expires_at
+      FROM invites
+      WHERE code = ${inviteCode}
+    `;
+
+    if (inviteRows.length > 0) {
+      const invite = inviteRows[0];
+      const isUsed = invite.used_at !== null;
+      const isExpired = new Date(invite.expires_at) <= new Date();
+
+      if (!isUsed && !isExpired) {
+        return c.json({
+          registrationOpen: true,
+          reason: "valid_invite",
+          email: invite.email,
+        });
+      }
+    }
+  }
+
+  // No valid invite - registration closed
+  return c.json({
+    registrationOpen: false,
+    reason: "first_user_registered",
+  });
+});
+
+// =============================================================================
+// POST /recovery/request - Request account recovery via Telegram
+// =============================================================================
+auth.post("/recovery/request", async (c) => {
+  const { email } = await c.req.json<{ email: string }>();
+
+  if (!email || !isValidEmail(email)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid email format" },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Find user by email
+  const [user] = await db<{ id: string; email: string }[]>`
+    SELECT id, email FROM user_profiles WHERE email = ${email.toLowerCase()}
+  `;
+
+  // Generate code and expiry ALWAYS to prevent timing attacks
+  const code = generateRecoveryCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+  if (user) {
+    // Delete any existing unused tokens for this user (enforces one active token)
+    await db`
+      DELETE FROM recovery_tokens
+      WHERE user_id = ${user.id}
+        AND used_at IS NULL
+        AND locked_at IS NULL
+    `;
+
+    // Store token
+    await db`
+      INSERT INTO recovery_tokens (user_id, code, expires_at)
+      VALUES (${user.id}, ${code}, ${expiresAt})
+    `;
+
+    // Send via Telegram with ISO timestamp
+    const success = await sendTelegramMessage(
+      `🔐 <b>Recovery Code</b>\n\nAccount: ${user.email}\nCode: <code>${code}</code>\n\nExpires at: ${expiresAt.toISOString()}\n(10 minutes from now)`,
+    );
+
+    if (!success) {
+      // Log failure for monitoring
+      console.error(
+        `[RECOVERY] Failed to send Telegram notification for ${user.email}`,
+      );
+    }
+  }
+
+  // Always return success to prevent user enumeration
+  // Add small random delay to mask timing differences
+  await new Promise((resolve) => setTimeout(resolve, Math.random() * 100 + 50));
+
+  return c.json({
+    success: true,
+    message: "If account exists, recovery code sent",
+  });
+});
+
+// =============================================================================
+// POST /recovery/verify - Verify recovery code and clear authenticators
+// =============================================================================
+auth.post("/recovery/verify", async (c) => {
+  const { email, code } = await c.req.json<{ email: string; code: string }>();
+
+  if (!email || !code) {
+    return c.json(
+      { error: "Bad Request", message: "Email and code required" },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Atomically find valid token AND mark as used (CTE prevents race condition)
+  const [validToken] = await db<{ user_id: string }[]>`
+    WITH valid_token AS (
+      SELECT rt.id
+      FROM recovery_tokens rt
+      JOIN user_profiles u ON rt.user_id = u.id
+      WHERE u.email = ${email.toLowerCase()}
+        AND rt.code = ${code}
+        AND rt.expires_at > NOW()
+        AND rt.used_at IS NULL
+        AND rt.locked_at IS NULL
+      ORDER BY rt.created_at DESC
+      LIMIT 1
+    )
+    UPDATE recovery_tokens
+    SET used_at = NOW()
+    WHERE id = (SELECT id FROM valid_token)
+    RETURNING user_id
+  `;
+
+  if (!validToken) {
+    // Code didn't match - find token by email only to track attempts
+    const [tokenForAttempts] = await db<
+      { id: string; attempts: number; locked_at: Date | null }[]
+    >`
+      SELECT id, attempts, locked_at
+      FROM recovery_tokens rt
+      JOIN user_profiles u ON rt.user_id = u.id
+      WHERE u.email = ${email.toLowerCase()}
+        AND rt.expires_at > NOW()
+        AND rt.used_at IS NULL
+      ORDER BY rt.created_at DESC
+      LIMIT 1
+    `;
+
+    if (!tokenForAttempts) {
+      return c.json(
+        { error: "Bad Request", message: "Invalid or expired code" },
+        400,
+      );
+    }
+
+    if (tokenForAttempts.locked_at) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message:
+            "Too many failed attempts. Please request a new recovery code.",
+        },
+        400,
+      );
+    }
+
+    // Increment attempt counter
+    const newAttempts = tokenForAttempts.attempts + 1;
+
+    if (newAttempts >= 5) {
+      await db`
+        UPDATE recovery_tokens
+        SET attempts = ${newAttempts}, locked_at = NOW()
+        WHERE id = ${tokenForAttempts.id}
+      `;
+      return c.json(
+        {
+          error: "Bad Request",
+          message:
+            "Too many failed attempts. Please request a new recovery code.",
+        },
+        400,
+      );
+    }
+
+    await db`
+      UPDATE recovery_tokens
+      SET attempts = ${newAttempts}
+      WHERE id = ${tokenForAttempts.id}
+    `;
+    return c.json(
+      {
+        error: "Bad Request",
+        message: `Invalid code. ${5 - newAttempts} attempts remaining.`,
+      },
+      400,
+    );
+  }
+
+  // Token was atomically claimed - delete authenticators
+  await db`DELETE FROM authenticators WHERE user_id = ${validToken.user_id}`;
+
+  // Send confirmation via Telegram (outside transaction)
+  await sendTelegramMessage(
+    `✅ Recovery successful for ${email}. Passkeys cleared.`,
+  );
+
+  return c.json({
+    success: true,
+    message: "Recovery successful. Please register a new passkey.",
+    redirectTo: "/register",
+  });
 });
 
 export { auth };

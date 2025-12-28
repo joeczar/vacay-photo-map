@@ -25,7 +25,7 @@ Self-hosted Bun + Hono API server for Vacay Photo Map with WebAuthn authenticati
 bun install
 
 # 2. Start Postgres
-docker compose up -d postgres
+docker compose -p vacay-dev up -d postgres
 
 # 3. Configure environment
 cp .env.example .env
@@ -77,19 +77,19 @@ openssl rand -hex 32
 
 ```bash
 # Start Postgres
-docker compose up -d postgres
+docker compose -p vacay-dev up -d postgres
 
 # Check status
-docker compose ps
+docker compose -p vacay-dev ps
 
 # View logs
-docker compose logs postgres
+docker compose -p vacay-dev logs postgres
 
 # Stop (keeps data)
-docker compose down
+docker compose -p vacay-dev down
 
 # Stop and delete data
-docker compose down -v
+docker compose -p vacay-dev down -v
 ```
 
 Default connection: `postgresql://vacay:vacay@localhost:5432/vacay`
@@ -151,8 +151,7 @@ trips             # Photo trips/albums
 ├── title
 ├── description
 ├── cover_photo_url
-├── is_public     # Public/private visibility
-├── access_token_hash  # Bcrypt-hashed token for private trips
+├── is_public     # Published (true) vs draft (false)
 └── timestamps
 
 photos            # Individual photos
@@ -231,11 +230,10 @@ curl http://localhost:3000/health/ready
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
 | `/api/trips` | GET | JWT (optional) | List all trips (public + admin's private) |
-| `/api/trips/:slug` | GET | Optional | Get trip by slug (token for private) |
+| `/api/trips/:slug` | GET | JWT | Get trip by slug (requires auth + access) |
 | `/api/trips` | POST | Admin JWT | Create trip (or draft) |
 | `/api/trips/:id` | PATCH | Admin JWT | Update trip |
 | `/api/trips/:id` | DELETE | Admin JWT | Delete trip (cascade deletes photos) |
-| `/api/trips/:id/protection` | PATCH | Admin JWT | Update protection settings |
 | `/api/trips/:id/photos` | POST | Admin JWT | Add photos to existing trip |
 
 ### Photos
@@ -268,24 +266,6 @@ curl "http://localhost:3000/api/trips/secret-trip?token=mytoken"
 
 # Private trip with admin JWT
 curl -H "Authorization: Bearer $JWT" http://localhost:3000/api/trips/secret-trip
-```
-
-#### Protection Endpoint
-
-Update a trip's privacy settings:
-
-```bash
-# Make trip private with token
-curl -X PATCH http://localhost:3000/api/trips/:id/protection \
-  -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{"isPublic": false, "token": "secrettoken123"}'
-
-# Make trip public (clears token)
-curl -X PATCH http://localhost:3000/api/trips/:id/protection \
-  -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{"isPublic": true}'
 ```
 
 ## Project Structure
@@ -354,7 +334,7 @@ The API automatically detects R2 availability and falls back to local storage.
 
 - **WebAuthn/Passkeys**: Industry-standard passwordless authentication
 - **JWT**: HS256 signing with configurable expiration
-- **Trip Tokens**: Bcrypt-hashed access tokens for private trip sharing
+- **RBAC**: Role-based access control via invites and trip_access table
 - **Rate Limiting**: Protection against brute force and abuse
 - **RLS Policies**: Row-level security on trips and photos tables
 - **Migrations**: DDL-only validation prevents SQL injection
@@ -368,13 +348,13 @@ The API automatically detects R2 availability and falls back to local storage.
 
 ```bash
 # Check if Postgres is running
-docker compose ps
+docker compose -p vacay-dev ps
 
 # Check logs
-docker compose logs postgres
+docker compose -p vacay-dev logs postgres
 
 # Restart
-docker compose restart postgres
+docker compose -p vacay-dev restart postgres
 ```
 
 ### Migration fails
@@ -384,7 +364,7 @@ docker compose restart postgres
 echo $DATABASE_URL
 
 # Test connection
-docker compose exec postgres psql -U vacay -c "SELECT 1"
+docker compose -p vacay-dev exec postgres psql -U vacay -c "SELECT 1"
 ```
 
 ### Seed fails with password error

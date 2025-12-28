@@ -19,14 +19,40 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: () => import('../views/RegisterView.vue'),
-      beforeEnter: (_to, _from, next) => {
-        // Only allow registration in development mode
-        if (import.meta.env.DEV) {
-          next()
-        } else {
+      beforeEnter: async (to, _from, next) => {
+        try {
+          // Pass invite code to registration-status check if present
+          const inviteCode = to.query.invite as string | undefined
+          const url = new URL(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
+          if (inviteCode) {
+            url.searchParams.set('invite', inviteCode)
+          }
+
+          const response = await fetch(url.toString())
+
+          if (!response.ok) {
+            // API error - fail closed
+            return next({ name: 'login' })
+          }
+
+          const { registrationOpen } = await response.json()
+
+          if (registrationOpen) {
+            next()
+          } else {
+            next({ name: 'login' })
+          }
+        } catch (error) {
+          // Network error or JSON parse error - fail closed
+          console.error('[ROUTER] Registration status check failed:', error)
           next({ name: 'login' })
         }
       }
+    },
+    {
+      path: '/recover',
+      name: 'recover',
+      component: () => import('../views/RecoveryView.vue')
     },
     {
       path: '/trips',
@@ -47,9 +73,28 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import('../views/admin/UserManagementView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/invites',
+      name: 'admin-invites',
+      component: () => import('../views/admin/InviteManagementView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
+      path: '/admin/access',
+      name: 'admin-access',
+      component: () => import('../views/admin/TripAccessView.vue'),
+      meta: { requiresAuth: true, requiresAdmin: true }
+    },
+    {
       path: '/trip/:slug',
       name: 'trip',
-      component: () => import('../views/TripView.vue')
+      component: () => import('../views/TripView.vue'),
+      meta: { requiresAuth: true }
     }
   ]
 })

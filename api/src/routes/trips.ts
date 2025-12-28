@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { rm } from "node:fs/promises";
 import { getDbClient } from "../db/client";
-import { requireAdmin, optionalAuth } from "../middleware/auth";
+import { requireAdmin, requireAuth } from "../middleware/auth";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
 import {
@@ -59,6 +59,7 @@ interface TripResponse {
     start: string;
     end: string;
   };
+  userRole?: "admin" | "editor" | "viewer";
 }
 
 interface TripWithPhotosResponse extends TripResponse {
@@ -95,6 +96,15 @@ function isValidSlug(slug: string): boolean {
   return (
     SLUG_REGEX.test(slug) && slug.length > 0 && slug.length <= MAX_SLUG_LENGTH
   );
+}
+
+/**
+ * Check if a string looks like a UUID to prevent routing collisions.
+ * Even though we now have separate endpoints, we still want to prevent
+ * confusing slug names.
+ */
+function looksLikeUuid(str: string): boolean {
+  return UUID_REGEX.test(str);
 }
 
 function isValidTitle(title: string): boolean {
@@ -164,6 +174,7 @@ function toTripResponse(
   trip: DbTrip,
   photoCount: number,
   dateRange: { start: string; end: string },
+  userRole?: "admin" | "editor" | "viewer",
 ): TripResponse {
   return {
     id: trip.id,
@@ -176,6 +187,7 @@ function toTripResponse(
     updatedAt: trip.updated_at,
     photoCount,
     dateRange,
+    ...(userRole ? { userRole } : {}),
   };
 }
 
@@ -238,17 +250,35 @@ async function buildTripWithPhotosResponse(
 const trips = new Hono<AuthEnv>();
 
 // =============================================================================
-// GET /api/trips - List all public trips
+// GET /api/trips - List trips accessible to the user
 // =============================================================================
-trips.get("/", async (c) => {
+trips.get("/", requireAuth, async (c) => {
+  const user = c.var.user!;
   const db = getDbClient();
 
-  const tripList = await db<DbTrip[]>`
-    SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at
-    FROM trips
-    WHERE is_public = true
-    ORDER BY created_at DESC
-  `;
+  interface DbTripWithRole extends DbTrip {
+    role: "admin" | "editor" | "viewer";
+  }
+
+  let tripList: DbTripWithRole[];
+
+  if (user.isAdmin) {
+    // Admins see all trips with 'admin' role
+    tripList = await db<DbTripWithRole[]>`
+      SELECT id, slug, title, description, cover_photo_url, is_public, created_at, updated_at, 'admin' as role
+      FROM trips
+      ORDER BY created_at DESC
+    `;
+  } else {
+    // Non-admins only see trips they have access to
+    tripList = await db<DbTripWithRole[]>`
+      SELECT DISTINCT t.id, t.slug, t.title, t.description, t.cover_photo_url, t.is_public, t.created_at, t.updated_at, ta.role
+      FROM trips t
+      INNER JOIN trip_access ta ON ta.trip_id = t.id
+      WHERE ta.user_id = ${user.id}
+      ORDER BY t.created_at DESC
+    `;
+  }
 
   // Get photo metadata for all trips in one query
   const tripIds = tripList.map((t) => t.id);
@@ -281,7 +311,7 @@ trips.get("/", async (c) => {
       stats,
       trip.created_at,
     );
-    return toTripResponse(trip, photoCount, dateRange);
+    return toTripResponse(trip, photoCount, dateRange, trip.role);
   });
 
   return c.json({
@@ -345,53 +375,16 @@ trips.get("/admin", requireAdmin, async (c) => {
 });
 
 // =============================================================================
-// GET /api/trips/:identifier - Get trip by UUID or slug
+// GET /api/trips/slug/:slug - Get trip by slug
 // =============================================================================
-// This route handles both:
-// - UUID (admin only): GET /api/trips/550e8400-e29b-41d4-a716-446655440000
-// - Slug (public with access control): GET /api/trips/my-trip-slug
-//
-// If the identifier is a valid UUID, treat it as an ID and require admin auth.
-// Otherwise, treat it as a slug and apply standard access control.
-trips.get("/:identifier", optionalAuth, async (c) => {
-  const identifier = c.req.param("identifier");
-  const token = c.req.query("token");
-  const user = c.var.user;
+/**
+ * Get trip by slug. Requires authentication and trip access.
+ * Non-admin users must have a trip_access entry. Admins bypass access checks.
+ */
+trips.get("/slug/:slug", requireAuth, async (c) => {
+  const slug = c.req.param("slug");
+  const user = c.var.user!;
   const db = getDbClient();
-
-  // Check if identifier is a UUID
-  const isUuid = UUID_REGEX.test(identifier);
-
-  if (isUuid) {
-    // UUID path - admin only
-    if (!user?.isAdmin) {
-      return c.json(
-        { error: "Forbidden", message: "Admin access required" },
-        403,
-      );
-    }
-
-    // Find trip by UUID
-    const tripResults = await db<DbTrip[]>`
-      SELECT id, slug, title, description, cover_photo_url, is_public,
-             access_token_hash, created_at, updated_at
-      FROM trips
-      WHERE id = ${identifier}
-    `;
-
-    if (tripResults.length === 0) {
-      return c.json({ error: "Not Found", message: "Trip not found" }, 404);
-    }
-
-    const trip = tripResults[0];
-
-    // Build response with photos and metadata
-    const response = await buildTripWithPhotosResponse(trip, db);
-    return c.json(response);
-  }
-
-  // Slug path - standard access control
-  const slug = identifier;
 
   // Find trip by slug
   const tripResults = await db<DbTrip[]>`
@@ -407,27 +400,57 @@ trips.get("/:identifier", optionalAuth, async (c) => {
 
   const trip = tripResults[0];
 
-  // Access control for private trips
-  if (!trip.is_public) {
-    const isAdmin = user?.isAdmin === true;
+  // Check access for non-admin users
+  if (!user.isAdmin) {
+    const accessCheck = await db<{ role: string }[]>`
+      SELECT role FROM trip_access
+      WHERE user_id = ${user.id} AND trip_id = ${trip.id}
+    `;
 
-    // Check if admin
-    if (!isAdmin) {
-      // Check token if provided
-      if (!token || !trip.access_token_hash) {
-        return c.json({ error: "Unauthorized", message: "Access denied" }, 401);
-      }
-
-      // Verify token against hash
-      const isValidToken = await Bun.password.verify(
-        token,
-        trip.access_token_hash,
+    if (accessCheck.length === 0) {
+      return c.json(
+        { error: "Forbidden", message: "Access denied to this trip" },
+        403,
       );
-      if (!isValidToken) {
-        return c.json({ error: "Unauthorized", message: "Invalid token" }, 401);
-      }
     }
   }
+
+  // Build response with photos and metadata
+  const response = await buildTripWithPhotosResponse(trip, db);
+  return c.json(response);
+});
+
+// =============================================================================
+// GET /api/trips/id/:id - Get trip by UUID (admin only)
+// =============================================================================
+/**
+ * Get trip by UUID. Admin-only endpoint for internal operations.
+ */
+trips.get("/id/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const db = getDbClient();
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid trip ID format." },
+      400,
+    );
+  }
+
+  // Find trip by UUID
+  const tripResults = await db<DbTrip[]>`
+    SELECT id, slug, title, description, cover_photo_url, is_public,
+           access_token_hash, created_at, updated_at
+    FROM trips
+    WHERE id = ${id}
+  `;
+
+  if (tripResults.length === 0) {
+    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
+  }
+
+  const trip = tripResults[0];
 
   // Build response with photos and metadata
   const response = await buildTripWithPhotosResponse(trip, db);
@@ -455,6 +478,18 @@ trips.post("/", requireAdmin, async (c) => {
         error: "Bad Request",
         message:
           "Invalid slug format. Use lowercase letters, numbers, and hyphens only.",
+      },
+      400,
+    );
+  }
+
+  // Prevent UUID-like slugs
+  if (looksLikeUuid(slug)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Slug cannot be in UUID format. Please choose a different slug.",
       },
       400,
     );
@@ -545,6 +580,18 @@ trips.patch("/:id", requireAdmin, async (c) => {
         error: "Bad Request",
         message:
           "Invalid slug format. Use lowercase letters, numbers, and hyphens only.",
+      },
+      400,
+    );
+  }
+
+  // Prevent UUID-like slugs
+  if (slug !== undefined && looksLikeUuid(slug)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message:
+          "Slug cannot be in UUID format. Please choose a different slug.",
       },
       400,
     );
@@ -693,82 +740,6 @@ trips.delete("/:id", requireAdmin, async (c) => {
 
   // 204 No Content
   return c.body(null, 204);
-});
-
-// =============================================================================
-// PATCH /api/trips/:id/protection - Update protection settings (admin only)
-// =============================================================================
-trips.patch("/:id/protection", requireAdmin, async (c) => {
-  const id = c.req.param("id");
-  const body = await c.req.json<{
-    isPublic: boolean;
-    token?: string;
-  }>();
-
-  const { isPublic, token } = body;
-
-  // Validate UUID format
-  if (!UUID_REGEX.test(id)) {
-    return c.json(
-      { error: "Bad Request", message: "Invalid trip ID format." },
-      400,
-    );
-  }
-
-  // Validate isPublic is a boolean
-  if (typeof isPublic !== "boolean") {
-    return c.json(
-      { error: "Bad Request", message: "isPublic must be a boolean." },
-      400,
-    );
-  }
-
-  // If making private, token is recommended (but not required - can set later)
-  // If token provided, it should be at least 8 characters for security
-  if (token !== undefined && token.length < 8) {
-    return c.json(
-      {
-        error: "Bad Request",
-        message: "Token must be at least 8 characters long.",
-      },
-      400,
-    );
-  }
-
-  const db = getDbClient();
-
-  // Check if trip exists
-  const existing = await db<{ id: string }[]>`
-    SELECT id FROM trips WHERE id = ${id}
-  `;
-
-  if (existing.length === 0) {
-    return c.json({ error: "Not Found", message: "Trip not found" }, 404);
-  }
-
-  // Hash token if provided and making private
-  const accessTokenHash =
-    !isPublic && token
-      ? await Bun.password.hash(token, { algorithm: "bcrypt", cost: 14 })
-      : null;
-
-  // Update trip protection settings in a single query:
-  // - If making public: clear the token hash
-  // - If making private with token: set new hash
-  // - If making private without token: keep existing hash
-  await db`
-    UPDATE trips
-    SET
-      is_public = ${isPublic},
-      access_token_hash = CASE
-        WHEN ${isPublic} THEN NULL
-        WHEN ${token !== undefined} THEN ${accessTokenHash}
-        ELSE access_token_hash
-      END
-    WHERE id = ${id}
-  `;
-
-  return c.json({ success: true });
 });
 
 // =============================================================================

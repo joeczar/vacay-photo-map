@@ -1,5 +1,5 @@
 import type { TablesInsert, TablesRow } from '@/lib/database.types'
-import { api, ApiError } from '@/lib/api'
+import { api, ApiError, requireAuth } from '@/lib/api'
 import { useAuth } from '@/composables/useAuth'
 
 type Trip = TablesRow<'trips'>
@@ -11,12 +11,13 @@ type PhotoInsert = TablesInsert<'photos'>
 export type ApiTrip = Omit<Trip, 'access_token_hash'>
 
 // Trip with metadata (used for list views)
-type TripWithMetadata = ApiTrip & {
+export type TripWithMetadata = ApiTrip & {
   photo_count: number
   date_range: {
     start: string
     end: string
   }
+  userRole?: 'admin' | 'editor' | 'viewer'
 }
 
 // API Response Types (camelCase from backend)
@@ -34,6 +35,7 @@ interface ApiTripResponse {
     start: string
     end: string
   }
+  userRole?: 'admin' | 'editor' | 'viewer'
 }
 
 interface ApiPhotoResponse {
@@ -96,7 +98,8 @@ function transformApiTrip(apiTrip: ApiTripResponse): TripWithMetadata {
     date_range: {
       start: apiTrip.dateRange.start,
       end: apiTrip.dateRange.end
-    }
+    },
+    userRole: apiTrip.userRole
   }
 }
 
@@ -131,10 +134,7 @@ function transformApiTripWithPhotos(
  */
 export async function createTrip(trip: TripInsert): Promise<ApiTrip> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth(getToken)
 
   const body = {
     title: trip.title,
@@ -155,10 +155,7 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
   if (photos.length === 0) return []
 
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth(getToken)
 
   // All photos should have the same trip_id
   const tripId = photos[0].trip_id
@@ -174,15 +171,11 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
 }
 
 /**
- * Get a trip by slug (public or with access token for private trips)
+ * Get a trip by slug (requires authentication)
  */
-export async function getTripBySlug(
-  slug: string,
-  token?: string
-): Promise<(ApiTrip & { photos: Photo[] }) | null> {
+export async function getTripBySlug(slug: string): Promise<(ApiTrip & { photos: Photo[] }) | null> {
   try {
-    const path = token ? `/api/trips/${slug}?token=${token}` : `/api/trips/${slug}`
-    const trip = await api.get<ApiTripWithPhotosResponse>(path)
+    const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/slug/${slug}`)
     return transformApiTripWithPhotos(trip)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -201,14 +194,24 @@ export async function getAllTrips(): Promise<TripWithMetadata[]> {
 }
 
 /**
+ * Get trips accessible to authenticated user with metadata
+ * Returns trips based on user's access level (admin sees all, users see only accessible trips)
+ */
+export async function getTripsWithAuth(): Promise<TripWithMetadata[]> {
+  const { getToken } = useAuth()
+  requireAuth(getToken)
+
+  const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips')
+  return trips.map(transformApiTrip)
+}
+
+/**
  * Admin-only endpoint that returns all trips including drafts
  */
 export async function getAllTripsAdmin(): Promise<TripWithMetadata[]> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   const { trips } = await api.get<{ trips: ApiTripResponse[] }>('/api/trips/admin')
   return trips.map(transformApiTrip)
 }
@@ -226,10 +229,8 @@ export async function updateTrip(
   }
 ): Promise<void> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   await api.patch(`/api/trips/${tripId}`, updates)
 }
 
@@ -246,28 +247,9 @@ export async function updateTripCoverPhoto(tripId: string, coverPhotoUrl: string
  */
 export async function deleteTrip(tripId: string): Promise<void> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   await api.delete(`/api/trips/${tripId}`)
-}
-
-/**
- * Update trip protection settings
- * @param tripId - Trip UUID
- * @param isPublic - Whether the trip should be public
- * @param token - Plaintext token to hash (required when isPublic is false)
- * @param authToken - JWT for authorization
- */
-export async function updateTripProtection(
-  tripId: string,
-  isPublic: boolean,
-  token: string | undefined,
-  authToken: string
-): Promise<void> {
-  api.setToken(authToken)
-  await api.patch(`/api/trips/${tripId}/protection`, { isPublic, token })
 }
 
 /**
@@ -276,13 +258,10 @@ export async function updateTripProtection(
  */
 export async function getTripById(tripId: string): Promise<(ApiTrip & { photos: Photo[] }) | null> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
-
-  api.setToken(token)
+  requireAuth(getToken)
 
   try {
-    const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/${tripId}`)
+    const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/id/${tripId}`)
     return transformApiTripWithPhotos(trip)
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -297,9 +276,7 @@ export async function getTripById(tripId: string): Promise<(ApiTrip & { photos: 
  */
 export async function deletePhoto(photoId: string): Promise<void> {
   const { getToken } = useAuth()
-  const token = getToken()
-  if (!token) throw new Error('Authentication required')
+  requireAuth(getToken)
 
-  api.setToken(token)
   await api.delete(`/api/trips/photos/${photoId}`)
 }

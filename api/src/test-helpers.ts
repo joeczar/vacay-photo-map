@@ -11,11 +11,16 @@ import { signToken } from "./utils/jwt";
 // Auth Helpers
 // =============================================================================
 
+// Default UUIDs for test users (these are valid UUIDs that work with database foreign keys)
+export const TEST_ADMIN_USER_ID = "00000000-0000-4000-a000-000000000001";
+export const TEST_USER_ID = "00000000-0000-4000-a000-000000000002";
+export const TEST_USER_2_ID = "00000000-0000-4000-a000-000000000003";
+
 /**
  * Generate auth header for admin user
  */
 export async function getAdminAuthHeader(
-  userId = "admin-user-123",
+  userId = TEST_ADMIN_USER_ID,
   email = "admin@example.com",
 ): Promise<{ Authorization: string }> {
   const token = await signToken({
@@ -30,7 +35,7 @@ export async function getAdminAuthHeader(
  * Generate auth header for regular user
  */
 export async function getUserAuthHeader(
-  userId = "user-123",
+  userId = TEST_USER_ID,
   email = "user@example.com",
 ): Promise<{ Authorization: string }> {
   const token = await signToken({

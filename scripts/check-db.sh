@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$ROOT_DIR"
 
-COMPOSE="docker compose -f docker-compose.yml"
+COMPOSE="docker compose -p vacay-dev -f docker-compose.yml"
 
 echo "Checking Postgres container status..."
 $COMPOSE ps postgres
