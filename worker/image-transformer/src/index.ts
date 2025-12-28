@@ -4,8 +4,8 @@
  * URL Pattern: /:key?w=800&r=90&q=80
  *
  * Query Parameters:
- * - w: width (optional, preserves aspect ratio)
- * - r: rotation (0, 90, 180, 270)
+ * - w: width (optional, preserves aspect ratio, max 4096)
+ * - r: rotation (0, 90, 180, 270 only)
  * - q: quality (1-100, default: 80)
  *
  * Setup Requirements:
@@ -19,22 +19,33 @@ interface Env {
   R2_ORIGIN_URL: string // e.g., https://raw-images.joeczar.com
 }
 
+/** Valid rotation values in degrees */
+type ValidRotation = 0 | 90 | 180 | 270
+
 interface TransformOptions {
   width?: number
-  rotate?: number
+  rotate?: ValidRotation
   quality: number
-  format: 'auto'
+  format: string // 'auto' is valid but not in @cloudflare/workers-types
 }
 
-const VALID_ROTATIONS = [0, 90, 180, 270]
+const VALID_ROTATIONS: readonly ValidRotation[] = [0, 90, 180, 270]
 const DEFAULT_QUALITY = 80
 const MAX_QUALITY = 100
 const MIN_QUALITY = 1
+const MAX_WIDTH = 4096
 
-const CORS_HEADERS = {
+const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+/**
+ * Create an error response with CORS headers
+ */
+function errorResponse(message: string, status: number): Response {
+  return new Response(message, { status, headers: CORS_HEADERS })
 }
 
 export default {
@@ -46,7 +57,7 @@ export default {
 
     // Only allow GET and HEAD
     if (request.method !== 'GET' && request.method !== 'HEAD') {
-      return new Response('Method not allowed', { status: 405 })
+      return errorResponse('Method not allowed', 405)
     }
 
     const url = new URL(request.url)
@@ -55,22 +66,29 @@ export default {
     const key = decodeURIComponent(url.pathname.slice(1))
 
     if (!key) {
-      return new Response('Missing image key', { status: 400 })
+      return errorResponse('Missing image key', 400)
     }
 
     // Validate key format (should be tripId/filename.ext)
     if (!isValidKey(key)) {
-      return new Response('Invalid image key', { status: 400 })
+      console.warn(`[image-transformer] Invalid key format rejected: ${key}`)
+      return errorResponse('Invalid image key', 400)
     }
 
     // Parse transformation parameters
     const transforms = parseTransforms(url.searchParams)
 
     try {
+      // Validate R2_ORIGIN_URL is configured
+      if (!env.R2_ORIGIN_URL) {
+        console.error('[image-transformer] R2_ORIGIN_URL secret not configured')
+        return errorResponse('Service misconfigured', 503)
+      }
+
       // First, verify the object exists in R2
       const object = await env.PHOTOS_BUCKET.head(key)
       if (!object) {
-        return new Response('Image not found', { status: 404 })
+        return errorResponse('Image not found', 404)
       }
 
       // Build the origin URL for the raw image
@@ -84,7 +102,8 @@ export default {
             ...(transforms.width && { width: transforms.width }),
             ...(transforms.rotate && { rotate: transforms.rotate }),
             quality: transforms.quality,
-            format: transforms.format,
+            // 'auto' is valid per Cloudflare docs but not in @cloudflare/workers-types
+            format: transforms.format as 'webp',
           },
           // Cache the transformed image at the edge
           cacheTtl: 31536000, // 1 year
@@ -93,8 +112,16 @@ export default {
       })
 
       if (!imageResponse.ok) {
-        console.error(`[image-transformer] Origin fetch failed: ${imageResponse.status}`)
-        return new Response('Failed to fetch image', { status: 502 })
+        // Log detailed error info for debugging
+        const errorBody = await imageResponse.text().catch(() => 'Unable to read body')
+        console.error('[image-transformer] Origin fetch failed', {
+          status: imageResponse.status,
+          statusText: imageResponse.statusText,
+          body: errorBody.slice(0, 500),
+          key,
+          originUrl,
+        })
+        return errorResponse('Failed to fetch image', 502)
       }
 
       // Return with cache and CORS headers
@@ -107,15 +134,16 @@ export default {
         headers,
       })
     } catch (error) {
-      console.error('[image-transformer] Error:', error)
-      return new Response('Internal server error', { status: 500 })
+      console.error('[image-transformer] Unexpected error:', error)
+      return errorResponse('Internal server error', 500)
     }
   },
 }
 
 function isValidKey(key: string): boolean {
   // Key format: tripId/filename.ext
-  // tripId is a UUID, filename is uuid.ext
+  // Both tripId and filename should be UUIDs (hex chars + hyphens)
+  // Currently accepts any hex-hyphen pattern for flexibility
   const pattern = /^[a-f0-9-]+\/[a-f0-9-]+\.(jpg|jpeg|png|webp)$/i
   return pattern.test(key)
 }
@@ -123,15 +151,17 @@ function isValidKey(key: string): boolean {
 function parseTransforms(params: URLSearchParams): TransformOptions {
   const transforms: TransformOptions = {
     quality: DEFAULT_QUALITY,
-    format: 'auto', // Auto-detect WebP/AVIF based on Accept header
+    format: 'auto', // Cloudflare auto-selects WebP/AVIF based on browser Accept header
   }
 
   // Parse width
   const width = params.get('w')
   if (width) {
     const parsedWidth = parseInt(width, 10)
-    if (!isNaN(parsedWidth) && parsedWidth > 0 && parsedWidth <= 4096) {
+    if (!isNaN(parsedWidth) && parsedWidth > 0 && parsedWidth <= MAX_WIDTH) {
       transforms.width = parsedWidth
+    } else {
+      console.warn(`[image-transformer] Invalid width parameter ignored: ${width}`)
     }
   }
 
@@ -139,8 +169,10 @@ function parseTransforms(params: URLSearchParams): TransformOptions {
   const rotate = params.get('r')
   if (rotate) {
     const parsedRotate = parseInt(rotate, 10)
-    if (VALID_ROTATIONS.includes(parsedRotate)) {
-      transforms.rotate = parsedRotate
+    if (VALID_ROTATIONS.includes(parsedRotate as ValidRotation)) {
+      transforms.rotate = parsedRotate as ValidRotation
+    } else {
+      console.warn(`[image-transformer] Invalid rotation parameter ignored: ${rotate} (valid: 0, 90, 180, 270)`)
     }
   }
 
@@ -150,6 +182,8 @@ function parseTransforms(params: URLSearchParams): TransformOptions {
     const parsedQuality = parseInt(quality, 10)
     if (!isNaN(parsedQuality) && parsedQuality >= MIN_QUALITY && parsedQuality <= MAX_QUALITY) {
       transforms.quality = parsedQuality
+    } else {
+      console.warn(`[image-transformer] Invalid quality parameter ignored: ${quality} (valid: 1-100)`)
     }
   }
 
