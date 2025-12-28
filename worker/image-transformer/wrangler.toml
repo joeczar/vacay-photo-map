@@ -2,12 +2,28 @@ name = "vacay-image-transformer"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-# Secrets (set via: wrangler secret put <NAME>)
-# - R2_ORIGIN_URL: Custom domain URL for R2 bucket (e.g., https://raw-images.joeczar.com)
+# =============================================================================
+# SETUP INSTRUCTIONS
+# =============================================================================
+# 1. Enable Image Transformations (Dashboard only - cannot be done via wrangler):
+#    Cloudflare Dashboard → Speed → Optimization → Image Optimization → Enable
+#
+# 2. Create R2 custom domain for raw image serving:
+#    wrangler r2 bucket domain add vacay-photos --domain raw-images.joeczar.com
+#
+# 3. Set the R2 origin URL secret:
+#    wrangler secret put R2_ORIGIN_URL
+#    (Enter: https://raw-images.joeczar.com)
+#
+# 4. Deploy the worker:
+#    wrangler deploy --env production
+# =============================================================================
 
 [[r2_buckets]]
 binding = "PHOTOS_BUCKET"
 bucket_name = "vacay-photos"
 
+# Production: Worker owns the images.joeczar.com domain
+# Using custom_domain instead of routes - cleaner and Worker "owns" the domain
 [env.production]
-routes = [{ pattern = "images.joeczar.com/*", zone_name = "joeczar.com" }]
+routes = [{ pattern = "images.joeczar.com", custom_domain = true }]
