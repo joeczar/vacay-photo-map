@@ -98,6 +98,38 @@ const MAX_DESCRIPTION_LENGTH = 2000;
 const MAX_SLUG_LENGTH = 100;
 const VALID_ROTATIONS = [0, 90, 180, 270] as const;
 
+const DEFAULT_LIMIT = 50;
+const MAX_LIMIT = 100;
+
+type PaginationResult =
+  | { valid: true; limit: number; offset: number }
+  | { valid: false; error: string };
+
+function parsePaginationParams(
+  limitParam: string | undefined,
+  offsetParam: string | undefined,
+): PaginationResult {
+  let limit = DEFAULT_LIMIT;
+  if (limitParam) {
+    const parsed = parseInt(limitParam, 10);
+    if (isNaN(parsed) || parsed < 1) {
+      return { valid: false, error: "Limit must be a positive integer" };
+    }
+    limit = Math.min(parsed, MAX_LIMIT);
+  }
+
+  let offset = 0;
+  if (offsetParam) {
+    const parsed = parseInt(offsetParam, 10);
+    if (isNaN(parsed) || parsed < 0) {
+      return { valid: false, error: "Offset must be a non-negative integer" };
+    }
+    offset = parsed;
+  }
+
+  return { valid: true, limit, offset };
+}
+
 function isValidSlug(slug: string): boolean {
   return (
     SLUG_REGEX.test(slug) && slug.length > 0 && slug.length <= MAX_SLUG_LENGTH
@@ -421,6 +453,16 @@ trips.get("/slug/:slug", requireAuth, async (c) => {
   const user = c.var.user!;
   const db = getDbClient();
 
+  // Validate pagination params
+  const pagination = parsePaginationParams(
+    c.req.query("limit"),
+    c.req.query("offset"),
+  );
+  if (!pagination.valid) {
+    return c.json({ error: "Bad Request", message: pagination.error }, 400);
+  }
+  const { limit, offset } = pagination;
+
   // Find trip by slug
   const tripResults = await db<DbTrip[]>`
     SELECT id, slug, title, description, cover_photo_url, is_public,
@@ -451,7 +493,7 @@ trips.get("/slug/:slug", requireAuth, async (c) => {
   }
 
   // Build response with photos and metadata
-  const response = await buildTripWithPhotosResponse(trip, db);
+  const response = await buildTripWithPhotosResponse(trip, db, limit, offset);
   return c.json(response);
 });
 
@@ -473,6 +515,16 @@ trips.get("/id/:id", requireAdmin, async (c) => {
     );
   }
 
+  // Validate pagination params
+  const pagination = parsePaginationParams(
+    c.req.query("limit"),
+    c.req.query("offset"),
+  );
+  if (!pagination.valid) {
+    return c.json({ error: "Bad Request", message: pagination.error }, 400);
+  }
+  const { limit, offset } = pagination;
+
   // Find trip by UUID
   const tripResults = await db<DbTrip[]>`
     SELECT id, slug, title, description, cover_photo_url, is_public,
@@ -488,7 +540,7 @@ trips.get("/id/:id", requireAdmin, async (c) => {
   const trip = tripResults[0];
 
   // Build response with photos and metadata
-  const response = await buildTripWithPhotosResponse(trip, db);
+  const response = await buildTripWithPhotosResponse(trip, db, limit, offset);
   return c.json(response);
 });
 
