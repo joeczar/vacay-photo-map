@@ -3,7 +3,7 @@
   "buildCommand": "cd app && pnpm build",
   "outputDirectory": "app/dist",
   "framework": "vite",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --frozen-lockfile --filter vacay-photo-map-app...",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ],
