@@ -45,7 +45,7 @@ interface DbPhoto {
 // Response Types
 // =============================================================================
 
-interface TripResponse {
+export interface TripResponse {
   id: string;
   slug: string;
   title: string;
@@ -62,11 +62,17 @@ interface TripResponse {
   userRole?: "admin" | "editor" | "viewer";
 }
 
-interface TripWithPhotosResponse extends TripResponse {
+export interface TripWithPhotosResponse extends TripResponse {
   photos: PhotoResponse[];
+  pagination: {
+    total: number;
+    hasMore: boolean;
+    limit: number;
+    offset: number;
+  };
 }
 
-interface PhotoResponse {
+export interface PhotoResponse {
   id: string;
   storageKey: string;
   url: string;

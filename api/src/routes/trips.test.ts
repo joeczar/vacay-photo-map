@@ -3,7 +3,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { Hono } from "hono";
-import { trips } from "./trips";
+import { trips, type TripResponse, type TripWithPhotosResponse } from "./trips";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
 import { getDbClient } from "../db/client";
@@ -24,39 +24,8 @@ interface ErrorResponse {
   message: string;
 }
 
-interface TripResponse {
-  id: string;
-  slug: string;
-  title: string;
-  description: string | null;
-  coverPhotoUrl: string | null;
-  isPublic: boolean;
-  createdAt: string;
-  updatedAt: string;
-  photoCount: number;
-  dateRange: {
-    start: string;
-    end: string;
-  };
-}
-
 interface TripListResponse {
   trips: TripResponse[];
-}
-
-interface TripWithPhotosResponse extends TripResponse {
-  photos: Array<{
-    id: string;
-    storageKey: string;
-    url: string;
-    thumbnailUrl: string;
-    latitude: number | null;
-    longitude: number | null;
-    takenAt: string;
-    caption: string | null;
-    album: string | null;
-    createdAt: string;
-  }>;
 }
 
 // interface SuccessResponse {
