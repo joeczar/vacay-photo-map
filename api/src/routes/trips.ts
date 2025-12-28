@@ -256,15 +256,23 @@ async function buildTripWithPhotosResponse(
   offset: number = 0,
 ): Promise<TripWithPhotosResponse> {
   // Get total count of photos for this trip
-  const [countResult] = await db<{ count: string }[]>`
+  const countResults = await db<{ count: string }[]>`
     SELECT COUNT(*)::text as count
     FROM photos
     WHERE trip_id = ${trip.id}
   `;
-  const total = parseInt(countResult.count, 10);
+  if (countResults.length === 0 || !countResults[0].count) {
+    throw new Error(`Failed to get photo count for trip ${trip.id}`);
+  }
+  const total = parseInt(countResults[0].count, 10);
+  if (isNaN(total) || total < 0) {
+    throw new Error(
+      `Invalid photo count for trip ${trip.id}: ${countResults[0].count}`,
+    );
+  }
 
   // Get date range using MIN/MAX (critical - array indexing breaks with pagination)
-  const [dateStats] = await db<
+  const dateStatsResults = await db<
     {
       min_taken_at: Date | null;
       max_taken_at: Date | null;
@@ -274,12 +282,16 @@ async function buildTripWithPhotosResponse(
     FROM photos
     WHERE trip_id = ${trip.id}
   `;
+  if (dateStatsResults.length === 0) {
+    throw new Error(`Failed to get date stats for trip ${trip.id}`);
+  }
+  const dateStats = dateStatsResults[0];
 
   const dateRange = {
-    start: dateStats?.min_taken_at
+    start: dateStats.min_taken_at
       ? dateStats.min_taken_at.toISOString()
       : trip.created_at.toISOString(),
-    end: dateStats?.max_taken_at
+    end: dateStats.max_taken_at
       ? dateStats.max_taken_at.toISOString()
       : trip.created_at.toISOString(),
   };
