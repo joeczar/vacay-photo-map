@@ -113,7 +113,7 @@ export function useInfinitePhotos(
 
       const { photos: fetchedPhotos, pagination } = data
 
-      photos.value = [...photos.value, ...fetchedPhotos]
+      photos.value.push(...fetchedPhotos)
       hasMore.value = pagination.hasMore
       offset.value += LIMIT
     } catch (err) {
