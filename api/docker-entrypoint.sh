@@ -1,6 +1,13 @@
 #!/bin/sh
 set -e
-echo "Running migrations..."
-bun run scripts/migrate.ts
-echo "Starting server..."
-exec bun run src/index.ts
+
+log() {
+  echo "[$(date -Iseconds)] [entrypoint] $1"
+}
+
+log "Running migrations..."
+bun scripts/migrate.ts
+log "Migrations complete"
+
+log "Starting server..."
+exec bun src/index.ts
