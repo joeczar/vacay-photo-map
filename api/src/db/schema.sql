@@ -111,6 +111,18 @@ BEGIN
   END IF;
 END $$;
 
+-- Rename cloudinary_public_id to storage_key (migration from Cloudinary to R2)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'photos'
+      AND column_name = 'cloudinary_public_id'
+  ) THEN
+    ALTER TABLE photos RENAME COLUMN cloudinary_public_id TO storage_key;
+  END IF;
+END $$;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
 CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);
