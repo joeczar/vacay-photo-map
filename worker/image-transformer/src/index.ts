@@ -170,6 +170,8 @@ function parseTransforms(params: URLSearchParams, request: Request): TransformOp
     format: detectBestFormat(request.headers.get('Accept')),
   }
 
+  console.log(`[image-transformer] Format: ${transforms.format}`)
+
   // Parse width
   const width = params.get('w')
   if (width) {
