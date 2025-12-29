@@ -54,7 +54,7 @@ pnpm dev       # Frontend at localhost:5173
 pnpm dev:api   # API at localhost:4000
 ```
 
-**Dev tunnel (mobile/WebAuthn testing):**
+**Dev tunnel (mobile testing):**
 ```bash
 # Cloudflare Tunnel provides public HTTPS URLs for testing on real devices
 # Frontend: https://photos-dev.joeczar.com → localhost:5173

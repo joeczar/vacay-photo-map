@@ -2,7 +2,7 @@
 -- Safe to run multiple times; used by docker-compose init and migration script
 --
 -- NOTE: This schema intentionally diverges from the Supabase-hosted version:
--- - Uses WebAuthn/passkeys for authentication (no passwords)
+-- - Uses password authentication with bcrypt hashing
 -- - Supabase version uses Supabase Auth service instead
 -- - See issue #55 for migration context
 
