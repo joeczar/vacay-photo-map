@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   email TEXT UNIQUE NOT NULL,
   webauthn_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
+  password_hash TEXT,
   is_admin BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
@@ -251,30 +252,6 @@ DROP POLICY IF EXISTS "Allow inserts from API user for sections" ON sections;
 CREATE POLICY "Allow inserts from API user for sections"
   ON sections FOR INSERT
   WITH CHECK (current_user = 'vacay');
-
--- Recovery tokens for account recovery via Telegram
-CREATE TABLE IF NOT EXISTS recovery_tokens (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
-  code TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  used_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  attempts INT DEFAULT 0 NOT NULL,
-  locked_at TIMESTAMPTZ
-);
-
-CREATE INDEX IF NOT EXISTS idx_recovery_tokens_user_id ON recovery_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_recovery_tokens_code ON recovery_tokens(code);
-
--- Prevent code collisions
-CREATE UNIQUE INDEX IF NOT EXISTS idx_recovery_tokens_code_unique ON recovery_tokens(code) WHERE used_at IS NULL;
-
--- Prevent multiple unused tokens per user (cleanup old tokens on new request)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_recovery_tokens_unused_per_user ON recovery_tokens(user_id) WHERE used_at IS NULL AND locked_at IS NULL;
-
--- Optimize verify query
-CREATE INDEX IF NOT EXISTS idx_recovery_tokens_verify ON recovery_tokens(code, expires_at, used_at, locked_at);
 
 -- =============================================================================
 -- RBAC (Role-Based Access Control) for Trip Access
