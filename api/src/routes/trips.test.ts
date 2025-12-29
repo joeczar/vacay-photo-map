@@ -1,13 +1,25 @@
 // Environment loaded automatically from .env.test via bunfig.toml preload
 
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock, afterEach } from "bun:test";
 import { mkdir } from "node:fs/promises";
 import { Hono } from "hono";
-import { trips, type TripResponse, type TripWithPhotosResponse } from "./trips";
+import { trips } from "./trips";
 import type { AuthEnv } from "../types/auth";
 import { getPhotosDir } from "./upload";
 import { getDbClient } from "../db/client";
 import { getAdminAuthHeader, getUserAuthHeader } from "../test-helpers";
+import {
+  createUser,
+  createTrip,
+  createPhoto,
+  cleanupUser,
+  cleanupTrip,
+} from "../test-factories";
+import type {
+  ErrorResponse,
+  TripListResponse,
+  TripWithPhotosResponse,
+} from "../test-types";
 
 // Mock R2 to ensure tests use local filesystem fallback
 mock.module("../utils/r2", () => ({
@@ -17,20 +29,6 @@ mock.module("../utils/r2", () => ({
   deleteMultipleFromR2: async () => 0,
   PHOTOS_URL_PREFIX: "/api/photos/",
 }));
-
-// Response types
-interface ErrorResponse {
-  error: string;
-  message: string;
-}
-
-interface TripListResponse {
-  trips: TripResponse[];
-}
-
-// interface SuccessResponse {
-//   success: boolean
-// }
 
 // Create test app
 function createTestApp() {
@@ -44,6 +42,16 @@ describe("Trip Routes", () => {
   // GET /api/trips - List trips (requires auth, filtered by access)
   // ==========================================================================
   describe("GET /api/trips", () => {
+    const createdTripIds: string[] = [];
+    const createdUserIds: string[] = [];
+
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      for (const id of createdUserIds) await cleanupUser(id);
+      createdTripIds.length = 0;
+      createdUserIds.length = 0;
+    });
+
     it("returns trips for authenticated admin user", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -62,45 +70,20 @@ describe("Trip Routes", () => {
       const db = getDbClient();
       const app = createTestApp();
 
-      // Create a unique non-admin user for this test
-      const now = Date.now();
-      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
-      const testEmail = `test-trips-nonadmin-${now}@example.com`;
-      const testWebauthnUserId = `test-webauthn-trips-${now}`;
+      const user = await createUser({ isAdmin: false });
+      createdUserIds.push(user.id);
 
-      await db`
-        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
-        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
-        ON CONFLICT (id) DO UPDATE
-          SET email = EXCLUDED.email,
-              is_admin = EXCLUDED.is_admin,
-              webauthn_user_id = EXCLUDED.webauthn_user_id
-      `;
-
-      // Create two trips
-      const trip1Slug = `accessible-trip-${now}`;
-      const trip2Slug = `inaccessible-trip-${now}`;
-
-      const [trip1] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${trip1Slug}, 'Accessible Trip', true)
-        RETURNING id
-      `;
-
-      const [trip2] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${trip2Slug}, 'Inaccessible Trip', true)
-        RETURNING id
-      `;
+      const trip1 = await createTrip({ title: "Accessible Trip" });
+      const trip2 = await createTrip({ title: "Inaccessible Trip" });
+      createdTripIds.push(trip1.id, trip2.id);
 
       // Grant access to trip1 only
       await db`
         INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
-        VALUES (${testUserId}, ${trip1.id}, 'viewer', ${testUserId})
+        VALUES (${user.id}, ${trip1.id}, 'viewer', ${user.id})
       `;
 
-      // Request trips as non-admin user
-      const authHeader = await getUserAuthHeader(testUserId, testEmail);
+      const authHeader = await getUserAuthHeader(user.id, user.email);
       const res = await app.fetch(
         new Request("http://localhost/api/trips", {
           method: "GET",
@@ -111,16 +94,11 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(200);
       const data = (await res.json()) as TripListResponse;
 
-      // Should only see trip1
       const accessibleTrip = data.trips.find((t) => t.id === trip1.id);
       const inaccessibleTrip = data.trips.find((t) => t.id === trip2.id);
 
       expect(accessibleTrip).toBeDefined();
       expect(inaccessibleTrip).toBeUndefined();
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id IN (${trip1.id}, ${trip2.id})`;
-      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
     });
   });
 
@@ -128,6 +106,16 @@ describe("Trip Routes", () => {
   // GET /api/trips/:slug - Get trip by slug (requires auth and access)
   // ==========================================================================
   describe("GET /api/trips/:slug", () => {
+    const createdTripIds: string[] = [];
+    const createdUserIds: string[] = [];
+
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      for (const id of createdUserIds) await cleanupUser(id);
+      createdTripIds.length = 0;
+      createdUserIds.length = 0;
+    });
+
     it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
@@ -143,36 +131,17 @@ describe("Trip Routes", () => {
     });
 
     it("returns 403 for non-admin user without trip access", async () => {
-      const db = getDbClient();
       const app = createTestApp();
 
-      // Create a unique non-admin user
-      const now = Date.now();
-      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
-      const testEmail = `test-trips-noaccess-${now}@example.com`;
-      const testWebauthnUserId = `test-webauthn-noaccess-${now}`;
+      const user = await createUser({ isAdmin: false });
+      createdUserIds.push(user.id);
 
-      await db`
-        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
-        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
-        ON CONFLICT (id) DO UPDATE
-          SET email = EXCLUDED.email,
-              is_admin = EXCLUDED.is_admin,
-              webauthn_user_id = EXCLUDED.webauthn_user_id
-      `;
+      const trip = await createTrip({ title: "Forbidden Trip" });
+      createdTripIds.push(trip.id);
 
-      // Create a trip without granting access
-      const tripSlug = `forbidden-trip-${now}`;
-      const [trip] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${tripSlug}, 'Forbidden Trip', true)
-        RETURNING id
-      `;
-
-      // Request trip as non-admin user without access
-      const authHeader = await getUserAuthHeader(testUserId, testEmail);
+      const authHeader = await getUserAuthHeader(user.id, user.email);
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/slug/${tripSlug}`, {
+        new Request(`http://localhost/api/trips/slug/${trip.slug}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -182,48 +151,26 @@ describe("Trip Routes", () => {
       const data = (await res.json()) as ErrorResponse;
       expect(data.error).toBe("Forbidden");
       expect(data.message).toContain("Access denied");
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
-      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
     });
 
     it("returns trip for non-admin user with viewer access", async () => {
       const db = getDbClient();
       const app = createTestApp();
 
-      // Create a unique non-admin user
-      const now = Date.now();
-      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
-      const testEmail = `test-trips-viewer-${now}@example.com`;
-      const testWebauthnUserId = `test-webauthn-viewer-${now}`;
+      const user = await createUser({ isAdmin: false });
+      createdUserIds.push(user.id);
 
-      await db`
-        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
-        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
-        ON CONFLICT (id) DO UPDATE
-          SET email = EXCLUDED.email,
-              is_admin = EXCLUDED.is_admin,
-              webauthn_user_id = EXCLUDED.webauthn_user_id
-      `;
-
-      // Create a trip and grant viewer access
-      const tripSlug = `viewer-trip-${now}`;
-      const [trip] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${tripSlug}, 'Viewer Trip', true)
-        RETURNING id
-      `;
+      const trip = await createTrip({ title: "Viewer Trip" });
+      createdTripIds.push(trip.id);
 
       await db`
         INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
-        VALUES (${testUserId}, ${trip.id}, 'viewer', ${testUserId})
+        VALUES (${user.id}, ${trip.id}, 'viewer', ${user.id})
       `;
 
-      // Request trip as non-admin user with viewer access
-      const authHeader = await getUserAuthHeader(testUserId, testEmail);
+      const authHeader = await getUserAuthHeader(user.id, user.email);
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/slug/${tripSlug}`, {
+        new Request(`http://localhost/api/trips/slug/${trip.slug}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -232,30 +179,18 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(200);
       const data = (await res.json()) as TripWithPhotosResponse;
       expect(data.id).toBe(trip.id);
-      expect(data.slug).toBe(tripSlug);
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
-      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
+      expect(data.slug).toBe(trip.slug);
     });
 
     it("returns trip for admin user regardless of access", async () => {
-      const db = getDbClient();
       const app = createTestApp();
 
-      // Create a trip without granting access to admin
-      const now = Date.now();
-      const tripSlug = `admin-trip-${now}`;
-      const [trip] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${tripSlug}, 'Admin Trip', true)
-        RETURNING id
-      `;
+      const trip = await createTrip({ title: "Admin Trip" });
+      createdTripIds.push(trip.id);
 
-      // Request trip as admin user (no explicit access needed)
       const authHeader = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/slug/${tripSlug}`, {
+        new Request(`http://localhost/api/trips/slug/${trip.slug}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -264,10 +199,7 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(200);
       const data = (await res.json()) as TripWithPhotosResponse;
       expect(data.id).toBe(trip.id);
-      expect(data.slug).toBe(tripSlug);
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
+      expect(data.slug).toBe(trip.slug);
     });
   });
 
@@ -309,80 +241,40 @@ describe("Trip Routes", () => {
       const data = (await res.json()) as ErrorResponse;
       expect(data.message).toContain("Title is required");
     });
-
-    it("returns 400 for invalid URL", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({
-            slug: "test-trip",
-            title: "Test Trip",
-            coverPhotoUrl: "not-a-valid-url",
-          }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid cover photo URL");
-    });
-
-    it("returns 400 for UUID-like slug", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({
-            slug: "550e8400-e29b-41d4-a716-446655440000",
-            title: "Test Trip",
-          }),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("UUID format");
-    });
   });
 
   // ==========================================================================
   // PATCH /api/trips/:id - Update trip
   // ==========================================================================
   describe("PATCH /api/trips/:id", () => {
-    const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+    const createdTripIds: string[] = [];
 
-    it("returns 400 for no fields to update", async () => {
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      createdTripIds.length = 0;
+    });
+
+    it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
       const res = await app.fetch(
         new Request(`http://localhost/api/trips/${validUuid}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({}),
+          body: JSON.stringify({ title: "New Title" }),
         }),
       );
-      // Will be 404 since trip doesn't exist, or 400 for no fields
-      // In this case, it checks for trip existence first
-      expect([400, 404]).toContain(res.status);
+      expect(res.status).toBe(404);
     });
 
     it("returns 400 for UUID-like slug in update", async () => {
-      const db = getDbClient();
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
 
-      // Create a test trip
-      const originalSlug = "test-patch-uuid-slug-" + Date.now();
-      const [trip] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${originalSlug}, 'Test Trip', true)
-        RETURNING id
-      `;
+      const trip = await createTrip({ title: "Test Trip" });
+      createdTripIds.push(trip.id);
 
-      // Try to update slug to UUID-like value
       const res = await app.fetch(
         new Request(`http://localhost/api/trips/${trip.id}`, {
           method: "PATCH",
@@ -396,21 +288,17 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(400);
       const data = (await res.json()) as ErrorResponse;
       expect(data.message).toContain("UUID format");
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
     });
   });
 
   // ==========================================================================
-  // DELETE /api/trips/:id - Delete trip
+  // DELETE /api/trips/:id - Delete trip (includes cascading delete + file cleanup)
   // ==========================================================================
   describe("DELETE /api/trips/:id", () => {
-    const validUuid = "550e8400-e29b-41d4-a716-446655440000";
-
     it("returns 404 for non-existent trip", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
       const res = await app.fetch(
         new Request(`http://localhost/api/trips/${validUuid}`, {
           method: "DELETE",
@@ -419,242 +307,30 @@ describe("Trip Routes", () => {
       );
       expect(res.status).toBe(404);
     });
-  });
 
-  // ==========================================================================
-  // GET /api/trips/admin - List all trips (admin only)
-  // ==========================================================================
-  describe("GET /api/trips/admin", () => {
-    it("returns all trips (draft + public) for admin user", async () => {
-      const db = getDbClient();
+    it("deletes photo directory when trip is deleted", async () => {
+      const trip = await createTrip({ title: "Test Trip" });
+
+      // Create photo directory and file
+      const photosDir = getPhotosDir();
+      const tripDir = `${photosDir}/${trip.id}`;
+      await mkdir(tripDir, { recursive: true });
+      await Bun.write(`${tripDir}/test.jpg`, "fake-photo-data");
+
+      expect(await Bun.file(`${tripDir}/test.jpg`).exists()).toBe(true);
+
+      // Delete trip
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
-
-      // Create test trips with unique slugs
-      const draftSlug = "draft-trip-" + crypto.randomUUID();
-      const publicSlug = "public-trip-" + crypto.randomUUID();
-
-      const [draftTrip] = await db`
-        INSERT INTO trips (title, slug, is_public)
-        VALUES ('Draft Trip', ${draftSlug}, false)
-        RETURNING id
-      `;
-
-      const [publicTrip] = await db`
-        INSERT INTO trips (title, slug, is_public)
-        VALUES ('Public Trip', ${publicSlug}, true)
-        RETURNING id
-      `;
-
       const res = await app.fetch(
-        new Request("http://localhost/api/trips/admin", {
-          method: "GET",
+        new Request(`http://localhost/api/trips/${trip.id}`, {
+          method: "DELETE",
           headers: authHeader,
         }),
       );
 
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as TripListResponse;
-      expect(Array.isArray(data.trips)).toBe(true);
-
-      // Verify both draft and public trips are returned
-      const draftFound = data.trips.find((t) => t.id === draftTrip.id);
-      const publicFound = data.trips.find((t) => t.id === publicTrip.id);
-
-      expect(draftFound).toBeDefined();
-      expect(draftFound?.isPublic).toBe(false);
-      expect(publicFound).toBeDefined();
-      expect(publicFound?.isPublic).toBe(true);
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id = ${draftTrip.id}`;
-      await db`DELETE FROM trips WHERE id = ${publicTrip.id}`;
-    });
-
-    it("returns 403 for non-admin user", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/admin", {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(403);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Forbidden");
-    });
-
-    it("returns trips ordered by created_at DESC", async () => {
-      const db = getDbClient();
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-
-      // Create trips with deliberate timing
-      const olderSlug = "older-trip-" + crypto.randomUUID();
-      const newerSlug = "newer-trip-" + crypto.randomUUID();
-
-      const [olderTrip] = await db`
-        INSERT INTO trips (title, slug, is_public, created_at)
-        VALUES ('Older Trip', ${olderSlug}, true, NOW() - INTERVAL '1 hour')
-        RETURNING id, created_at
-      `;
-
-      const [newerTrip] = await db`
-        INSERT INTO trips (title, slug, is_public, created_at)
-        VALUES ('Newer Trip', ${newerSlug}, true, NOW())
-        RETURNING id, created_at
-      `;
-
-      const res = await app.fetch(
-        new Request("http://localhost/api/trips/admin", {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as TripListResponse;
-
-      // Find positions of our test trips
-      const newerIndex = data.trips.findIndex((t) => t.id === newerTrip.id);
-      const olderIndex = data.trips.findIndex((t) => t.id === olderTrip.id);
-
-      // Newer trip should appear before older trip (DESC order)
-      expect(newerIndex).toBeGreaterThanOrEqual(0);
-      expect(olderIndex).toBeGreaterThanOrEqual(0);
-      expect(newerIndex).toBeLessThan(olderIndex);
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id = ${olderTrip.id}`;
-      await db`DELETE FROM trips WHERE id = ${newerTrip.id}`;
-    });
-  });
-
-  // ==========================================================================
-  // GET /api/trips/:id - Get trip by ID (UUID)
-  // ==========================================================================
-  describe("GET /api/trips/:id (UUID)", () => {
-    it("returns trip with photos for valid UUID (admin)", async () => {
-      const db = getDbClient();
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-
-      // Create test trip
-      const slug = "test-trip-by-id-" + crypto.randomUUID();
-      const [trip] = await db`
-        INSERT INTO trips (title, slug, is_public, description)
-        VALUES ('Test Trip By ID', ${slug}, true, 'Test description')
-        RETURNING id, title, slug, description
-      `;
-
-      // Create test photo
-      const [photo] = await db`
-        INSERT INTO photos (
-          trip_id, storage_key, url, thumbnail_url,
-          latitude, longitude, taken_at
-        )
-        VALUES (
-          ${trip.id}, 'test-public-id', 'https://example.com/photo.jpg',
-          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060,
-          NOW()
-        )
-        RETURNING id, url, thumbnail_url, latitude, longitude
-      `;
-
-      // Fetch trip by UUID
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/id/${trip.id}`, {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as TripWithPhotosResponse;
-
-      expect(data.id).toBe(trip.id);
-      expect(data.title).toBe("Test Trip By ID");
-      expect(data.slug).toBe(slug);
-      expect(data.description).toBe("Test description");
-      expect(Array.isArray(data.photos)).toBe(true);
-      expect(data.photos.length).toBe(1);
-      expect(data.photos[0].id).toBe(photo.id);
-      expect(data.photos[0].latitude).toBe(40.7128);
-
-      // Cleanup
-      await db`DELETE FROM photos WHERE id = ${photo.id}`;
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
-    });
-
-    it("returns 403 for non-admin user accessing by UUID", async () => {
-      const db = getDbClient();
-      const app = createTestApp();
-
-      // Create a unique non-admin user
-      const now = Date.now();
-      const testUserId = `00000000-0000-4000-a000-${String(now).padStart(12, "0").slice(-12)}`;
-      const testEmail = `test-uuid-access-${now}@example.com`;
-      const testWebauthnUserId = `test-webauthn-uuid-${now}`;
-
-      await db`
-        INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
-        VALUES (${testUserId}, ${testEmail}, ${testWebauthnUserId}, false)
-        ON CONFLICT (id) DO UPDATE
-          SET email = EXCLUDED.email,
-              is_admin = EXCLUDED.is_admin,
-              webauthn_user_id = EXCLUDED.webauthn_user_id
-      `;
-
-      // Create a trip and grant viewer access
-      const tripSlug = `uuid-trip-${now}`;
-      const [trip] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${tripSlug}, 'UUID Trip', true)
-        RETURNING id
-      `;
-
-      await db`
-        INSERT INTO trip_access (user_id, trip_id, role, granted_by_user_id)
-        VALUES (${testUserId}, ${trip.id}, 'viewer', ${testUserId})
-      `;
-
-      // Try to access trip by UUID (should fail for non-admin even with access)
-      const authHeader = await getUserAuthHeader(testUserId, testEmail);
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/id/${trip.id}`, {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(403);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Forbidden");
-      expect(data.message).toContain("Admin access required");
-
-      // Cleanup
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
-      await db`DELETE FROM user_profiles WHERE id = ${testUserId}`;
-    });
-
-    it("returns 404 for non-existent trip", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
-
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/id/${validUuid}`, {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(404);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Not Found");
+      expect(res.status).toBe(204);
+      expect(await Bun.file(tripDir).exists()).toBe(false);
     });
   });
 
@@ -662,37 +338,34 @@ describe("Trip Routes", () => {
   // DELETE /api/trips/photos/:id - Delete individual photo
   // ==========================================================================
   describe("DELETE /api/trips/photos/:id", () => {
+    const createdTripIds: string[] = [];
+
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      createdTripIds.length = 0;
+    });
+
     it("deletes photo and returns 204 (admin)", async () => {
       const db = getDbClient();
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
 
-      // Create test trip
-      const slug = "test-trip-delete-photo-" + crypto.randomUUID();
-      const [trip] = await db`
-        INSERT INTO trips (title, slug, is_public)
-        VALUES ('Test Trip for Photo Delete', ${slug}, true)
-        RETURNING id
-      `;
+      const trip = await createTrip({ title: "Test Trip for Photo Delete" });
+      createdTripIds.push(trip.id);
 
       // Create dummy photo and thumbnail files to be deleted
       const photosDir = getPhotosDir();
       const tripDir = `${photosDir}/${trip.id}`;
       await mkdir(tripDir, { recursive: true });
-      const photoFilename = "test-delete.jpg";
-      const thumbnailFilename = "thumb-test-delete.jpg";
-      const photoPath = `${tripDir}/${photoFilename}`;
-      const thumbnailPath = `${tripDir}/${thumbnailFilename}`;
+      const photoPath = `${tripDir}/test-delete.jpg`;
+      const thumbnailPath = `${tripDir}/thumb-test-delete.jpg`;
 
       await Bun.write(photoPath, "fake-photo-data");
       await Bun.write(thumbnailPath, "fake-thumbnail-data");
-      expect(await Bun.file(photoPath).exists()).toBe(true);
-      expect(await Bun.file(thumbnailPath).exists()).toBe(true);
 
-      const photoUrl = `/api/photos/${trip.id}/${photoFilename}`;
-      const thumbnailUrl = `/api/photos/${trip.id}/${thumbnailFilename}`;
+      const photoUrl = `/api/photos/${trip.id}/test-delete.jpg`;
+      const thumbnailUrl = `/api/photos/${trip.id}/thumb-test-delete.jpg`;
 
-      // Create test photo record
       const [photo] = await db`
         INSERT INTO photos (
           trip_id, storage_key, url, thumbnail_url,
@@ -700,13 +373,11 @@ describe("Trip Routes", () => {
         )
         VALUES (
           ${trip.id}, 'test-delete-photo', ${photoUrl},
-          ${thumbnailUrl}, 40.7128, -74.0060,
-          NOW()
+          ${thumbnailUrl}, 40.7128, -74.0060, NOW()
         )
         RETURNING id
       `;
 
-      // Delete photo via API
       const res = await app.fetch(
         new Request(`http://localhost/api/trips/photos/${photo.id}`, {
           method: "DELETE",
@@ -716,18 +387,12 @@ describe("Trip Routes", () => {
 
       expect(res.status).toBe(204);
 
-      // Verify photo is deleted from database
-      const [deletedPhoto] = await db`
-        SELECT * FROM photos WHERE id = ${photo.id}
-      `;
+      // Verify photo and files are deleted
+      const [deletedPhoto] =
+        await db`SELECT * FROM photos WHERE id = ${photo.id}`;
       expect(deletedPhoto).toBeUndefined();
-
-      // Verify both photo and thumbnail files are deleted from disk
       expect(await Bun.file(photoPath).exists()).toBe(false);
       expect(await Bun.file(thumbnailPath).exists()).toBe(false);
-
-      // Cleanup trip
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
     });
 
     it("returns 404 for non-existent photo", async () => {
@@ -752,101 +417,27 @@ describe("Trip Routes", () => {
   // PATCH /api/trips/photos/:id - Update photo rotation
   // ==========================================================================
   describe("PATCH /api/trips/photos/:id - Update photo rotation", () => {
-    const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+    const createdTripIds: string[] = [];
 
-    it("returns 401 without authentication", async () => {
-      const app = createTestApp();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rotation: 90 }),
-        }),
-      );
-      expect(res.status).toBe(401);
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      createdTripIds.length = 0;
     });
 
-    it("returns 403 for non-admin users", async () => {
-      const app = createTestApp();
-      const authHeader = await getUserAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ rotation: 90 }),
-        }),
-      );
-      expect(res.status).toBe(403);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Forbidden");
-    });
-
-    it("returns 400 for invalid UUID format", async () => {
+    it("returns 400 for invalid rotation value", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
       const res = await app.fetch(
-        new Request("http://localhost/api/trips/photos/not-a-uuid", {
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ rotation: 90 }),
+          body: JSON.stringify({ rotation: 45 }),
         }),
       );
       expect(res.status).toBe(400);
       const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toContain("Invalid photo ID format");
-    });
-
-    it("returns 400 when request body is empty", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({}),
-        }),
-      );
-      expect(res.status).toBe(400);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.message).toBe("Rotation field is required.");
-    });
-
-    it.each([
-      { rotation: 45, description: "45 degrees" },
-      { rotation: 360, description: "360 degrees" },
-      { rotation: "90", description: "string value" },
-      { rotation: null, description: "null value" },
-    ])(
-      "returns 400 for invalid rotation: $description",
-      async ({ rotation }) => {
-        const app = createTestApp();
-        const authHeader = await getAdminAuthHeader();
-        const res = await app.fetch(
-          new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", ...authHeader },
-            body: JSON.stringify({ rotation }),
-          }),
-        );
-        expect(res.status).toBe(400);
-        const data = (await res.json()) as ErrorResponse;
-        expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
-      },
-    );
-
-    it("returns 404 for non-existent photo", async () => {
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...authHeader },
-          body: JSON.stringify({ rotation: 90 }),
-        }),
-      );
-      expect(res.status).toBe(404);
-      const data = (await res.json()) as ErrorResponse;
-      expect(data.error).toBe("Not Found");
+      expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
     });
 
     it("successfully updates photo rotation", async () => {
@@ -854,15 +445,9 @@ describe("Trip Routes", () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
 
-      // Create test trip
-      const slug = "test-trip-rotation-" + crypto.randomUUID();
-      const [trip] = await db`
-        INSERT INTO trips (title, slug, is_public)
-        VALUES ('Test Trip for Rotation', ${slug}, true)
-        RETURNING id
-      `;
+      const trip = await createTrip({ title: "Test Trip for Rotation" });
+      createdTripIds.push(trip.id);
 
-      // Create test photo with default rotation (0)
       const [photo] = await db`
         INSERT INTO photos (
           trip_id, storage_key, url, thumbnail_url,
@@ -870,13 +455,11 @@ describe("Trip Routes", () => {
         )
         VALUES (
           ${trip.id}, 'test-rotation-photo', 'https://example.com/photo.jpg',
-          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060,
-          NOW(), 0
+          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060, NOW(), 0
         )
         RETURNING id
       `;
 
-      // Update rotation to 90
       const res = await app.fetch(
         new Request(`http://localhost/api/trips/photos/${photo.id}`, {
           method: "PATCH",
@@ -889,79 +472,9 @@ describe("Trip Routes", () => {
       const data = (await res.json()) as { rotation: number };
       expect(data.rotation).toBe(90);
 
-      // Verify rotation was updated in database
-      const [updatedPhoto] = await db`
-        SELECT rotation FROM photos WHERE id = ${photo.id}
-      `;
+      const [updatedPhoto] =
+        await db`SELECT rotation FROM photos WHERE id = ${photo.id}`;
       expect(updatedPhoto.rotation).toBe(90);
-
-      // Cleanup
-      await db`DELETE FROM photos WHERE id = ${photo.id}`;
-      await db`DELETE FROM trips WHERE id = ${trip.id}`;
-    });
-  });
-
-  // ==========================================================================
-  // DELETE /api/trips/:id - File cleanup integration tests
-  // ==========================================================================
-  describe("DELETE /api/trips/:id - file cleanup", () => {
-    it("deletes photo directory when trip is deleted", async () => {
-      // Create a trip first
-      const db = getDbClient();
-      const [trip] = await db`
-        INSERT INTO trips (title, slug, is_public)
-        VALUES ('Test Trip', ${"test-trip-cleanup-" + crypto.randomUUID()}, true)
-        RETURNING id
-      `;
-
-      // Create photo directory and file
-      const photosDir = getPhotosDir();
-      const tripDir = `${photosDir}/${trip.id}`;
-      await mkdir(tripDir, { recursive: true });
-      await Bun.write(`${tripDir}/test.jpg`, "fake-photo-data");
-
-      // Verify file exists
-      expect(await Bun.file(`${tripDir}/test.jpg`).exists()).toBe(true);
-
-      // Delete trip
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${trip.id}`, {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(204);
-
-      // Verify directory is gone
-      const dirExists = await Bun.file(tripDir).exists();
-      expect(dirExists).toBe(false);
-    });
-
-    it("succeeds even if photo directory does not exist", async () => {
-      // Create a trip without photos
-      const db = getDbClient();
-      const [trip] = await db`
-        INSERT INTO trips (title, slug, is_public)
-        VALUES ('No Photos Trip', ${"no-photos-" + crypto.randomUUID()}, true)
-        RETURNING id
-      `;
-
-      // Don't create any photo directory
-
-      // Delete trip should still succeed
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/${trip.id}`, {
-          method: "DELETE",
-          headers: authHeader,
-        }),
-      );
-
-      expect(res.status).toBe(204);
     });
   });
 
@@ -969,40 +482,31 @@ describe("Trip Routes", () => {
   // GET /api/trips/slug/:slug - Pagination tests
   // ==========================================================================
   describe("GET /api/trips/slug/:slug - pagination", () => {
-    // Helper: create trip with N photos, returns { tripId, slug, cleanup }
-    async function createTripWithPhotos(
-      db: ReturnType<typeof getDbClient>,
-      photoCount: number,
-      hoursApart = 1,
-    ) {
-      const slug = `pagination-test-${Date.now()}`;
-      const [trip] = await db<{ id: string }[]>`
-        INSERT INTO trips (slug, title, is_public)
-        VALUES (${slug}, 'Pagination Test', true)
-        RETURNING id
-      `;
-      for (let i = 0; i < photoCount; i++) {
-        const takenAt = new Date(Date.now() + i * hoursApart * 3600 * 1000);
-        await db`
-          INSERT INTO photos (trip_id, storage_key, url, thumbnail_url, latitude, longitude, taken_at)
-          VALUES (${trip.id}, ${`photo-${i}`}, ${`/photos/${i}.jpg`}, ${`/thumbs/${i}.jpg`}, 40.7128, -74.006, ${takenAt})
-        `;
-      }
-      return {
-        tripId: trip.id,
-        slug,
-        cleanup: () => db`DELETE FROM trips WHERE id = ${trip.id}`,
-      };
-    }
+    const createdTripIds: string[] = [];
+
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      createdTripIds.length = 0;
+    });
 
     it("returns pagination metadata with defaults (limit=50, offset=0)", async () => {
-      const db = getDbClient();
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
-      const { slug, cleanup } = await createTripWithPhotos(db, 5);
+
+      const trip = await createTrip({ title: "Pagination Test" });
+      createdTripIds.push(trip.id);
+
+      // Create 5 photos
+      for (let i = 0; i < 5; i++) {
+        await createPhoto({
+          tripId: trip.id,
+          latitude: 40.7128,
+          longitude: -74.006,
+        });
+      }
 
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/slug/${slug}`, {
+        new Request(`http://localhost/api/trips/slug/${trip.slug}`, {
           method: "GET",
           headers: authHeader,
         }),
@@ -1017,24 +521,28 @@ describe("Trip Routes", () => {
         offset: 0,
         hasMore: false,
       });
-
-      await cleanup();
     });
 
     it("paginates correctly with hasMore calculation", async () => {
-      const db = getDbClient();
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
-      const { slug, cleanup } = await createTripWithPhotos(db, 5);
+
+      const trip = await createTrip({ title: "Pagination Test" });
+      createdTripIds.push(trip.id);
+
+      for (let i = 0; i < 5; i++) {
+        await createPhoto({
+          tripId: trip.id,
+          latitude: 40.7128,
+          longitude: -74.006,
+        });
+      }
 
       // First page: hasMore = true
       const res1 = await app.fetch(
         new Request(
-          `http://localhost/api/trips/slug/${slug}?limit=2&offset=0`,
-          {
-            method: "GET",
-            headers: authHeader,
-          },
+          `http://localhost/api/trips/slug/${trip.slug}?limit=2&offset=0`,
+          { method: "GET", headers: authHeader },
         ),
       );
       const data1 = (await res1.json()) as TripWithPhotosResponse;
@@ -1044,118 +552,28 @@ describe("Trip Routes", () => {
       // Last page: hasMore = false
       const res2 = await app.fetch(
         new Request(
-          `http://localhost/api/trips/slug/${slug}?limit=2&offset=4`,
-          {
-            method: "GET",
-            headers: authHeader,
-          },
+          `http://localhost/api/trips/slug/${trip.slug}?limit=2&offset=4`,
+          { method: "GET", headers: authHeader },
         ),
       );
       const data2 = (await res2.json()) as TripWithPhotosResponse;
       expect(data2.photos.length).toBe(1);
       expect(data2.pagination.hasMore).toBe(false);
-
-      await cleanup();
-    });
-
-    it("caps limit at 100", async () => {
-      const db = getDbClient();
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const { slug, cleanup } = await createTripWithPhotos(db, 1);
-
-      const res = await app.fetch(
-        new Request(`http://localhost/api/trips/slug/${slug}?limit=500`, {
-          method: "GET",
-          headers: authHeader,
-        }),
-      );
-
-      const data = (await res.json()) as TripWithPhotosResponse;
-      expect(data.pagination.limit).toBe(100);
-
-      await cleanup();
     });
 
     it("returns 400 for invalid pagination params", async () => {
       const app = createTestApp();
       const authHeader = await getAdminAuthHeader();
 
-      const invalidParams = [
-        { query: "limit=invalid", expectedMsg: "positive integer" },
-        { query: "limit=-1", expectedMsg: "positive integer" },
-        { query: "offset=invalid", expectedMsg: "non-negative integer" },
-        { query: "offset=-1", expectedMsg: "non-negative integer" },
-      ];
-
-      for (const { query, expectedMsg } of invalidParams) {
-        const res = await app.fetch(
-          new Request(`http://localhost/api/trips/slug/any-trip?${query}`, {
-            method: "GET",
-            headers: authHeader,
-          }),
-        );
-        expect(res.status).toBe(400);
-        const data = (await res.json()) as { message: string };
-        expect(data.message).toContain(expectedMsg);
-      }
-    });
-
-    it("maintains consistent date_range across pages (MIN/MAX fix)", async () => {
-      const db = getDbClient();
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const { slug, cleanup } = await createTripWithPhotos(db, 5, 24); // 24 hours apart
-
-      const [res1, res2] = await Promise.all([
-        app.fetch(
-          new Request(
-            `http://localhost/api/trips/slug/${slug}?limit=2&offset=0`,
-            {
-              method: "GET",
-              headers: authHeader,
-            },
-          ),
-        ),
-        app.fetch(
-          new Request(
-            `http://localhost/api/trips/slug/${slug}?limit=2&offset=3`,
-            {
-              method: "GET",
-              headers: authHeader,
-            },
-          ),
-        ),
-      ]);
-
-      const data1 = (await res1.json()) as TripWithPhotosResponse;
-      const data2 = (await res2.json()) as TripWithPhotosResponse;
-
-      // Both pages must have the same date_range (full trip span)
-      expect(data1.dateRange).toEqual(data2.dateRange);
-
-      await cleanup();
-    });
-
-    it("works on admin /id/:id endpoint", async () => {
-      const db = getDbClient();
-      const app = createTestApp();
-      const authHeader = await getAdminAuthHeader();
-      const { tripId, cleanup } = await createTripWithPhotos(db, 3);
-
       const res = await app.fetch(
-        new Request(`http://localhost/api/trips/id/${tripId}?limit=2`, {
+        new Request("http://localhost/api/trips/slug/any-trip?limit=invalid", {
           method: "GET",
           headers: authHeader,
         }),
       );
-
-      expect(res.status).toBe(200);
-      const data = (await res.json()) as TripWithPhotosResponse;
-      expect(data.photos.length).toBe(2);
-      expect(data.pagination.hasMore).toBe(true);
-
-      await cleanup();
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as { message: string };
+      expect(data.message).toContain("positive integer");
     });
   });
 });

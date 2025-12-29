@@ -91,7 +91,7 @@ export async function createPhoto(options: CreatePhotoOptions) {
   const key = options.key ?? `test-photo-${now}-${++photoCounter}.jpg`;
   const latitude = options.latitude ?? null;
   const longitude = options.longitude ?? null;
-  const takenAt = options.takenAt ?? null;
+  const takenAt = options.takenAt ?? new Date();
 
   const [photo] = await db<{ id: string; key: string }[]>`
     INSERT INTO photos (trip_id, storage_key, url, thumbnail_url, latitude, longitude, taken_at)
