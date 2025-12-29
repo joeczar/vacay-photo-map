@@ -307,9 +307,8 @@ This report analyzes the current self-hosted architecture for vacay-photo-map an
 ### Immediate (This Week)
 1. **Set up database backups** - Critical regardless of migration decision
    ```bash
-   # Example: Daily backup to R2
-   pg_dump vacay | gzip > backup-$(date +%Y%m%d).sql.gz
-   # Upload to R2 or S3
+   # Use the included backup script (see Appendix A for setup)
+   ./scripts/backup-db.sh
    ```
 
 2. **Document current resource usage** - Know your baseline
@@ -368,3 +367,85 @@ When ready to migrate:
 - **For performance:** Cloudflare Workers + edge DB
 
 The sweet spot for most solo developers is spending **$20-30/month** to eliminate server maintenance while keeping costs reasonable.
+
+---
+
+## Appendix A: Setting Up Automated Backups
+
+A backup script is included at `scripts/backup-db.sh`. Here's how to set it up:
+
+### Step 1: Create R2 Backup Bucket
+
+1. Go to Cloudflare Dashboard → R2
+2. Create a new bucket called `vacay-backups`
+3. Note: This is separate from your photos bucket for better organization
+
+### Step 2: Create R2 API Token
+
+1. Cloudflare Dashboard → R2 → Manage R2 API Tokens
+2. Create token with **Object Read & Write** permissions
+3. Scope it to the `vacay-backups` bucket only
+4. Save the Access Key ID and Secret Access Key
+
+### Step 3: Configure AWS CLI
+
+```bash
+# Install AWS CLI if not present
+# macOS: brew install awscli
+# Linux: sudo apt install awscli
+
+# Configure R2 profile
+aws configure --profile r2
+# Access Key ID: [your R2 access key]
+# Secret Access Key: [your R2 secret key]
+# Region: auto
+# Output format: json
+```
+
+### Step 4: Test the Backup Script
+
+```bash
+# Make sure R2_ACCOUNT_ID is set (or it will read from api/.env.production)
+export R2_ACCOUNT_ID="your_cloudflare_account_id"
+
+# Run a test backup
+./scripts/backup-db.sh
+
+# List backups to verify
+./scripts/backup-db.sh --list
+```
+
+### Step 5: Set Up Cron Job
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 3 AM with cleanup of old backups
+0 3 * * * cd /path/to/vacay-photo-map && ./scripts/backup-db.sh --cleanup >> /var/log/vacay-backup.log 2>&1
+```
+
+### Restore a Backup
+
+```bash
+# List available backups
+./scripts/backup-db.sh --list
+
+# Download specific backup
+aws s3 cp s3://vacay-backups/db-backups/vacay_20251229_030000.sql.gz ./restore.sql.gz \
+  --profile r2 --endpoint-url https://YOUR_ACCOUNT.r2.cloudflarestorage.com
+
+# Stop API, restore, restart
+docker compose -p vacay-prod -f docker-compose.prod.yml stop api
+gunzip -c restore.sql.gz | docker exec -i vacay-postgres psql -U vacay -d vacay
+docker compose -p vacay-prod -f docker-compose.prod.yml start api
+```
+
+### Configuration Options
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `R2_ACCOUNT_ID` | from .env | Your Cloudflare account ID |
+| `R2_BACKUP_BUCKET` | `vacay-backups` | R2 bucket for backups |
+| `RETENTION_DAYS` | `30` | Days to keep old backups |
+| `AWS_PROFILE` | `r2` | AWS CLI profile name |
