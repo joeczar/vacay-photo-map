@@ -32,7 +32,7 @@ Set these in Vercel dashboard or via CLI:
 
 | Variable | Production Value |
 |----------|------------------|
-| `VITE_API_URL` | `https://photos.joeczar.com` |
+| `VITE_API_URL` | `https://photos-api.joeczar.com` |
 | `VITE_APP_URL` | `https://photos.joeczar.com` |
 | `VITE_WEBAUTHN_RP_NAME` | `Vacay Photo Map` |
 | `VITE_WEBAUTHN_RP_ID` | `photos.joeczar.com` |

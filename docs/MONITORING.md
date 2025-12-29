@@ -98,7 +98,7 @@ Create three monitors to cover all critical endpoints:
 #### Monitor 2: API Health (Liveness)
 - **Monitor Type**: HTTP(s)
 - **Friendly Name**: VacayPhotoMap API Liveness
-- **URL**: `https://photos.joeczar.com/health`
+- **URL**: `https://photos-api.joeczar.com/health`
 - **Monitoring Interval**: 5 minutes
 - **Keyword Alert**: Look for `"status":"ok"` (optional but recommended)
 - **Alert Contacts**: (your email)
@@ -106,7 +106,7 @@ Create three monitors to cover all critical endpoints:
 #### Monitor 3: API Readiness (With DB Check)
 - **Monitor Type**: HTTP(s)
 - **Friendly Name**: VacayPhotoMap API Readiness
-- **URL**: `https://photos.joeczar.com/health/ready`
+- **URL**: `https://photos-api.joeczar.com/health/ready`
 - **Monitoring Interval**: 5 minutes
 - **Keyword Alert**: Look for `"database":"connected"`
 - **Alert Contacts**: (your email)
@@ -383,7 +383,7 @@ Configure different notification channels:
 docker compose -p vacay-prod -f docker-compose.prod.yml up -d --remove-orphans
 
 # 4. Verify health
-curl https://photos.joeczar.com/health
+curl https://photos-api.joeczar.com/health
 
 # 5. Re-enable monitors
 ```
@@ -576,7 +576,7 @@ docker exec vacay-api env | grep DATABASE_URL
 **Investigate**:
 ```bash
 # 1. Check API performance locally
-time curl https://photos.joeczar.com/health
+time curl https://photos-api.joeczar.com/health
 
 # 2. Check container resource usage
 docker stats vacay-api postgres

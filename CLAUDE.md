@@ -131,12 +131,12 @@ The `dev-server` skill (`.claude/skills/dev-server/`) provides Claude with comma
 - Configuration in `vercel.json`
 
 **API:** Self-hosted Docker (Bun + Hono)
-- Production at `https://photos.joeczar.com` (via Cloudflare Tunnel)
+- Production at `https://photos-api.joeczar.com` (via Cloudflare Tunnel)
 - Docker Compose stack with Postgres, API, Watchtower
 
 **Environment Variables (Vercel Dashboard):**
 ```
-VITE_API_URL=https://photos.joeczar.com
+VITE_API_URL=https://photos-api.joeczar.com
 VITE_APP_URL=https://photos.joeczar.com
 VITE_WEBAUTHN_RP_NAME=Vacay Photo Map
 VITE_WEBAUTHN_RP_ID=photos.joeczar.com
