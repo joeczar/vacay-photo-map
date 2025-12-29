@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { getConnInfo } from "hono/bun";
-import { HTTPException } from "hono/http-exception";
 import { getDbClient } from "../db/client";
 import { signToken } from "../utils/jwt";
 import { requireAuth, requireAdmin } from "../middleware/auth";
