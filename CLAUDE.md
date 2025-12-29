@@ -242,11 +242,25 @@ IMPLEMENTATION (per commit) ─────────────────�
 │   └───────────────────────────────────────────
 └───────────────────────────────────────────────
 
-FINALIZATION ───────────────────────────────────
-│ I spawn `tester` agent → writes/runs tests
-│ I spawn `reviewer` agent → validates quality (project-specific)
-│ I run `/pr-review-toolkit:review-pr` → comprehensive review
-│ I create PR with `gh pr create`
+FINALIZATION (MANDATORY - DO NOT SKIP) ─────────
+│ ⚠️  HARD GATE: Complete ALL steps before PR creation
+│
+│ [ ] 1. Spawn `tester` agent → reviews test quality
+│        - Verifies tests use shared infrastructure
+│        - Checks for hardcoded values
+│        - Ensures adequate coverage
+│
+│ [ ] 2. Spawn `reviewer` agent → validates quality
+│        - Schema alignment
+│        - API patterns
+│        - Auth flows
+│
+│ [ ] 3. Run `/pr-review-toolkit:review-pr`
+│        - Comprehensive code review
+│
+│ [ ] 4. ONLY THEN: `gh pr create`
+│
+│ See .claude/rules/pr-workflow.md for details
 └───────────────────────────────────────────────
 ```
 
