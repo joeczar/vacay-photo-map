@@ -98,43 +98,41 @@ describe("RBAC Integration Tests", () => {
   beforeAll(async () => {
     const db = getDbClient();
     const now = Date.now();
+    const passwordHash = await Bun.password.hash("password123");
 
-    // Create admin user with unique email and webauthn_user_id
-    const adminWebauthnId = `test-webauthn-${TEST_ADMIN_USER_ID}-${now}`;
+    // Create admin user with unique email
     testAdminEmail = `test-admin-rbac-${now}@example.com`;
     await db`
-      INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${adminWebauthnId}, true, 'Admin User')
+      INSERT INTO user_profiles (id, email, password_hash, is_admin, display_name)
+      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${passwordHash}, true, 'Admin User')
       ON CONFLICT (id) DO UPDATE
         SET email = EXCLUDED.email,
             is_admin = EXCLUDED.is_admin,
-            webauthn_user_id = EXCLUDED.webauthn_user_id,
+            password_hash = EXCLUDED.password_hash,
             display_name = EXCLUDED.display_name
     `;
 
     // Create first regular test user
-    const userWebauthnId = `test-webauthn-${TEST_USER_ID}-${now}`;
     testUserEmail = `test-user-rbac-${now}@example.com`;
     await db`
-      INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${TEST_USER_ID}, ${testUserEmail}, ${userWebauthnId}, false, 'Test User')
+      INSERT INTO user_profiles (id, email, password_hash, is_admin, display_name)
+      VALUES (${TEST_USER_ID}, ${testUserEmail}, ${passwordHash}, false, 'Test User')
       ON CONFLICT (id) DO UPDATE
         SET email = EXCLUDED.email,
             is_admin = EXCLUDED.is_admin,
-            webauthn_user_id = EXCLUDED.webauthn_user_id,
+            password_hash = EXCLUDED.password_hash,
             display_name = EXCLUDED.display_name
     `;
 
     // Create second regular test user for invite workflow tests
-    const secondWebauthnId = `test-webauthn-${TEST_USER_2_ID}-${now}`;
     secondUserEmail = `test-user-2-rbac-${now}@example.com`;
     await db`
-      INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${TEST_USER_2_ID}, ${secondUserEmail}, ${secondWebauthnId}, false, 'Test User 2')
+      INSERT INTO user_profiles (id, email, password_hash, is_admin, display_name)
+      VALUES (${TEST_USER_2_ID}, ${secondUserEmail}, ${passwordHash}, false, 'Test User 2')
       ON CONFLICT (id) DO UPDATE
         SET email = EXCLUDED.email,
             is_admin = EXCLUDED.is_admin,
-            webauthn_user_id = EXCLUDED.webauthn_user_id,
+            password_hash = EXCLUDED.password_hash,
             display_name = EXCLUDED.display_name
     `;
 

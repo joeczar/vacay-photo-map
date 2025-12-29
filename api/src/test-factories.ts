@@ -13,7 +13,6 @@ export function generateTripSlug(prefix = "test-trip"): string {
 export interface CreateUserOptions {
   id?: string;
   email?: string;
-  webauthnUserId?: string;
   password?: string; // plaintext password, will be hashed
   isAdmin?: boolean;
   displayName?: string | null;
@@ -24,7 +23,6 @@ export async function createUser(options: CreateUserOptions = {}) {
   const uniqueId = crypto.randomUUID().slice(0, 8);
   const id = options.id ?? generateUserId();
   const email = options.email ?? `test-user-${uniqueId}@example.com`;
-  const webauthnUserId = options.webauthnUserId ?? `test-webauthn-${uniqueId}`;
   const isAdmin = options.isAdmin ?? false;
   const displayName = options.displayName ?? null;
 
@@ -33,17 +31,16 @@ export async function createUser(options: CreateUserOptions = {}) {
   const passwordHash = await Bun.password.hash(password);
 
   await db`
-    INSERT INTO user_profiles (id, email, webauthn_user_id, password_hash, is_admin, display_name)
-    VALUES (${id}, ${email}, ${webauthnUserId}, ${passwordHash}, ${isAdmin}, ${displayName})
+    INSERT INTO user_profiles (id, email, password_hash, is_admin, display_name)
+    VALUES (${id}, ${email}, ${passwordHash}, ${isAdmin}, ${displayName})
     ON CONFLICT (id) DO UPDATE
       SET email = EXCLUDED.email,
           is_admin = EXCLUDED.is_admin,
-          webauthn_user_id = EXCLUDED.webauthn_user_id,
           password_hash = EXCLUDED.password_hash,
           display_name = EXCLUDED.display_name
   `;
 
-  return { id, email, webauthnUserId, password, isAdmin, displayName };
+  return { id, email, password, isAdmin, displayName };
 }
 
 // Trip factory
