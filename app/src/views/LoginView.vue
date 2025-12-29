@@ -3,15 +3,10 @@
     <Card class="w-full max-w-md">
       <CardHeader class="text-center">
         <CardTitle class="text-2xl">Admin Login</CardTitle>
-        <CardDescription>Sign in with your passkey</CardDescription>
+        <CardDescription>Sign in with your email and password</CardDescription>
       </CardHeader>
 
       <CardContent>
-        <!-- WebAuthn not supported warning -->
-        <Alert v-if="!webAuthnSupported" variant="destructive" class="mb-4">
-          <AlertDescription>{{ webAuthnMessage }}</AlertDescription>
-        </Alert>
-
         <!-- Error alert -->
         <Alert v-if="error" variant="destructive" class="mb-4">
           <AlertDescription>{{ error }}</AlertDescription>
@@ -26,19 +21,30 @@
                   type="email"
                   placeholder="you@example.com"
                   v-bind="componentField"
-                  :disabled="isLoggingIn || !webAuthnSupported"
+                  :disabled="isLoggingIn"
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           </FormField>
 
-          <Button
-            type="submit"
-            class="w-full"
-            :disabled="isLoggingIn || !meta.valid || !webAuthnSupported"
-          >
-            {{ isLoggingIn ? 'Authenticating...' : 'Login with Passkey' }}
+          <FormField v-slot="{ componentField }" name="password">
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input
+                  type="password"
+                  placeholder="Enter your password"
+                  v-bind="componentField"
+                  :disabled="isLoggingIn"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <Button type="submit" class="w-full" :disabled="isLoggingIn || !meta.valid">
+            {{ isLoggingIn ? 'Signing in...' : 'Sign In' }}
           </Button>
         </form>
 
@@ -46,13 +52,6 @@
         <div v-if="registrationOpen" class="mt-4 text-center text-sm text-muted-foreground">
           Need an account?
           <router-link to="/register" class="text-primary hover:underline"> Register </router-link>
-        </div>
-
-        <!-- Recovery link -->
-        <div class="mt-2 text-center text-sm text-muted-foreground">
-          <router-link to="/recover" class="text-primary hover:underline">
-            Lost access? Recover account
-          </router-link>
         </div>
       </CardContent>
     </Card>
@@ -65,11 +64,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import { startAuthentication } from '@simplewebauthn/browser'
-import type {
-  PublicKeyCredentialRequestOptionsJSON,
-  AuthenticationResponseJSON
-} from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -78,7 +72,6 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import AuthLayout from '@/layouts/AuthLayout.vue'
-import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()
 const route = useRoute()
@@ -92,9 +85,6 @@ if (isAuthenticated.value) {
 // State
 const isLoggingIn = ref(false)
 const error = ref('')
-
-// Check WebAuthn support
-const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthnSupport()
 
 // Check if registration is open
 const registrationOpen = ref(false)
@@ -116,13 +106,14 @@ onMounted(async () => {
 // Form validation schema
 const loginSchema = toTypedSchema(
   z.object({
-    email: z.string().email('Please enter a valid email address')
+    email: z.string().email('Please enter a valid email address'),
+    password: z.string().min(1, 'Password is required')
   })
 )
 
 const { handleSubmit, meta } = useForm({
   validationSchema: loginSchema,
-  initialValues: { email: '' }
+  initialValues: { email: '', password: '' }
 })
 
 // Form submission handler
@@ -131,24 +122,13 @@ const onSubmit = handleSubmit(async values => {
   error.value = ''
 
   try {
-    // Step 1: Get authentication options from backend
-    const { options } = await api.post<{ options: PublicKeyCredentialRequestOptionsJSON }>(
-      '/api/auth/login/options',
-      { email: values.email }
-    )
-
-    // Step 2: Authenticate with passkey (browser prompts user)
-    const credential: AuthenticationResponseJSON = await startAuthentication({
-      optionsJSON: options
+    // Login with password
+    const { token, user } = await api.post<{ token: string; user: User }>('/api/auth/login', {
+      email: values.email,
+      password: values.password
     })
 
-    // Step 3: Verify credential with backend
-    const { token, user } = await api.post<{ token: string; user: User }>(
-      '/api/auth/login/verify',
-      { email: values.email, credential }
-    )
-
-    // Step 4: Set auth state and redirect
+    // Set auth state and redirect
     setAuthState(token, user)
 
     // Validate redirect path to prevent open redirect attacks
@@ -162,13 +142,11 @@ const onSubmit = handleSubmit(async values => {
     if (err instanceof ApiError) {
       if (err.status === 404) {
         error.value = 'No account found with this email. Please register first.'
-      } else if (err.status === 400) {
-        error.value = 'Authentication failed. Please try again.'
+      } else if (err.status === 401) {
+        error.value = 'Invalid email or password. Please try again.'
       } else {
         error.value = err.message || 'Login failed. Please try again.'
       }
-    } else if (err instanceof Error && err.name === 'NotAllowedError') {
-      error.value = 'Authentication was cancelled. Please try again.'
     } else {
       error.value = 'An unexpected error occurred. Please try again.'
     }
