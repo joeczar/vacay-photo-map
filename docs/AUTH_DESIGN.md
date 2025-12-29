@@ -1,13 +1,13 @@
 # Authentication Design Document
 
 **Status:** IMPLEMENTED
-**Last Updated:** December 26, 2025
+**Last Updated:** December 29, 2025
 
 ---
 
 ## Overview
 
-This document outlines the implemented authentication and authorization strategy for the Vacay Photo Map application. The system uses WebAuthn/passkeys for authentication and Role-Based Access Control (RBAC) via the `trip_access` table for trip sharing.
+This document outlines the authentication and authorization strategy for the Vacay Photo Map application. The system uses password-based authentication with bcrypt hashing and Role-Based Access Control (RBAC) via the `trip_access` table for trip sharing.
 
 ---
 
@@ -15,54 +15,61 @@ This document outlines the implemented authentication and authorization strategy
 
 ### What Was Built
 
-- **WebAuthn/Passkey authentication** for all users
+- **Password authentication** with bcrypt hashing (via Bun.password)
 - **JWT-based session management** with configurable expiration
 - **RBAC system with `trip_access` table** for fine-grained trip permissions
 - **Invite system** for sharing trips with specific roles (editor/viewer)
 - **Admin flag** in user_profiles for full system access
 - **First-user bootstrap** - first registered user becomes admin
+- **Admin password reset** - admins can reset any user's password
 
 ---
 
 ## Use Case 1: Admin Authentication
 
-### Implementation: WebAuthn with First-User Bootstrap
+### Implementation: Password Auth with First-User Bootstrap
 
-**Approach Chosen:** Modern WebAuthn/passkeys with automatic admin bootstrap
+**Approach Chosen:** Simple password authentication with automatic admin bootstrap
 
 **Flow:**
 1. First user to register becomes admin automatically
 2. Subsequent users register but are not admin (for future features)
-3. Authentication via WebAuthn/passkeys (fingerprint, Face ID, security key)
+3. Authentication via email + password
 4. JWT tokens for session management
+5. Admin can reset passwords for any user (no self-service recovery)
 
 **Why This Approach:**
-- Passwordless = more secure, better UX
-- No password management/reset complexity
-- Works across devices (passkeys sync via iCloud/Google Password Manager)
-- Future-proof for invite system
-- Industry standard (used by Google, GitHub, etc.)
+- Simple and reliable for a personal project with known users
+- No third-party dependencies for auth (uses Bun's built-in bcrypt)
+- Admin password reset via direct contact is sufficient for small user base
+- Lower complexity than WebAuthn while maintaining security
 
 ### Technical Implementation
 
 **Registration Flow:**
 ```
-1. User enters email
-2. Backend generates WebAuthn registration options
-3. Browser prompts for passkey creation (biometric/PIN)
-4. Browser sends credential to backend
-5. Backend stores credential, creates user
-6. If first user, sets is_admin = true
-7. Returns JWT token
+1. User enters email + password
+2. Backend validates email uniqueness and password (min 8 chars)
+3. Backend hashes password with Bun.password.hash() (bcrypt)
+4. Backend creates user in database
+5. If first user, sets is_admin = true
+6. Returns JWT token
 ```
 
 **Login Flow:**
 ```
-1. User enters email
-2. Backend generates WebAuthn authentication options
-3. Browser prompts for passkey (biometric/PIN)
-4. Browser sends assertion to backend
-5. Backend verifies signature, returns JWT
+1. User enters email + password
+2. Backend finds user by email
+3. Backend verifies password with Bun.password.verify()
+4. Returns JWT token (generic error if invalid to prevent enumeration)
+```
+
+**Password Reset Flow:**
+```
+1. User contacts admin (via Telegram, email, etc.)
+2. Admin calls POST /api/auth/admin/reset-password with userId and newPassword
+3. Backend hashes new password and updates user_profiles
+4. User can login with new password
 ```
 
 **Session Management:**
