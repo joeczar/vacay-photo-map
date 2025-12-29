@@ -98,7 +98,8 @@ describe("POST /api/auth/register", () => {
   });
 
   it("returns 409 for duplicate email", async () => {
-    const user = await createUser({ email: "existing@example.com" });
+    // createUser generates unique email if not specified
+    const user = await createUser();
     userId = user.id;
 
     const res = await app.fetch(
@@ -106,7 +107,7 @@ describe("POST /api/auth/register", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: "existing@example.com",
+          email: user.email, // Use the generated email
           password: "password123",
         }),
       }),
@@ -172,22 +173,20 @@ describe("POST /api/auth/register", () => {
     let tripId: string | null = null;
 
     try {
-      // Create admin user
-      const admin = await createUser({
-        email: "admin@example.com",
-        isAdmin: true,
-      });
+      // Create admin user (let factory generate unique email)
+      const admin = await createUser({ isAdmin: true });
       adminUserId = admin.id;
 
-      // Create trip
+      // Create trip (let factory generate unique slug)
       const trip = await createTrip({ title: "Invite Trip" });
       tripId = trip.id;
 
-      // Create invite
+      // Create invite with unique code
       const db = getDbClient();
+      const inviteCode = `VALID_${crypto.randomUUID().slice(0, 8)}`;
       const [invite] = await db<{ id: string; code: string }[]>`
         INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
-        VALUES ('VALID123', NULL, 'viewer', NOW() + INTERVAL '7 days', ${adminUserId})
+        VALUES (${inviteCode}, NULL, 'viewer', NOW() + INTERVAL '7 days', ${adminUserId})
         RETURNING id, code
       `;
 
@@ -197,15 +196,16 @@ describe("POST /api/auth/register", () => {
         VALUES (${invite.id}, ${tripId})
       `;
 
-      // Register with invite code
+      // Register with invite code (use unique email)
+      const invitedEmail = `invited-${crypto.randomUUID().slice(0, 8)}@example.com`;
       const res = await app.fetch(
         createRequestWithUniqueIp("http://localhost/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email: "invited@example.com",
+            email: invitedEmail,
             password: "password123",
-            inviteCode: "VALID123",
+            inviteCode: invite.code,
           }),
         }),
       );
