@@ -204,6 +204,72 @@ describe("Trip Routes", () => {
   });
 
   // ==========================================================================
+  // GET /api/trips/admin - List all trips (admin only)
+  // ==========================================================================
+  describe("GET /api/trips/admin", () => {
+    const createdTripIds: string[] = [];
+
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      createdTripIds.length = 0;
+    });
+
+    it("returns all trips for admin user", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      // Create test trips (public and private)
+      const publicTrip = await createTrip({
+        title: "Public Trip",
+        isPublic: true,
+      });
+      const privateTrip = await createTrip({
+        title: "Private Trip",
+        isPublic: false,
+      });
+      createdTripIds.push(publicTrip.id, privateTrip.id);
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/admin", {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripListResponse;
+      expect(Array.isArray(data.trips)).toBe(true);
+
+      // Admin should see both public and private trips
+      const foundPublic = data.trips.find((t) => t.id === publicTrip.id);
+      const foundPrivate = data.trips.find((t) => t.id === privateTrip.id);
+      expect(foundPublic).toBeDefined();
+      expect(foundPrivate).toBeDefined();
+    });
+
+    it("returns 403 for non-admin user", async () => {
+      const app = createTestApp();
+
+      const user = await createUser({ isAdmin: false });
+      const authHeader = await getUserAuthHeader(user.id, user.email);
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips/admin", {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(403);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Forbidden");
+
+      // Cleanup user
+      await cleanupUser(user.id);
+    });
+  });
+
+  // ==========================================================================
   // POST /api/trips - Create trip
   // ==========================================================================
   describe("POST /api/trips", () => {

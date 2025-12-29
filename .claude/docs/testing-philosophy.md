@@ -31,7 +31,7 @@ Our target distribution:
 - **20% Integration tests** - API routes + database (trips, photos, auth)
 - **10% E2E tests** - Playwright user flows (upload, view trip, share)
 
-**Goal:** ~60 strategic tests, ~2,500 lines, <5 seconds execution.
+**Goal:** Cover all critical paths. Test count is irrelevant—what matters is that every critical path has at least one test.
 
 ---
 
@@ -400,23 +400,15 @@ bun test --coverage
 
 ---
 
-## Success Metrics
+## Success Criteria
 
-Our testing overhaul achieved:
+A test suite is successful when:
 
-| Metric | Before | After | Change |
-|--------|--------|-------|--------|
-| Test files | 8 | 8 | Same |
-| Total tests | 172 | ~60 | -65% |
-| Lines of code | 4,766 | ~2,500 | -47% |
-| Execution time | ~8s | <5s | -37% |
-| Flaky tests | 3-5 | 0 | Fixed |
-
-**Quality indicators:**
-- 80%+ critical path coverage
-- 0 flaky tests
-- All tests use shared infrastructure
-- Clear, scannable test names
+1. **Every critical path has coverage** - Auth, RBAC, data integrity, API contracts, business logic
+2. **Zero flaky tests** - Tests pass or fail consistently
+3. **Tests use shared infrastructure** - Factories, types, helpers
+4. **Clear, scannable test names** - Describe behavior, not implementation
+5. **Fast execution** - Tests run in seconds, not minutes
 
 ---
 

@@ -1,22 +1,12 @@
 import { getDbClient } from "./db/client";
 
-// Counters for unique IDs
-let userCounter = 0;
-let tripCounter = 0;
-let photoCounter = 0;
-
-// ID generators
+// ID generators using crypto.randomUUID() for robust parallel test execution
 export function generateUserId(): string {
-  const now = Date.now();
-  const counter = ++userCounter;
-  return `00000000-0000-4000-a000-${String(now + counter)
-    .padStart(12, "0")
-    .slice(-12)}`;
+  return crypto.randomUUID();
 }
 
 export function generateTripSlug(prefix = "test-trip"): string {
-  const now = Date.now();
-  return `${prefix}-${now}-${++tripCounter}`;
+  return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
 }
 
 // User factory
@@ -30,10 +20,10 @@ export interface CreateUserOptions {
 
 export async function createUser(options: CreateUserOptions = {}) {
   const db = getDbClient();
-  const now = Date.now();
+  const uniqueId = crypto.randomUUID().slice(0, 8);
   const id = options.id ?? generateUserId();
-  const email = options.email ?? `test-user-${now}@example.com`;
-  const webauthnUserId = options.webauthnUserId ?? `test-webauthn-${now}`;
+  const email = options.email ?? `test-user-${uniqueId}@example.com`;
+  const webauthnUserId = options.webauthnUserId ?? `test-webauthn-${uniqueId}`;
   const isAdmin = options.isAdmin ?? false;
   const displayName = options.displayName ?? null;
 
@@ -86,8 +76,8 @@ export interface CreatePhotoOptions {
 
 export async function createPhoto(options: CreatePhotoOptions) {
   const db = getDbClient();
-  const now = Date.now();
-  const key = options.key ?? `test-photo-${now}-${++photoCounter}.jpg`;
+  const uniqueId = crypto.randomUUID().slice(0, 8);
+  const key = options.key ?? `test-photo-${uniqueId}.jpg`;
   const latitude = options.latitude ?? null;
   const longitude = options.longitude ?? null;
   const takenAt = options.takenAt ?? new Date();
