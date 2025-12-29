@@ -53,9 +53,9 @@ Therefore: **Claude (main) handles the gates**, worker agents do focused work.
 │   │   ╚═══════════════════╝                │                    │
 │   └────────────────────────────────────────┘                    │
 │             ▼                                                    │
-│   ┌────────┐   ┌──────────┐                                     │
-│   │ tester │ → │ reviewer │ → PR                                │
-│   └────────┘   └──────────┘                                     │
+│   ┌────────┐   ┌──────────┐   ┌──────────────────┐              │
+│   │ tester │ → │ reviewer │ → │ pr-review-toolkit│ → PR         │
+│   └────────┘   └──────────┘   └──────────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -99,10 +99,12 @@ These are subagents that do focused work and return results:
 - Returns test results
 
 ### reviewer
-**Purpose:** Validates code quality.
-- Code quality checks
-- Schema alignment
+**Purpose:** Validates code quality (project-specific).
+- Schema alignment (types match DB)
+- API integration (client calls correct endpoints)
+- Auth flows (guards check correct meta)
 - Unused code detection
+- Auto-fixes Critical/High issues
 - Returns findings
 
 ### doc-writer (utility)
@@ -113,6 +115,40 @@ Use for deployment guides, API docs, architecture docs.
 **Purpose:** UI polish work.
 Use for responsive fixes, animations, loading states.
 
+## Review Tools: Custom vs Plugin
+
+This project uses **two complementary review tools**:
+
+### Custom `reviewer` Agent
+Project-specific validation that knows this codebase:
+- Schema alignment (types match database exactly)
+- API integration (client calls correct endpoints)
+- Auth flows (guards check correct route meta)
+- Unused code detection
+- Auto-fixes Critical/High issues
+
+**Use for:** Every PR, catches project-specific issues.
+
+### `pr-review-toolkit` Plugin
+General-purpose PR review with 6 specialized agents:
+- `code-reviewer` - CLAUDE.md compliance, bugs, style
+- `pr-test-analyzer` - Test coverage and gaps
+- `comment-analyzer` - Documentation accuracy
+- `silent-failure-hunter` - Error handling issues
+- `type-design-analyzer` - Type quality and invariants
+- `code-simplifier` - Complexity reduction
+
+**Use for:** Thorough review, run `/pr-review-toolkit:review-pr`.
+
+### Review Workflow
+
+```
+Code Complete → Custom Reviewer → Tests Pass → PR-Review-Toolkit → Create PR
+```
+
+1. **Custom reviewer** catches project-specific issues (schema, API, auth)
+2. **pr-review-toolkit** does comprehensive quality checks
+
 ## Direct Agent Use
 
 You can use worker agents directly for focused tasks:
@@ -120,7 +156,8 @@ You can use worker agents directly for focused tasks:
 ```
 "Research how auth works"     → researcher
 "Write tests for uploads"     → tester
-"Review my changes"           → reviewer
+"Review my changes"           → reviewer (project-specific)
+"Review PR for quality"       → /pr-review-toolkit:review-pr (comprehensive)
 "Polish the mobile UI"        → ui-polisher
 ```
 

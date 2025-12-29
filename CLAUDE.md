@@ -251,7 +251,8 @@ IMPLEMENTATION (per commit) ─────────────────�
 
 FINALIZATION ───────────────────────────────────
 │ I spawn `tester` agent → writes/runs tests
-│ I spawn `reviewer` agent → validates quality
+│ I spawn `reviewer` agent → validates quality (project-specific)
+│ I run `/pr-review-toolkit:review-pr` → comprehensive review
 │ I create PR with `gh pr create`
 └───────────────────────────────────────────────
 ```
@@ -264,16 +265,31 @@ FINALIZATION ──────────────────────�
 | `planner` | Creates atomic commit plan in `/docs/` |
 | `implementer` | Implements ONE commit, returns diff |
 | `tester` | Writes and runs tests |
-| `reviewer` | Validates code quality before PR |
+| `reviewer` | Validates code quality (schema, API, auth) |
 | `doc-writer` | Technical documentation (utility) |
 | `ui-polisher` | UI polish work (utility) |
+
+### Review Tools
+
+Two complementary review stages:
+
+| Tool | Purpose | Checks |
+|------|---------|--------|
+| Custom `reviewer` | Project-specific validation | Schema alignment, API integration, auth flows, unused code |
+| `pr-review-toolkit` | Comprehensive PR review | Code quality, test coverage, comments, types, silent failures |
+
+**When to use:**
+- `reviewer` agent: Before every PR (catches project-specific issues)
+- `/pr-review-toolkit:review-pr`: For thorough review (6 specialized agents)
+- Individual toolkit agents: For focused analysis (e.g., `pr-test-analyzer` for test coverage)
 
 ### Direct Agent Use
 
 ```
 "Research how auth works"     → researcher
 "Write tests for uploads"     → tester
-"Review my changes"           → reviewer
+"Review my changes"           → reviewer (project-specific)
+"Review PR for quality"       → /pr-review-toolkit:review-pr (comprehensive)
 ```
 
 See `.claude/agents/README.md` for full documentation.
