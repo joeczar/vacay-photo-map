@@ -92,7 +92,7 @@ For the frontend CI/CD to build with correct production URLs, configure these re
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `VITE_API_URL` | Production API URL | `https://photos.joeczar.com` |
+| `VITE_API_URL` | Production API URL | `https://photos-api.joeczar.com` |
 | `VITE_APP_URL` | Production frontend URL | `https://photos.joeczar.com` |
 | `VITE_WEBAUTHN_RP_ID` | Domain for WebAuthn | `photos.joeczar.com` |
 | `VITE_WEBAUTHN_RP_NAME` | Display name for passkeys | `Vacay Photo Map` |

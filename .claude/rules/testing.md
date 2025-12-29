@@ -2,6 +2,116 @@
 
 **Applies to:** `**/*.test.ts`, `**/test-*.ts`
 
+## Testing Philosophy
+
+**Read the full guide:** `.claude/docs/testing-philosophy.md`
+
+**Core principles:**
+- Test critical paths (auth, RBAC, data integrity), not every function
+- Use shared infrastructure (`test-factories.ts`, `test-types.ts`, `test-helpers.ts`)
+- Keep tests simple and readable (Arrange-Act-Assert)
+- Focus on contracts, not implementation details
+
+**Target metrics:**
+- ~60 strategic tests (not 200+ exhaustive tests)
+- 80%+ critical path coverage (not 100% line coverage)
+- <5 seconds execution time
+
+## Test Factories
+
+**ALWAYS use test factories instead of duplicating database setup.**
+
+Available in `src/test-factories.ts`:
+- `createUser(options?)` - Create test user with optional overrides
+- `createTrip(options?)` - Create test trip
+- `createPhoto(options)` - Create test photo (requires tripId)
+- `cleanupUser(userId)` - Delete user
+- `cleanupTrip(tripId)` - Delete trip (cascades to photos, access, invites)
+- `cleanupPhoto(photoId)` - Delete photo
+
+### Example Usage:
+
+```typescript
+import { describe, it, expect, afterEach } from 'bun:test'
+import { createUser, createTrip, cleanupTrip } from '../test-factories'
+import { getAdminAuthHeader } from '../test-helpers'
+import type { TripListResponse } from '../test-types'
+
+describe('Trip Access', () => {
+  let tripId: string
+
+  afterEach(async () => {
+    if (tripId) await cleanupTrip(tripId)
+  })
+
+  it('admin can access all trips', async () => {
+    const trip = await createTrip({ title: 'Admin Trip' })
+    tripId = trip.id
+    const headers = await getAdminAuthHeader()
+
+    const res = await app.fetch(
+      new Request('http://localhost/api/trips', { headers })
+    )
+
+    expect(res.status).toBe(200)
+  })
+})
+```
+
+### Violations:
+
+```typescript
+// WRONG - Duplicating factory
+const [trip] = await db`
+  INSERT INTO trips (slug, title, is_public)
+  VALUES ('test-trip-123', 'Test Trip', true)
+  RETURNING id
+`
+
+// CORRECT - Use factory
+const trip = await createTrip({ slug: 'test-trip-123', title: 'Test Trip' })
+```
+
+## Response Types
+
+**ALWAYS import response types instead of duplicating interfaces.**
+
+Available in `src/test-types.ts`:
+- `ErrorResponse` - `{ error: string; message: string }`
+- `TripListResponse` - `{ trips: TripResponse[] }`
+- `TripResponse`, `TripWithPhotosResponse` - Trip data
+- `PhotoResponse` - Photo data
+- `SuccessResponse` - `{ success: boolean; message?: string }`
+- `AuthResponse` - Auth token + user profile
+- `InviteResponse`, `InviteListResponse` - Invite data
+
+### Example Usage:
+
+```typescript
+import type { ErrorResponse, TripListResponse } from '../test-types'
+
+it('returns 404 for missing trip', async () => {
+  const res = await app.fetch(new Request('http://localhost/api/trips/missing'))
+  expect(res.status).toBe(404)
+
+  const data = await res.json() as ErrorResponse
+  expect(data.error).toBeDefined()
+})
+```
+
+### Violations:
+
+```typescript
+// WRONG - Duplicating interface
+interface ErrorResponse {
+  error: string
+  message: string
+}
+
+// CORRECT - Import shared type
+import type { ErrorResponse } from '../test-types'
+```
+
 ## Environment Variables in Tests
 
 **NEVER hardcode environment variables in test files.**
@@ -36,6 +146,14 @@ Available in `src/test-helpers.ts`:
 - `createJpegFile()`, `createPngFile()`, `createWebpFile()` - Test files
 - `createFormData()` - FormData with file
 
+### Entity Factories (`src/test-factories.ts`)
+- `createUser(options?)`, `createTrip(options?)`, `createPhoto(options)`
+- `cleanupUser()`, `cleanupTrip()`, `cleanupPhoto()` - Cleanup helpers
+
+### Response Types (`src/test-types.ts`)
+- `ErrorResponse`, `SuccessResponse`, `TripListResponse`, `TripResponse`
+- `PhotoResponse`, `AuthResponse`, `InviteResponse`
+
 ### Violations:
 
 ```typescript
@@ -52,6 +170,15 @@ async function getAdminAuthHeader() {
 // CORRECT - Import shared helper
 import { getAdminAuthHeader } from '../test-helpers'
 ```
+
+## What NOT to Test
+
+**Avoid testing these (see philosophy doc for details):**
+- ❌ Trivial getters/setters
+- ❌ Framework behavior (Hono routing, Bun runtime)
+- ❌ Library internals (Sharp, EXIF parsing)
+- ❌ TypeScript type checking
+- ❌ Every possible input combination
 
 ## Configuration Files
 
