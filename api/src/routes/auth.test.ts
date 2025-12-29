@@ -6,16 +6,10 @@ import { auth } from "./auth";
 import { signToken } from "../utils/jwt";
 import type { AuthEnv } from "../types/auth";
 import { uniqueIp, createRequestWithUniqueIp } from "../test-helpers";
+import type { ErrorResponse, SuccessResponse } from "../test-types";
 
-// Response types
-interface ErrorResponse {
-  error: string;
-  message: string;
-}
-
-interface LogoutResponse {
-  success: boolean;
-}
+// Response types (LogoutResponse extends SuccessResponse)
+type LogoutResponse = SuccessResponse;
 
 // Create test app
 function createTestApp() {

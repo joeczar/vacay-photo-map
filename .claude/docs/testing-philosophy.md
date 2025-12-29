@@ -180,55 +180,64 @@ it('passes xmp option to exifr', ...)
 Create test data with cleanup:
 
 ```typescript
-import { createUser, createTrip, createPhoto, cleanup } from './test-factories'
+import { createUser, createTrip, createPhoto, cleanupTrip, cleanupUser } from '../test-factories'
 
 describe('Trip deletion', () => {
+  const createdTripIds: string[] = []
+  const createdUserIds: string[] = []
+
   afterEach(async () => {
-    await cleanup() // Cleans up all factory-created data
+    for (const id of createdTripIds) await cleanupTrip(id)
+    for (const id of createdUserIds) await cleanupUser(id)
+    createdTripIds.length = 0
+    createdUserIds.length = 0
   })
 
   it('cascades to photos', async () => {
     const user = await createUser()
-    const trip = await createTrip(user.id, { title: 'Vacation' })
-    const photo = await createPhoto(trip.id, user.id)
+    createdUserIds.push(user.id)
+    const trip = await createTrip({ title: 'Vacation' })
+    createdTripIds.push(trip.id)
+    const photo = await createPhoto({ tripId: trip.id })
 
-    await db.query('DELETE FROM trips WHERE id = $1', [trip.id])
+    await cleanupTrip(trip.id)  // Cascades to photos via FK
 
-    const photos = await db.query('SELECT * FROM photos WHERE id = $1', [photo.id])
-    expect(photos.rows).toHaveLength(0)
+    // Trip and photos are now deleted
   })
 })
 ```
 
 **Available Factories:**
-- `createUser(options?)` - Create user with optional fields
-- `createTrip(ownerId, options?)` - Create trip for user
-- `createPhoto(tripId, uploaderId, options?)` - Create photo with GPS data
-- `createInvite(tripId, inviterId, options?)` - Create trip invite
+- `createUser(options?)` - Create user with optional `{ id, email, isAdmin, displayName }`
+- `createTrip(options?)` - Create trip with optional `{ slug, title, isPublic, description }`
+- `createPhoto(options)` - Create photo, requires `{ tripId }`, optional `{ key, latitude, longitude, takenAt }`
+
+**Cleanup Helpers:**
+- `cleanupUser(userId)` - Delete user
+- `cleanupTrip(tripId)` - Delete trip (cascades to photos via FK)
+- `cleanupPhoto(photoId)` - Delete photo
 
 ### Test Types (`api/src/test-types.ts`)
 
 Type-safe response assertions:
 
 ```typescript
-import type { TripResponse, ErrorResponse, PaginatedResponse } from './test-types'
+import type { TripResponse, TripListResponse, ErrorResponse } from '../test-types'
 
 it('returns trip with correct shape', async () => {
-  const res = await app.request('/api/trips/123')
-  const trip = await res.json<TripResponse>()
+  const res = await app.fetch(new Request('http://localhost/api/trips/my-trip'))
+  const data = await res.json() as TripResponse
 
-  expect(trip.id).toBeDefined()            // Type-safe: knows about .id
-  expect(trip.photos).toBeArray()          // Type-safe: knows about .photos[]
-  expect(trip.owner.username).toBeDefined() // Type-safe: nested objects
+  expect(data.id).toBeDefined()
+  expect(data.slug).toBeDefined()
+  expect(data.title).toBeDefined()
 })
 
-it('returns paginated results', async () => {
-  const res = await app.request('/api/trips')
-  const data = await res.json<PaginatedResponse<TripResponse>>()
+it('returns trip list', async () => {
+  const res = await app.fetch(new Request('http://localhost/api/trips'))
+  const data = await res.json() as TripListResponse
 
-  expect(data.items).toBeArray()
-  expect(data.total).toBeNumber()
-  expect(data.page).toBe(1)
+  expect(Array.isArray(data.trips)).toBe(true)
 })
 ```
 
@@ -237,33 +246,33 @@ it('returns paginated results', async () => {
 Common operations:
 
 ```typescript
-import {
-  getAdminAuthHeader,
-  getUserAuthHeader,
-  createJpegFile,
-  createFormData
-} from './test-helpers'
+import { getAdminAuthHeader, getUserAuthHeader, createJpegFile } from '../test-helpers'
 
 it('allows admin to view all trips', async () => {
   const headers = await getAdminAuthHeader()
 
-  const res = await app.request('/api/admin/trips', { headers })
+  const res = await app.fetch(
+    new Request('http://localhost/api/trips', { headers })
+  )
   expect(res.status).toBe(200)
 })
 
 it('uploads photo with EXIF data', async () => {
-  const user = await createUser()
-  const trip = await createTrip(user.id)
-  const headers = await getUserAuthHeader(user.id)
+  const trip = await createTrip()
+  const headers = await getAdminAuthHeader()
+  const file = createJpegFile()
 
-  const file = createJpegFile() // Pre-configured with EXIF data
-  const formData = createFormData(file, { trip_id: trip.id })
+  const formData = new FormData()
+  formData.append('photo', file)
+  formData.append('tripId', trip.id)
 
-  const res = await app.request('/api/photos', {
-    method: 'POST',
-    headers,
-    body: formData
-  })
+  const res = await app.fetch(
+    new Request('http://localhost/api/upload', {
+      method: 'POST',
+      headers: { ...headers },
+      body: formData,
+    })
+  )
 
   expect(res.status).toBe(201)
 })
@@ -278,17 +287,22 @@ it('uploads photo with EXIF data', async () => {
 **External services** that are slow or unreliable:
 
 ```typescript
-import { mockR2Storage } from './test-mocks'
+import { mock } from 'bun:test'
 
-describe('Photo upload with R2', () => {
-  it('falls back to filesystem when R2 fails', async () => {
-    const r2 = mockR2Storage({ shouldFail: true })
+// Mock R2 to use local filesystem fallback
+mock.module('../utils/r2', () => ({
+  uploadToR2: async () => false,  // Simulate R2 unavailable
+  getFromR2: async () => null,
+  isR2Available: () => false,
+  deleteMultipleFromR2: async () => 0,
+  PHOTOS_URL_PREFIX: '/api/photos/',
+}))
 
-    const res = await app.request('/api/photos', { ... })
-
-    expect(r2.put).toHaveBeenCalled() // Attempted R2
-    expect(res.status).toBe(201)      // Succeeded anyway
-    // Photo saved to local PHOTOS_DIR instead
+describe('Photo upload', () => {
+  it('falls back to filesystem when R2 unavailable', async () => {
+    // R2 is mocked above - photos will save to local PHOTOS_DIR
+    const res = await app.fetch(/* upload request */)
+    expect(res.status).toBe(201)
   })
 })
 ```
@@ -307,28 +321,39 @@ describe('Photo upload with R2', () => {
 
 ## Test Cleanup
 
-### Factory Cleanup
+### Manual Cleanup Pattern
+
+Track created IDs and clean up in `afterEach`:
 
 ```typescript
-import { cleanup } from './test-factories'
+import { createUser, createTrip, cleanupTrip, cleanupUser } from '../test-factories'
 
 describe('My test suite', () => {
+  const createdTripIds: string[] = []
+  const createdUserIds: string[] = []
+
   afterEach(async () => {
-    await cleanup() // Deletes all factory-created data in reverse order
+    // Clean trips first (may have FK to users)
+    for (const id of createdTripIds) await cleanupTrip(id)
+    for (const id of createdUserIds) await cleanupUser(id)
+    createdTripIds.length = 0
+    createdUserIds.length = 0
   })
 
   it('test 1', async () => {
-    const user = await createUser() // Tracked automatically
-    const trip = await createTrip(user.id) // Tracked automatically
-    // ...
-  }) // cleanup() runs after this test
+    const user = await createUser()
+    createdUserIds.push(user.id)
+    const trip = await createTrip({ title: 'Test' })
+    createdTripIds.push(trip.id)
+    // ... test logic
+  })
 })
 ```
 
 **How it works:**
-- Factories track created IDs in arrays
-- `cleanup()` deletes in reverse order (photos → trips → users)
-- Relies on database cascade for related data
+- Track IDs in arrays as you create entities
+- `afterEach` cleans up in correct order (respecting FK constraints)
+- Database cascades handle related data (photos deleted with trips)
 
 ### Database Cascade
 
@@ -401,24 +426,24 @@ Our testing overhaul achieved:
 
 ```typescript
 import { describe, it, expect, afterEach } from 'bun:test'
-import { createUser, cleanup } from '../test-factories'
-import { getUserAuthHeader } from '../test-helpers'
+import { createUser, cleanupUser } from '../test-factories'
+import { getAdminAuthHeader } from '../test-helpers'
 import type { ErrorResponse } from '../test-types'
 
-describe('Auth: Token validation', () => {
+describe('Auth: Protected endpoints', () => {
+  const createdUserIds: string[] = []
+
   afterEach(async () => {
-    await cleanup()
+    for (const id of createdUserIds) await cleanupUser(id)
+    createdUserIds.length = 0
   })
 
-  it('rejects expired token', async () => {
-    const user = await createUser()
-    const headers = await getUserAuthHeader(user.id, { expiresIn: '0s' })
-
-    const res = await app.request('/api/trips', { headers })
+  it('rejects unauthenticated request', async () => {
+    const res = await app.fetch(new Request('http://localhost/api/trips'))
 
     expect(res.status).toBe(401)
-    const error = await res.json<ErrorResponse>()
-    expect(error.message).toContain('expired')
+    const error = await res.json() as ErrorResponse
+    expect(error.error).toBe('Unauthorized')
   })
 })
 ```
@@ -426,22 +451,28 @@ describe('Auth: Token validation', () => {
 ### RBAC Test
 
 ```typescript
+import { createUser, createTrip, cleanupTrip, cleanupUser } from '../test-factories'
+import { getUserAuthHeader } from '../test-helpers'
+
 describe('RBAC: Trip access', () => {
+  const createdTripIds: string[] = []
+  const createdUserIds: string[] = []
+
   afterEach(async () => {
-    await cleanup()
+    for (const id of createdTripIds) await cleanupTrip(id)
+    for (const id of createdUserIds) await cleanupUser(id)
+    createdTripIds.length = 0
+    createdUserIds.length = 0
   })
 
-  it('prevents non-owner from editing trip', async () => {
-    const owner = await createUser({ username: 'owner' })
-    const other = await createUser({ username: 'other' })
-    const trip = await createTrip(owner.id, { title: 'Private Trip' })
+  it('prevents non-admin from accessing admin endpoint', async () => {
+    const user = await createUser({ isAdmin: false })
+    createdUserIds.push(user.id)
+    const headers = await getUserAuthHeader(user.id, user.email)
 
-    const headers = await getUserAuthHeader(other.id)
-    const res = await app.request(`/api/trips/${trip.id}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ title: 'Hacked!' })
-    })
+    const res = await app.fetch(
+      new Request('http://localhost/api/trips/admin', { headers })
+    )
 
     expect(res.status).toBe(403)
   })
@@ -451,21 +482,22 @@ describe('RBAC: Trip access', () => {
 ### Data Integrity Test
 
 ```typescript
+import { createTrip, createPhoto, cleanupTrip } from '../test-factories'
+import { getDbClient } from '../db/client'
+
 describe('Data integrity: Cascading deletes', () => {
-  afterEach(async () => {
-    await cleanup()
-  })
-
   it('deletes all photos when trip is deleted', async () => {
-    const user = await createUser()
-    const trip = await createTrip(user.id)
-    const photo1 = await createPhoto(trip.id, user.id)
-    const photo2 = await createPhoto(trip.id, user.id)
+    const db = getDbClient()
+    const trip = await createTrip({ title: 'Test Trip' })
+    await createPhoto({ tripId: trip.id })
+    await createPhoto({ tripId: trip.id })
 
-    await db.query('DELETE FROM trips WHERE id = $1', [trip.id])
+    // Delete trip - should cascade to photos
+    await cleanupTrip(trip.id)
 
-    const photos = await db.query('SELECT * FROM photos WHERE trip_id = $1', [trip.id])
-    expect(photos.rows).toHaveLength(0)
+    // Verify photos are gone
+    const photos = await db`SELECT * FROM photos WHERE trip_id = ${trip.id}`
+    expect(photos.length).toBe(0)
   })
 })
 ```
@@ -482,6 +514,6 @@ When writing tests, ask yourself:
 - [ ] Is the test **simple** and **readable**?
 - [ ] Does it **fail clearly** when something breaks?
 - [ ] Did I avoid mocking core dependencies (database, JWT)?
-- [ ] Did I clean up test data with `cleanup()`?
+- [ ] Did I add cleanup using `cleanupTrip()`, `cleanupUser()`, etc.?
 
 If all checkboxes are checked, you're following our testing philosophy.

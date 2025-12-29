@@ -241,6 +241,65 @@ describe("Trip Routes", () => {
       const data = (await res.json()) as ErrorResponse;
       expect(data.message).toContain("Title is required");
     });
+
+    it("creates trip with valid data and returns 201", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const slug = `test-trip-create-${Date.now()}`;
+
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            slug,
+            title: "Valid Test Trip",
+            description: "Test description",
+            isPublic: true,
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(201);
+      const data = (await res.json()) as {
+        id: string;
+        slug: string;
+        title: string;
+      };
+      expect(data.slug).toBe(slug);
+      expect(data.title).toBe("Valid Test Trip");
+
+      // Cleanup
+      await cleanupTrip(data.id);
+    });
+
+    it("returns 409 for duplicate slug", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const slug = `duplicate-slug-${Date.now()}`;
+
+      // Create first trip
+      const trip = await createTrip({ slug, title: "First Trip" });
+
+      // Try to create second trip with same slug
+      const res = await app.fetch(
+        new Request("http://localhost/api/trips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            slug,
+            title: "Duplicate Trip",
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(409);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toContain("already exists");
+
+      // Cleanup
+      await cleanupTrip(trip.id);
+    });
   });
 
   // ==========================================================================
@@ -288,6 +347,34 @@ describe("Trip Routes", () => {
       expect(res.status).toBe(400);
       const data = (await res.json()) as ErrorResponse;
       expect(data.message).toContain("UUID format");
+    });
+
+    it("updates trip with valid data and returns 200", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const trip = await createTrip({ title: "Original Title" });
+      createdTripIds.push(trip.id);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${trip.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            title: "Updated Title",
+            description: "Updated description",
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as {
+        id: string;
+        title: string;
+        description: string;
+      };
+      expect(data.title).toBe("Updated Title");
+      expect(data.description).toBe("Updated description");
     });
   });
 

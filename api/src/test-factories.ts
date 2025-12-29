@@ -79,7 +79,6 @@ export async function createTrip(options: CreateTripOptions = {}) {
 export interface CreatePhotoOptions {
   tripId: string;
   key?: string;
-  filename?: string;
   latitude?: number | null;
   longitude?: number | null;
   takenAt?: Date | null;
