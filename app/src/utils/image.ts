@@ -1,7 +1,16 @@
 // Utilities for resolving image URLs
 
-const API_URL = import.meta.env.VITE_API_URL || ''
-const RAW_CDN_URL = import.meta.env.VITE_CDN_URL || ''
+/**
+ * Vercel CLI adds trailing newlines to environment variables.
+ * This breaks URLs when embedded in srcset attributes.
+ * @see https://github.com/vercel/vercel/issues
+ */
+function cleanVercelEnvVar(value: string | undefined): string {
+  return (value || '').trim()
+}
+
+const API_URL = cleanVercelEnvVar(import.meta.env.VITE_API_URL)
+const RAW_CDN_URL = cleanVercelEnvVar(import.meta.env.VITE_CDN_URL)
 
 // Validate and normalize CDN URL at module load
 const CDN_URL = RAW_CDN_URL.replace(/\/$/, '') // Remove trailing slash
