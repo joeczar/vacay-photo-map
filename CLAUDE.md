@@ -164,7 +164,7 @@ VITE_CDN_URL=https://images.joeczar.com
 
 **Schema:**
 - Current: `user_profiles`, `trips`, `photos`, `trip_access`, `invites`
-- Note: `authenticators` table still exists but unused (kept for potential rollback)
+- Note: `authenticators` table dropped in migration 001 (WebAuthn deprecated)
 
 ## Project Context
 
@@ -177,6 +177,32 @@ Milestones in GitHub Issues. See GitHub project board for current priorities.
 - Utils: Pure functions
 - Lib: Service clients
 - Composables: Vue composables (will be created)
+
+## Database Migrations
+
+**Schema changes go in numbered migrations, not schema.sql.**
+
+- Migration files: `api/migrations/NNN-description.sql`
+- Migration tool: `postgres-migrations` library
+- Run migrations: `bun scripts/migrate.ts` (or `pnpm migrate` from api/)
+- Tracking table: `migrations` (created automatically)
+
+**Creating a new migration:**
+1. Find next number: `ls api/migrations/ | tail -1` (e.g., 007)
+2. Create file: `api/migrations/008-add-new-column.sql`
+3. Write idempotent SQL (use DO blocks, IF NOT EXISTS)
+4. Test locally: `pnpm migrate` (from api/)
+5. Commit and deploy
+   - Production: Migrations run automatically via docker-entrypoint.sh
+   - Local dev: Run `pnpm migrate` manually after pulling changes
+
+**DO NOT:**
+- Edit `api/src/db/schema.sql` (deprecated, reference only)
+- Edit old migrations (create new one to fix)
+- Delete migrations (breaks version tracking)
+- Run SQL manually in production (use migrations)
+
+**Philosophy:** Roll forward, never rollback. If a migration causes issues, create a new migration to fix it.
 
 ## Common Gotchas
 
