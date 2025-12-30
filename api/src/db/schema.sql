@@ -26,6 +26,33 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
+-- Migration: Add password_hash for password authentication (#227, #229)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_profiles'
+      AND column_name = 'password_hash'
+  ) THEN
+    ALTER TABLE user_profiles ADD COLUMN password_hash TEXT;
+  END IF;
+END $$;
+
+-- Set NOT NULL constraint after column exists
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'user_profiles'
+      AND column_name = 'password_hash'
+      AND is_nullable = 'YES'
+  ) THEN
+    -- Ensure all existing rows have a value before adding constraint
+    UPDATE user_profiles SET password_hash = '' WHERE password_hash IS NULL;
+    ALTER TABLE user_profiles ALTER COLUMN password_hash SET NOT NULL;
+  END IF;
+END $$;
+
 -- Trips
 CREATE TABLE IF NOT EXISTS trips (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
