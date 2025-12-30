@@ -367,46 +367,57 @@ auth.post("/login", async (c) => {
     );
   }
 
-  const db = getDbClient();
-  const sanitizedEmail = sanitizeEmail(email);
+  try {
+    const db = getDbClient();
+    const sanitizedEmail = sanitizeEmail(email);
 
-  // Find user by email
-  const users = await db<DbUser[]>`
-    SELECT id, email, password_hash, display_name, is_admin
-    FROM user_profiles
-    WHERE email = ${sanitizedEmail}
-  `;
+    // Find user by email
+    const users = await db<DbUser[]>`
+      SELECT id, email, password_hash, display_name, is_admin
+      FROM user_profiles
+      WHERE email = ${sanitizedEmail}
+    `;
 
-  // Return generic error to prevent user enumeration
-  if (users.length === 0) {
-    return c.json(AUTH_ERROR, 401);
-  }
+    // Return generic error to prevent user enumeration
+    if (users.length === 0) {
+      return c.json(AUTH_ERROR, 401);
+    }
 
-  const user = users[0];
+    const user = users[0];
 
-  // Verify password
-  const isValid = await Bun.password.verify(password, user.password_hash);
+    // Verify password
+    const isValid = await Bun.password.verify(password, user.password_hash);
 
-  if (!isValid) {
-    return c.json(AUTH_ERROR, 401);
-  }
+    if (!isValid) {
+      return c.json(AUTH_ERROR, 401);
+    }
 
-  // Generate JWT
-  const token = await signToken({
-    sub: user.id,
-    email: user.email,
-    isAdmin: user.is_admin,
-  });
-
-  return c.json({
-    user: {
-      id: user.id,
+    // Generate JWT
+    const token = await signToken({
+      sub: user.id,
       email: user.email,
-      displayName: user.display_name,
       isAdmin: user.is_admin,
-    },
-    token,
-  });
+    });
+
+    return c.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.display_name,
+        isAdmin: user.is_admin,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error(
+      "[AUTH] Login error:",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+    return c.json(
+      { error: "Internal Server Error", message: "Login failed" },
+      500,
+    );
+  }
 });
 
 // =============================================================================
@@ -438,28 +449,39 @@ auth.post("/admin/reset-password", requireAdmin, async (c) => {
     );
   }
 
-  const db = getDbClient();
+  try {
+    const db = getDbClient();
 
-  // Check if user exists
-  const users = await db<Pick<DbUser, "id">[]>`
-    SELECT id FROM user_profiles WHERE id = ${userId}
-  `;
+    // Check if user exists
+    const users = await db<Pick<DbUser, "id">[]>`
+      SELECT id FROM user_profiles WHERE id = ${userId}
+    `;
 
-  if (users.length === 0) {
-    return c.json({ error: "Not Found", message: "User not found" }, 404);
+    if (users.length === 0) {
+      return c.json({ error: "Not Found", message: "User not found" }, 404);
+    }
+
+    // Hash new password
+    const passwordHash = await Bun.password.hash(newPassword);
+
+    // Update user's password
+    await db`
+      UPDATE user_profiles
+      SET password_hash = ${passwordHash}, updated_at = NOW()
+      WHERE id = ${userId}
+    `;
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error(
+      "[AUTH] Password reset error:",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+    return c.json(
+      { error: "Internal Server Error", message: "Password reset failed" },
+      500,
+    );
   }
-
-  // Hash new password
-  const passwordHash = await Bun.password.hash(newPassword);
-
-  // Update user's password
-  await db`
-    UPDATE user_profiles
-    SET password_hash = ${passwordHash}, updated_at = NOW()
-    WHERE id = ${userId}
-  `;
-
-  return c.json({ success: true });
 });
 
 // =============================================================================

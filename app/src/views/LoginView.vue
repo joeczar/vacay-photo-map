@@ -140,9 +140,9 @@ const onSubmit = handleSubmit(async values => {
     console.error('Login failed:', err)
 
     if (err instanceof ApiError) {
-      if (err.status === 404) {
-        error.value = 'No account found with this email. Please register first.'
-      } else if (err.status === 401) {
+      // Note: Login returns 401 for both "user not found" and "wrong password"
+      // to prevent user enumeration attacks
+      if (err.status === 401) {
         error.value = 'Invalid email or password. Please try again.'
       } else {
         error.value = err.message || 'Login failed. Please try again.'
