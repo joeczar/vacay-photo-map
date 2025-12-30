@@ -22,7 +22,7 @@ BEGIN
       AND column_name = 'password_hash'
       AND is_nullable = 'YES'
   ) THEN
-    UPDATE user_profiles SET password_hash = '' WHERE password_hash IS NULL;
+    UPDATE user_profiles SET password_hash = 'INVALID_REQUIRES_RESET' WHERE password_hash IS NULL;
     ALTER TABLE user_profiles ALTER COLUMN password_hash SET NOT NULL;
   END IF;
 END $$;

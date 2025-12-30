@@ -76,11 +76,11 @@ touch api/migrations/002-add-user-avatar.sql
 # Edit migration file
 # ... write SQL ...
 
-# Test (migrations run automatically on API startup)
-pnpm dev:api
+# Run migrations manually
+cd api && pnpm migrate
 
 # Verify in database
-docker exec -it vacay-dev-postgres-1 psql -U vacay -d vacay_dev -c "SELECT * FROM migrations;"
+docker exec -it vacay-postgres-dev psql -U vacay -d vacay -c "SELECT * FROM migrations;"
 ```
 
 ## DO NOT Rules
