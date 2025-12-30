@@ -11,8 +11,8 @@ This directory contains SQL migrations managed by the [`postgres-migrations`](ht
 - Each migration runs once per database
 
 **Migration Execution:**
-- Local development: Automatic via `initDatabase()` in `src/db/index.ts`
-- Production: Automatic on API startup (if needed) or manual via migration script
+- Local development: Manual via `pnpm migrate` (from `api/` directory)
+- Production: Automatic on container startup via `docker-entrypoint.sh`
 
 ## Migration Files
 

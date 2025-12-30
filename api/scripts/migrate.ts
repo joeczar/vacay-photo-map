@@ -2,44 +2,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { migrate } from 'postgres-migrations'
 import { closeDbClient, connectWithRetry, getDbClient } from '../src/db/client'
+import { createMigrationClient } from '../src/db/migration-client'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const migrationsDir = path.join(__dirname, '..', 'migrations')
-
-/**
- * Create a postgres-migrations compatible client adapter
- * The library expects node-postgres (pg) client interface, but we use postgres.js
- * This adapter maps our client's methods to the expected interface
- */
-function createMigrationClient(db: ReturnType<typeof getDbClient>) {
-  return {
-    query: async (sql: string | { text: string; values?: unknown[] }, values?: unknown[]) => {
-      // postgres-migrations may pass query as object { text, values } or as string
-      let queryText: string
-      let queryValues: unknown[] | undefined
-
-      if (typeof sql === 'object' && sql !== null && 'text' in sql) {
-        // Query object format: { text: '...', values: [...] }
-        queryText = sql.text
-        queryValues = sql.values
-      } else {
-        // String format
-        queryText = sql as string
-        queryValues = values
-      }
-
-      // postgres-migrations may pass empty array [] instead of undefined
-      // postgres.js treats empty array differently than no params
-      const result = (queryValues && queryValues.length > 0)
-        ? await db.unsafe(queryText, queryValues as any[])
-        : await db.unsafe(queryText)
-      return {
-        rows: result,
-        rowCount: result.length,
-      }
-    },
-  }
-}
 
 const runMigrations = async () => {
   // Wait for database to be available (handles container startup ordering)
@@ -92,6 +58,8 @@ runMigrations()
   })
   .catch(async (error) => {
     console.error('Migration error:', error)
-    await closeDbClient().catch(() => {})
+    await closeDbClient().catch((cleanupError) => {
+    console.error('Failed to close database client during error cleanup:', cleanupError)
+  })
     process.exit(1)
   })

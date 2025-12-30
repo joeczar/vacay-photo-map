@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Note: Column additions handled by migrations 002-007
+-- Note: password_hash column added by migration 002
 
 -- Trips
 CREATE TABLE IF NOT EXISTS trips (
@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_photos_taken_at ON photos(taken_at);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_taken ON photos(trip_id, taken_at);
 CREATE INDEX IF NOT EXISTS idx_trips_slug ON trips(slug);
 CREATE INDEX IF NOT EXISTS idx_sections_trip_order ON sections(trip_id, order_index);
-CREATE INDEX IF NOT EXISTS idx_photos_section_id ON photos(section_id);
+-- Note: idx_photos_section_id index created by migration 005 (section_id column)
 
 -- Update updated_at timestamps automatically
 CREATE OR REPLACE FUNCTION set_updated_at()
