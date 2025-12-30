@@ -30,8 +30,9 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
 
-# Copy migration scripts (needed at runtime for auto-migrations)
+# Copy migration scripts and migrations directory (needed at runtime for auto-migrations)
 COPY scripts ./scripts
+COPY migrations ./migrations
 
 # Copy and make entrypoint executable (must be before USER bun)
 COPY docker-entrypoint.sh ./

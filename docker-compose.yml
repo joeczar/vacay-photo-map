@@ -26,8 +26,8 @@ services:
       - '${DEV_DB_PORT:-5433}:5432'
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
-      - ./api/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./api/src/db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      # Note: Fresh databases start empty. Migrations are applied by the API
+      # on startup via docker-entrypoint.sh or manually via `pnpm migrate`
     healthcheck:
       # Uses container's env vars (set above)
       test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']

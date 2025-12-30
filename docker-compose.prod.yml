@@ -31,7 +31,8 @@ services:
       POSTGRES_DB: vacay
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./api/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # Note: Fresh databases start empty. Migrations are applied by the API
+      # on startup via docker-entrypoint.sh
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U vacay -d vacay']
       interval: 10s

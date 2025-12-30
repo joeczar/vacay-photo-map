@@ -192,7 +192,9 @@ Milestones in GitHub Issues. See GitHub project board for current priorities.
 2. Create file: `api/migrations/008-add-new-column.sql`
 3. Write idempotent SQL (use DO blocks, IF NOT EXISTS)
 4. Test locally: `pnpm migrate` (from api/)
-5. Commit and deploy (migrations run automatically on API start)
+5. Commit and deploy
+   - Production: Migrations run automatically via docker-entrypoint.sh
+   - Local dev: Run `pnpm migrate` manually after pulling changes
 
 **DO NOT:**
 - Edit `api/src/db/schema.sql` (deprecated, reference only)
