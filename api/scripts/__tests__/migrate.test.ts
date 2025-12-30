@@ -13,10 +13,26 @@ const migrationsDir = path.join(__dirname, '..', '..', 'migrations')
  */
 function createMigrationClient(db: ReturnType<typeof getDbClient>) {
   return {
-    query: async (sql: string, values?: unknown[]) => {
-      const result = values
-        ? await db.unsafe(sql, values as any[])
-        : await db.unsafe(sql)
+    query: async (sql: string | { text: string; values?: unknown[] }, values?: unknown[]) => {
+      // postgres-migrations may pass query as object { text, values } or as string
+      let queryText: string
+      let queryValues: unknown[] | undefined
+
+      if (typeof sql === 'object' && sql !== null && 'text' in sql) {
+        // Query object format: { text: '...', values: [...] }
+        queryText = sql.text
+        queryValues = sql.values
+      } else {
+        // String format
+        queryText = sql as string
+        queryValues = values
+      }
+
+      // postgres-migrations may pass empty array [] instead of undefined
+      // postgres.js treats empty array differently than no params
+      const result = (queryValues && queryValues.length > 0)
+        ? await db.unsafe(queryText, queryValues as any[])
+        : await db.unsafe(queryText)
       return {
         rows: result,
         rowCount: result.length,
@@ -118,7 +134,9 @@ describe('Database Migrations', () => {
     `
 
     // Should have at least the initial schema migration
-    expect(migrations.length).toBeGreaterThanOrEqual(1)
-    expect(migrations[0].name).toBe('001-initial-schema')
+    // Note: postgres-migrations creates a 'create-migrations-table' entry first
+    // and strips the number prefix from migration names
+    expect(migrations.length).toBeGreaterThanOrEqual(2)
+    expect(migrations.some(m => m.name === 'initial-schema')).toBe(true)
   })
 })
