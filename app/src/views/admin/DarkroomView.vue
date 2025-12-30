@@ -56,9 +56,19 @@
           "
         >
           <img
-            :src="getImageUrl(photo.thumbnail_url, { rotation: photo.rotation })"
+            :src="
+              getImageUrl(photo.thumbnail_url, {
+                rotation: localRotations[photo.id] ?? photo.rotation
+              })
+            "
             :alt="`Photo ${photo.id}`"
             class="w-full h-full object-cover"
+            :class="
+              isRotating && selectedPhotoId === photo.id ? 'transition-transform duration-300' : ''
+            "
+            :style="{
+              transform: `rotate(${localRotations[photo.id] ?? photo.rotation}deg)`
+            }"
           />
         </button>
       </div>
@@ -67,7 +77,9 @@
       <Card v-if="selectedPhoto" class="p-6 mt-6">
         <div class="flex flex-col lg:flex-row gap-6">
           <!-- Photo Display -->
-          <div class="flex-1 flex items-center justify-center bg-muted rounded-lg min-h-[400px]">
+          <div
+            class="flex-1 flex items-center justify-center bg-muted rounded-lg min-h-[400px] overflow-hidden"
+          >
             <img
               :src="
                 getImageUrl(selectedPhoto.url, {
@@ -76,6 +88,10 @@
               "
               :alt="`Photo from ${trip?.title}`"
               class="max-w-full max-h-[600px] object-contain"
+              :class="isRotating ? 'transition-transform duration-300' : ''"
+              :style="{
+                transform: `rotate(${localRotations[selectedPhoto.id] ?? selectedPhoto.rotation}deg)`
+              }"
             />
           </div>
           <!-- Controls Sidebar -->
@@ -139,6 +155,7 @@ const selectedPhotoId = ref<string | null>(null)
 const localRotations = reactive<Record<string, number>>({})
 const saveTimeouts = ref<Record<string, number>>({})
 const savingPhotos = ref(new Set<string>())
+const isRotating = ref(false) // Track if user is actively rotating (for animation)
 
 const selectedPhoto = computed(() => {
   if (!selectedPhotoId.value || !trip.value?.photos) return null
@@ -168,6 +185,8 @@ function goBack() {
 }
 
 function selectPhoto(photoId: string) {
+  // Disable rotation animation when selecting to prevent flash
+  isRotating.value = false
   selectedPhotoId.value = photoId
 }
 
@@ -177,6 +196,9 @@ function rotatePhoto(delta: number) {
   const photoId = selectedPhoto.value.id
   const current = localRotations[photoId] ?? selectedPhoto.value.rotation
   const newRotation = ((current + delta + 360) % 360) as 0 | 90 | 180 | 270
+
+  // Enable transition for user-initiated rotation
+  isRotating.value = true
 
   // Optimistic update
   localRotations[photoId] = newRotation
@@ -215,6 +237,9 @@ function rotatePhoto(delta: number) {
 
 function navigatePhoto(direction: number) {
   if (!trip.value?.photos || trip.value.photos.length === 0) return
+
+  // Disable rotation animation when navigating to prevent flash
+  isRotating.value = false
 
   const photos = trip.value.photos
 

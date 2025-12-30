@@ -70,18 +70,20 @@ export function getImageUrl(url: string, params?: ImageParams): string {
     return url
   }
 
-  // Development mode - use API route
+  // Development mode - use API route with query params
   if (import.meta.env.DEV) {
-    return `${API_URL}${url}`
+    const queryString = params ? buildQueryString(params) : ''
+    return `${API_URL}${url}${queryString}`
   }
 
-  // Production without CDN configured - warn once and use API route
+  // Production without CDN configured - warn once and use API route with query params
   if (!CDN_URL) {
     if (!hasWarnedNoCdn) {
       console.warn('[image] VITE_CDN_URL not configured - using API routes in production (slower)')
       hasWarnedNoCdn = true
     }
-    return `${API_URL}${url}`
+    const queryString = params ? buildQueryString(params) : ''
+    return `${API_URL}${url}${queryString}`
   }
 
   // Production with CDN - build CDN URL with transformations
