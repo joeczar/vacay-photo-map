@@ -119,28 +119,13 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getTripById, updatePhotoRotation } from '@/utils/database'
-import type { ApiTrip } from '@/utils/database'
+import type { ApiTrip, Photo } from '@/utils/database'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { getImageUrl } from '@/utils/image'
 import { RotateCw, RotateCcw } from 'lucide-vue-next'
-
-type Photo = {
-  id: string
-  trip_id: string
-  storage_key: string
-  url: string
-  thumbnail_url: string
-  latitude: number | null
-  longitude: number | null
-  taken_at: string
-  caption: string | null
-  album: string | null
-  rotation: number
-  created_at: string
-}
 
 const route = useRoute()
 const router = useRouter()

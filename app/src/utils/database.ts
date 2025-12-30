@@ -4,7 +4,7 @@ import { useAuth } from '@/composables/useAuth'
 
 type Trip = TablesRow<'trips'>
 type TripInsert = TablesInsert<'trips'>
-type Photo = TablesRow<'photos'>
+export type Photo = TablesRow<'photos'>
 type PhotoInsert = TablesInsert<'photos'>
 
 // API trip type - backend excludes access_token_hash for security (never sent to clients)
