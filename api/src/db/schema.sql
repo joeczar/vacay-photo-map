@@ -1,3 +1,17 @@
+-- =============================================================================
+-- DEPRECATED: This file is kept for reference only.
+--
+-- DO NOT MODIFY THIS FILE FOR SCHEMA CHANGES.
+--
+-- Schema changes should be made via numbered migrations in api/migrations/
+-- See api/migrations/README.md for the migration workflow.
+--
+-- This file represents the original schema before the migration system was
+-- implemented. It may drift from the actual database schema over time.
+--
+-- Related: Issue #229 (migration system implementation)
+-- =============================================================================
+
 -- Vacay Photo Map self-hosted schema (Postgres 15+)
 -- Safe to run multiple times; used by docker-compose init and migration script
 --
