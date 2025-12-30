@@ -73,3 +73,6 @@ supabase/.temp/
 Thumbs.db
 .vercel
 .env*.local
+
+# Claude Code state (ephemeral session data)
+.claude/state/
