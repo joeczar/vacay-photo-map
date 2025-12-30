@@ -313,3 +313,13 @@ export async function deletePhoto(photoId: string): Promise<void> {
 
   await api.delete(`/api/trips/photos/${photoId}`)
 }
+
+/**
+ * Update photo rotation (admin-only)
+ */
+export async function updatePhotoRotation(photoId: string, rotation: number): Promise<void> {
+  const { getToken } = useAuth()
+  requireAuth(getToken)
+
+  await api.patch(`/api/trips/photos/${photoId}`, { rotation })
+}

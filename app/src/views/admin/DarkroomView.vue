@@ -93,7 +93,10 @@
                 </Button>
               </div>
               <p class="text-sm text-muted-foreground text-center mt-2">
-                {{ localRotations[selectedPhoto.id] ?? selectedPhoto.rotation }}°
+                <span v-if="savingPhotos.has(selectedPhoto.id)">Saving...</span>
+                <span v-else
+                  >{{ localRotations[selectedPhoto.id] ?? selectedPhoto.rotation }}°</span
+                >
               </p>
             </div>
           </div>
@@ -104,9 +107,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getTripById } from '@/utils/database'
+import { getTripById, updatePhotoRotation } from '@/utils/database'
 import type { ApiTrip } from '@/utils/database'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -138,6 +141,8 @@ const loading = ref(true)
 const error = ref('')
 const selectedPhotoId = ref<string | null>(null)
 const localRotations = reactive<Record<string, number>>({})
+const saveTimeouts = ref<Record<string, number>>({})
+const savingPhotos = ref(new Set<string>())
 
 const selectedPhoto = computed(() => {
   if (!selectedPhotoId.value || !trip.value?.photos) return null
@@ -177,8 +182,39 @@ function rotatePhoto(delta: number) {
   const current = localRotations[photoId] ?? selectedPhoto.value.rotation
   const newRotation = ((current + delta + 360) % 360) as 0 | 90 | 180 | 270
 
+  // Optimistic update
   localRotations[photoId] = newRotation
+
+  // Clear existing timeout
+  if (saveTimeouts.value[photoId]) {
+    clearTimeout(saveTimeouts.value[photoId])
+  }
+
+  // Debounce save (500ms)
+  saveTimeouts.value[photoId] = window.setTimeout(async () => {
+    savingPhotos.value.add(photoId)
+    try {
+      await updatePhotoRotation(photoId, newRotation)
+      // Update source of truth
+      const photo = trip.value?.photos.find(p => p.id === photoId)
+      if (photo) photo.rotation = newRotation
+      // Clear local override since it matches server
+      delete localRotations[photoId]
+    } catch (err) {
+      console.error('[DarkroomView] Failed to save rotation:', err)
+      // Revert optimistic update
+      delete localRotations[photoId]
+    } finally {
+      savingPhotos.value.delete(photoId)
+      delete saveTimeouts.value[photoId]
+    }
+  }, 500)
 }
 
 onMounted(loadTrip)
+
+onUnmounted(() => {
+  // Clear all pending timeouts
+  Object.values(saveTimeouts.value).forEach(clearTimeout)
+})
 </script>
