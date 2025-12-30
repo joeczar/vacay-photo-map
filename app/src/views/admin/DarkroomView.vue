@@ -62,18 +62,41 @@
           />
         </button>
       </div>
+
+      <!-- Detail Panel -->
+      <Card v-if="selectedPhoto" class="p-6 mt-6">
+        <div class="flex flex-col lg:flex-row gap-6">
+          <!-- Photo Display -->
+          <div class="flex-1 flex items-center justify-center bg-muted rounded-lg min-h-[400px]">
+            <img
+              :src="
+                getImageUrl(selectedPhoto.url, {
+                  rotation: localRotations[selectedPhoto.id] ?? selectedPhoto.rotation
+                })
+              "
+              :alt="`Photo from ${trip?.title}`"
+              class="max-w-full max-h-[600px] object-contain"
+            />
+          </div>
+          <!-- Controls Sidebar (placeholder) -->
+          <div class="lg:w-64 space-y-4">
+            <p class="text-muted-foreground text-sm">Rotation controls coming next...</p>
+          </div>
+        </div>
+      </Card>
     </div>
   </AdminLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getTripById } from '@/utils/database'
 import type { ApiTrip } from '@/utils/database'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { getImageUrl } from '@/utils/image'
 
 type Photo = {
@@ -98,6 +121,12 @@ const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
 const loading = ref(true)
 const error = ref('')
 const selectedPhotoId = ref<string | null>(null)
+const localRotations = reactive<Record<string, number>>({})
+
+const selectedPhoto = computed(() => {
+  if (!selectedPhotoId.value || !trip.value?.photos) return null
+  return trip.value.photos.find(p => p.id === selectedPhotoId.value) ?? null
+})
 
 async function loadTrip() {
   loading.value = true
