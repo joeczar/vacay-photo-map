@@ -32,10 +32,35 @@
       </Button>
     </ErrorState>
 
-    <!-- Main Content (placeholder for contact sheet) -->
+    <!-- Main Content: Contact Sheet -->
     <div v-else class="space-y-6">
-      <div class="text-center py-16 border-2 border-dashed border-border rounded-lg">
-        <p class="text-muted-foreground">Contact sheet will be displayed here</p>
+      <!-- Empty State -->
+      <div
+        v-if="!trip?.photos || trip.photos.length === 0"
+        class="text-center py-16 border-2 border-dashed border-border rounded-lg"
+      >
+        <p class="text-muted-foreground">No photos in this trip</p>
+      </div>
+
+      <!-- Contact Sheet Grid -->
+      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        <button
+          v-for="photo in trip.photos"
+          :key="photo.id"
+          @click="selectPhoto(photo.id)"
+          class="relative aspect-square overflow-hidden rounded-md transition-all"
+          :class="
+            selectedPhotoId === photo.id
+              ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+              : 'hover:opacity-80'
+          "
+        >
+          <img
+            :src="getImageUrl(photo.thumbnail_url, { rotation: photo.rotation })"
+            :alt="`Photo ${photo.id}`"
+            class="w-full h-full object-cover"
+          />
+        </button>
       </div>
     </div>
   </AdminLayout>
@@ -49,6 +74,7 @@ import type { ApiTrip } from '@/utils/database'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import { Button } from '@/components/ui/button'
+import { getImageUrl } from '@/utils/image'
 
 type Photo = {
   id: string
@@ -71,6 +97,7 @@ const router = useRouter()
 const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
 const loading = ref(true)
 const error = ref('')
+const selectedPhotoId = ref<string | null>(null)
 
 async function loadTrip() {
   loading.value = true
@@ -92,6 +119,10 @@ async function loadTrip() {
 
 function goBack() {
   router.push('/admin/trips')
+}
+
+function selectPhoto(photoId: string) {
+  selectedPhotoId.value = photoId
 }
 
 onMounted(loadTrip)
