@@ -99,6 +99,15 @@
                 >
               </p>
             </div>
+            <div class="text-xs text-muted-foreground mt-6 space-y-1 border-t pt-4">
+              <p class="font-medium mb-2">Keyboard shortcuts</p>
+              <p><kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">R</kbd> Rotate CW</p>
+              <p><kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">⇧R</kbd> Rotate CCW</p>
+              <p>
+                <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">←</kbd>
+                <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">→</kbd> Navigate
+              </p>
+            </div>
           </div>
         </div>
       </Card>
@@ -211,10 +220,55 @@ function rotatePhoto(delta: number) {
   }, 500)
 }
 
-onMounted(loadTrip)
+function navigatePhoto(direction: number) {
+  if (!trip.value?.photos || trip.value.photos.length === 0) return
+
+  const photos = trip.value.photos
+
+  if (!selectedPhotoId.value) {
+    // Select first or last based on direction
+    selectedPhotoId.value = direction > 0 ? photos[0].id : photos[photos.length - 1].id
+    return
+  }
+
+  const currentIndex = photos.findIndex(p => p.id === selectedPhotoId.value)
+  if (currentIndex === -1) return
+
+  const nextIndex = (currentIndex + direction + photos.length) % photos.length
+  selectedPhotoId.value = photos[nextIndex].id
+}
+
+function handleKeyboard(e: KeyboardEvent) {
+  // Ignore if typing in input
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+    return
+  }
+
+  // Rotation shortcuts (require selected photo)
+  if (selectedPhoto.value && (e.key === 'r' || e.key === 'R')) {
+    e.preventDefault()
+    const delta = e.shiftKey ? -90 : 90
+    rotatePhoto(delta)
+    return
+  }
+
+  // Navigation shortcuts
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    navigatePhoto(-1)
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    navigatePhoto(1)
+  }
+}
+
+onMounted(() => {
+  loadTrip()
+  window.addEventListener('keydown', handleKeyboard)
+})
 
 onUnmounted(() => {
-  // Clear all pending timeouts
+  window.removeEventListener('keydown', handleKeyboard)
   Object.values(saveTimeouts.value).forEach(clearTimeout)
 })
 </script>
