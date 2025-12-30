@@ -78,9 +78,24 @@
               class="max-w-full max-h-[600px] object-contain"
             />
           </div>
-          <!-- Controls Sidebar (placeholder) -->
+          <!-- Controls Sidebar -->
           <div class="lg:w-64 space-y-4">
-            <p class="text-muted-foreground text-sm">Rotation controls coming next...</p>
+            <div>
+              <h3 class="font-semibold text-lg mb-3">Rotation</h3>
+              <div class="flex gap-2">
+                <Button @click="rotatePhoto(-90)" variant="outline" class="flex-1">
+                  <RotateCcw class="w-4 h-4 mr-2" />
+                  CCW
+                </Button>
+                <Button @click="rotatePhoto(90)" variant="outline" class="flex-1">
+                  <RotateCw class="w-4 h-4 mr-2" />
+                  CW
+                </Button>
+              </div>
+              <p class="text-sm text-muted-foreground text-center mt-2">
+                {{ localRotations[selectedPhoto.id] ?? selectedPhoto.rotation }}°
+              </p>
+            </div>
           </div>
         </div>
       </Card>
@@ -98,6 +113,7 @@ import ErrorState from '@/components/ErrorState.vue'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { getImageUrl } from '@/utils/image'
+import { RotateCw, RotateCcw } from 'lucide-vue-next'
 
 type Photo = {
   id: string
@@ -152,6 +168,16 @@ function goBack() {
 
 function selectPhoto(photoId: string) {
   selectedPhotoId.value = photoId
+}
+
+function rotatePhoto(delta: number) {
+  if (!selectedPhoto.value) return
+
+  const photoId = selectedPhoto.value.id
+  const current = localRotations[photoId] ?? selectedPhoto.value.rotation
+  const newRotation = ((current + delta + 360) % 360) as 0 | 90 | 180 | 270
+
+  localRotations[photoId] = newRotation
 }
 
 onMounted(loadTrip)
