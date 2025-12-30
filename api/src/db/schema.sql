@@ -40,32 +40,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
--- Migration: Add password_hash for password authentication (#227, #229)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'user_profiles'
-      AND column_name = 'password_hash'
-  ) THEN
-    ALTER TABLE user_profiles ADD COLUMN password_hash TEXT;
-  END IF;
-END $$;
-
--- Set NOT NULL constraint after column exists
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'user_profiles'
-      AND column_name = 'password_hash'
-      AND is_nullable = 'YES'
-  ) THEN
-    -- Ensure all existing rows have a value before adding constraint
-    UPDATE user_profiles SET password_hash = '' WHERE password_hash IS NULL;
-    ALTER TABLE user_profiles ALTER COLUMN password_hash SET NOT NULL;
-  END IF;
-END $$;
+-- Note: Column additions handled by migrations 002-007
 
 -- Trips
 CREATE TABLE IF NOT EXISTS trips (
@@ -106,71 +81,6 @@ CREATE TABLE IF NOT EXISTS photos (
   album TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
-
--- Add rotation column to photos table
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'photos'
-      AND column_name = 'rotation'
-  ) THEN
-    ALTER TABLE photos
-      ADD COLUMN rotation INTEGER DEFAULT 0 NOT NULL,
-      ADD CONSTRAINT photos_rotation_check CHECK (rotation IN (0, 90, 180, 270));
-  END IF;
-END $$;
-
--- Add description column to photos table
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'photos'
-      AND column_name = 'description'
-  ) THEN
-    ALTER TABLE photos
-      ADD COLUMN description TEXT;
-  END IF;
-END $$;
-
--- Add section_id column to photos table
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'photos'
-      AND column_name = 'section_id'
-  ) THEN
-    ALTER TABLE photos
-      ADD COLUMN section_id UUID REFERENCES sections(id) ON DELETE SET NULL;
-  END IF;
-END $$;
-
--- Rename cloudinary_public_id to storage_key (migration from Cloudinary to R2)
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'photos'
-      AND column_name = 'cloudinary_public_id'
-  ) THEN
-    ALTER TABLE photos RENAME COLUMN cloudinary_public_id TO storage_key;
-  END IF;
-END $$;
-
--- Ensure storage_key has NOT NULL constraint (align with table definition)
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'photos'
-      AND column_name = 'storage_key'
-      AND is_nullable = 'YES'
-  ) THEN
-    ALTER TABLE photos ALTER COLUMN storage_key SET NOT NULL;
-  END IF;
-END $$;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
