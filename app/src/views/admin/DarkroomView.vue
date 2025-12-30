@@ -126,8 +126,10 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { getImageUrl } from '@/utils/image'
 import { RotateCw, RotateCcw } from 'lucide-vue-next'
+import { useToast } from '@/components/ui/toast/use-toast'
 
 const route = useRoute()
+const { toast } = useToast()
 const router = useRouter()
 
 const trip = ref<(ApiTrip & { photos: Photo[] }) | null>(null)
@@ -198,6 +200,12 @@ function rotatePhoto(delta: number) {
       console.error('[DarkroomView] Failed to save rotation:', err)
       // Revert optimistic update
       delete localRotations[photoId]
+      // Show error toast
+      toast({
+        title: 'Error',
+        description: 'Failed to save rotation. Please try again.',
+        variant: 'destructive'
+      })
     } finally {
       savingPhotos.value.delete(photoId)
       delete saveTimeouts.value[photoId]
