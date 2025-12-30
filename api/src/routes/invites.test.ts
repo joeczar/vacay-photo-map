@@ -78,18 +78,18 @@ describe("Invite Routes", () => {
   beforeAll(async () => {
     const db = getDbClient();
 
-    // Create test admin user with UNIQUE email and webauthn_user_id to avoid conflicts
+    // Create test admin user with UNIQUE email
     const now = Date.now();
-    const testWebauthnUserId = `test-webauthn-${TEST_ADMIN_USER_ID}-${now}`;
     const testAdminEmail = `test-admin-invites-${now}@example.com`;
+    const passwordHash = await Bun.password.hash("password123");
 
     await db`
-      INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin)
-      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${testWebauthnUserId}, true)
+      INSERT INTO user_profiles (id, email, password_hash, is_admin)
+      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${passwordHash}, true)
       ON CONFLICT (id) DO UPDATE
         SET email = EXCLUDED.email,
             is_admin = EXCLUDED.is_admin,
-            webauthn_user_id = EXCLUDED.webauthn_user_id
+            password_hash = EXCLUDED.password_hash
     `;
 
     const uniqueSlug = `test-trip-for-invites-${Date.now()}`;

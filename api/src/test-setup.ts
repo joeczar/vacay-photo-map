@@ -39,14 +39,7 @@ if (await envFile.exists()) {
 }
 
 // Validate required environment variables
-const required = [
-  "JWT_SECRET",
-  "DATABASE_URL",
-  "RP_ID",
-  "RP_ORIGIN",
-  "RP_NAME",
-  "PHOTOS_DIR",
-];
+const required = ["JWT_SECRET", "DATABASE_URL", "PHOTOS_DIR"];
 const missing = required.filter((key) => !process.env[key]);
 
 if (missing.length > 0) {

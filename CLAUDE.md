@@ -54,7 +54,7 @@ pnpm dev       # Frontend at localhost:5173
 pnpm dev:api   # API at localhost:4000
 ```
 
-**Dev tunnel (mobile/WebAuthn testing):**
+**Dev tunnel (mobile testing):**
 ```bash
 # Cloudflare Tunnel provides public HTTPS URLs for testing on real devices
 # Frontend: https://photos-dev.joeczar.com → localhost:5173
@@ -138,8 +138,6 @@ The `dev-server` skill (`.claude/skills/dev-server/`) provides Claude with comma
 ```
 VITE_API_URL=https://photos-api.joeczar.com
 VITE_APP_URL=https://photos.joeczar.com
-VITE_WEBAUTHN_RP_NAME=Vacay Photo Map
-VITE_WEBAUTHN_RP_ID=photos.joeczar.com
 VITE_CDN_URL=https://images.joeczar.com
 ```
 
@@ -162,15 +160,15 @@ VITE_CDN_URL=https://images.joeczar.com
 - **Storage**: Cloudflare R2 (primary) with local filesystem fallback
 - **Image Processing**: Sharp generates thumbnails (800px wide) server-side
 - **Routes**: `/`, `/admin`, `/login`, `/register`, `/trips`, `/trip/:slug`
-- **Auth**: WebAuthn/passkeys + JWT, enforced on admin routes
+- **Auth**: Password + bcrypt (via Bun.password) + JWT, enforced on admin routes
 
 **Schema:**
-- Current: `user_profiles`, `authenticators`, `trips`, `photos`
-- Upcoming: `photo_comments`, `invites` (see PROJECT_ROADMAP.md)
+- Current: `user_profiles`, `trips`, `photos`, `trip_access`, `invites`
+- Note: `authenticators` table still exists but unused (kept for potential rollback)
 
 ## Project Context
 
-Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn auth, comments, admin invites.
+Milestones in GitHub Issues. See GitHub project board for current priorities.
 
 ## File Organization
 
@@ -185,28 +183,19 @@ Milestones in GitHub Issues. Current: Milestone 1 (dark mode). Next: WebAuthn au
 - **GPS**: Always `xmp: true` in exifr, validate coordinates, null island check
 - **Photos**: Warning icon if no GPS, map only shows valid coordinates
 - **R2 Fallback**: If R2 not configured, photos save to local `PHOTOS_DIR` (default: `/data/photos`)
-- **WebAuthn RP_ID**: Must match domain (localhost for dev, your-domain.com for prod)
 - **Database User**: RLS INSERT policies expect user `vacay` - don't change without updating policies
+- **Password Reset**: Admin-only via POST `/api/auth/admin/reset-password` (no self-service recovery)
 
 ## Environment Variables
 
 **App (`app/.env`):**
-- `VITE_API_URL` - API endpoint
-  - Local dev: `http://localhost:4000`
-  - Dev tunnel: `https://photos-dev-api.joeczar.com`
-- `VITE_APP_URL` - Frontend URL for redirects
-  - Local dev: `http://localhost:5173`
-  - Dev tunnel: `https://photos-dev.joeczar.com`
-- `VITE_WEBAUTHN_RP_NAME` - Display name for passkeys
-- `VITE_WEBAUTHN_RP_ID` - Domain for WebAuthn
-  - Local dev: `localhost`
-  - Dev tunnel: `photos-dev.joeczar.com`
+- `VITE_API_URL` - API endpoint (http://localhost:4000 for local dev)
+- `VITE_APP_URL` - Frontend URL for redirects (http://localhost:5173 for local dev)
+- `VITE_CDN_URL` - Optional CDN for images
 
 **API (`api/.env`):**
-- Required: `DATABASE_URL`, `JWT_SECRET`, `RP_ID`, `RP_NAME`, `RP_ORIGIN`, `FRONTEND_URL`
-  - `RP_ID` matches `VITE_WEBAUTHN_RP_ID` (localhost or photos-dev.joeczar.com)
-  - `RP_ORIGIN` matches `VITE_APP_URL`
-  - `FRONTEND_URL` matches `VITE_APP_URL`
+- Required: `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`
+- Optional: `R2_*` vars for Cloudflare R2 storage
 - Optional: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`
 - See `api/.env.example` for full list
 
@@ -244,16 +233,34 @@ IMPLEMENTATION (per commit) ─────────────────�
 │
 │   GATE 3 ─────────────────────────────────────
 │   │ I show you the diff
+│   │ For frontend changes: Playwright verification
+│   │   - Navigate to affected pages
+│   │   - Verify UI renders correctly
+│   │   - Test user flows end-to-end
 │   │ You review and approve or request changes
 │   │ I commit (you approve the commit)
 │   └───────────────────────────────────────────
 └───────────────────────────────────────────────
 
-FINALIZATION ───────────────────────────────────
-│ I spawn `tester` agent → writes/runs tests
-│ I spawn `reviewer` agent → validates quality (project-specific)
-│ I run `/pr-review-toolkit:review-pr` → comprehensive review
-│ I create PR with `gh pr create`
+FINALIZATION (MANDATORY - DO NOT SKIP) ─────────
+│ ⚠️  HARD GATE: Complete ALL steps before PR creation
+│
+│ [ ] 1. Spawn `tester` agent → reviews test quality
+│        - Verifies tests use shared infrastructure
+│        - Checks for hardcoded values
+│        - Ensures adequate coverage
+│
+│ [ ] 2. Spawn `reviewer` agent → validates quality
+│        - Schema alignment
+│        - API patterns
+│        - Auth flows
+│
+│ [ ] 3. Run `/pr-review-toolkit:review-pr`
+│        - Comprehensive code review
+│
+│ [ ] 4. ONLY THEN: `gh pr create`
+│
+│ See .claude/rules/pr-workflow.md for details
 └───────────────────────────────────────────────
 ```
 

@@ -424,22 +424,6 @@ describe("Protected Endpoints Auth Enforcement", () => {
   // Endpoints that require authentication (return 401 without token)
   const authRequiredEndpoints = [
     // Auth routes (requireAuth)
-    {
-      method: "POST",
-      path: "/api/auth/passkeys/options",
-      desc: "Generate passkey options",
-    },
-    {
-      method: "POST",
-      path: "/api/auth/passkeys/verify",
-      desc: "Verify passkey",
-    },
-    { method: "GET", path: "/api/auth/passkeys", desc: "List passkeys" },
-    {
-      method: "DELETE",
-      path: `/api/auth/passkeys/${testUuid}`,
-      desc: "Delete passkey",
-    },
     { method: "GET", path: "/api/auth/me", desc: "Get current user" },
     // Trip routes (requireAuth or requireAdmin)
     { method: "GET", path: "/api/trips", desc: "List trips" },

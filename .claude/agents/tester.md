@@ -298,6 +298,56 @@ coverage:
       severity: high | medium | low
 ```
 
+## Review Mode (Finalization Phase)
+
+When called during finalization, you MUST audit existing tests for infrastructure compliance:
+
+### Infrastructure Audit Checklist
+
+1. **Factory Usage** - Grep for raw SQL inserts in test files:
+   ```bash
+   Grep: "INSERT INTO user_profiles" --glob="*.test.ts"
+   Grep: "INSERT INTO trips" --glob="*.test.ts"
+   ```
+   If found outside `test-factories.ts`, flag as violation.
+
+2. **Hardcoded Values** - Check for static test data:
+   ```bash
+   Grep: "email.*@example.com" --glob="*.test.ts"
+   Grep: "VALUES.*'[A-Z0-9]+" --glob="*.test.ts"  # Hardcoded codes
+   ```
+   Should use `createUser()` (generates unique email) or `crypto.randomUUID()`.
+
+3. **Type Imports** - Verify using shared types:
+   ```bash
+   Grep: "interface.*Response" --glob="*.test.ts"
+   ```
+   Should import from `test-types.ts`, not define locally.
+
+4. **Helper Usage** - Check for auth header duplication:
+   ```bash
+   Grep: "Authorization.*Bearer" --glob="*.test.ts"
+   ```
+   Should use `getAdminAuthHeader()` or `getUserAuthHeader()`.
+
+### Report Format (Review Mode)
+
+```
+## Test Infrastructure Audit
+
+### Violations Found
+- [ ] `auth.test.ts:113` - Hardcoded email "existing@example.com"
+- [ ] `auth.test.ts:190` - Hardcoded invite code "VALID123"
+
+### Fixes Required
+1. Use `user.email` from `createUser()` instead of hardcoding
+2. Generate invite codes with `crypto.randomUUID().slice(0, 8)`
+
+### Tests Passing
+- Total: 204 tests
+- Failures: 0
+```
+
 ## Critical Rules
 
 1. **Test before commit** - Mandatory per project policy
@@ -305,6 +355,7 @@ coverage:
 3. **Accessibility first** - Use semantic selectors
 4. **Dark mode always** - Test theme compatibility
 5. **Run full suite** - Don't skip tests
+6. **Review mode in finalization** - Audit existing tests, not just new ones
 
 ## Success Criteria
 

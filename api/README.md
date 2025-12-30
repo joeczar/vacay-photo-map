@@ -1,13 +1,13 @@
 # Vacay Photo Map API
 
-Self-hosted Bun + Hono API server for Vacay Photo Map with WebAuthn authentication and Cloudflare R2 storage.
+Self-hosted Bun + Hono API server for Vacay Photo Map with password authentication and Cloudflare R2 storage.
 
 ## Tech Stack
 
 - **Runtime**: [Bun](https://bun.sh/) 1.0+
 - **Framework**: [Hono](https://hono.dev/) 4.x
 - **Database**: PostgreSQL 15+ with [postgres.js](https://github.com/porsager/postgres)
-- **Auth**: WebAuthn/Passkeys ([@simplewebauthn/server](https://simplewebauthn.dev/)) + JWT (jose)
+- **Auth**: Password authentication (bcrypt via Bun.password) + JWT (jose)
 - **Storage**: Cloudflare R2 (S3-compatible) with local filesystem fallback
 - **Image Processing**: [Sharp](https://sharp.pixelplumbing.com/) for thumbnails
 - **Testing**: Bun test runner with coverage support
@@ -131,19 +131,10 @@ SEED_ADMIN_EMAIL=me@example.com SEED_ADMIN_PASSWORD=supersecret bun run scripts/
 user_profiles     # User accounts
 ├── id            # UUID primary key
 ├── email         # Unique, indexed
-├── webauthn_user_id  # WebAuthn user identifier
+├── password_hash # bcrypt hash
 ├── display_name
 ├── is_admin
 └── timestamps
-
-authenticators    # WebAuthn credentials (passkeys)
-├── credential_id # Primary key (base64url)
-├── user_id       # FK to user_profiles
-├── public_key    # COSE public key
-├── counter       # Signature counter (replay protection)
-├── transports    # Preferred authenticator transports
-├── created_at
-└── last_used_at
 
 trips             # Photo trips/albums
 ├── id            # UUID primary key
@@ -169,7 +160,7 @@ photos            # Individual photos
 
 **Notes:**
 - Photos are stored in Cloudflare R2 if configured, otherwise local filesystem
-- One user can have multiple passkeys (multiple authenticators per user_id)
+- First registered user automatically becomes admin
 
 ## Available Scripts
 
@@ -213,16 +204,11 @@ curl http://localhost:3000/health/ready
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/auth/register/options` | POST | - | Start WebAuthn registration |
-| `/api/auth/register/verify` | POST | - | Complete registration |
-| `/api/auth/login/options` | POST | - | Start WebAuthn login |
-| `/api/auth/login/verify` | POST | - | Complete login, returns JWT |
+| `/api/auth/register` | POST | - | Register new user (email + password) |
+| `/api/auth/login` | POST | - | Login, returns JWT |
 | `/api/auth/logout` | POST | - | Logout (client-side) |
 | `/api/auth/me` | GET | JWT | Get current user |
-| `/api/auth/passkeys` | GET | JWT | List user's passkeys |
-| `/api/auth/passkeys/options` | POST | JWT | Start adding new passkey |
-| `/api/auth/passkeys/verify` | POST | JWT | Complete adding passkey |
-| `/api/auth/passkeys/:id` | DELETE | JWT | Remove a passkey |
+| `/api/auth/admin/reset-password` | POST | Admin JWT | Reset any user's password |
 
 ### Trips
 
@@ -331,10 +317,10 @@ The API automatically detects R2 availability and falls back to local storage.
 
 ## Security
 
-- **WebAuthn/Passkeys**: Industry-standard passwordless authentication
+- **Password Auth**: bcrypt hashing via Bun.password (secure, built-in)
 - **JWT**: HS256 signing with configurable expiration
 - **RBAC**: Role-based access control via invites and trip_access table
-- **Rate Limiting**: Protection against brute force and abuse
+- **Rate Limiting**: Protection against brute force and abuse (10 req/min per IP)
 - **RLS Policies**: Row-level security on trips and photos tables
 - **Migrations**: DDL-only validation prevents SQL injection
 - **Error Logging**: Sanitized to avoid leaking connection details

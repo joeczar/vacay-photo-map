@@ -2,28 +2,23 @@ import { closeDbClient, getDbClient } from '../src/db/client'
 
 const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com'
 const adminName = process.env.SEED_ADMIN_NAME || 'Admin User'
-
-// Generate a random WebAuthn user ID (base64url encoded)
-function generateWebAuthnUserId(): string {
-  const bytes = new Uint8Array(32)
-  crypto.getRandomValues(bytes)
-  return Buffer.from(bytes).toString('base64url')
-}
+const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'changeme123'
 
 const seed = async () => {
   const db = getDbClient()
 
   console.info('Seeding database with admin user and sample data...')
-  console.info('Note: Admin user has no passkey yet - register one via the UI')
 
-  const webauthnUserId = generateWebAuthnUserId()
+  // Hash password
+  const passwordHash = await Bun.password.hash(adminPassword)
 
   const [user] =
-    await db`INSERT INTO user_profiles (email, webauthn_user_id, display_name, is_admin)
-             VALUES (${adminEmail}, ${webauthnUserId}, ${adminName}, TRUE)
+    await db`INSERT INTO user_profiles (email, password_hash, display_name, is_admin)
+             VALUES (${adminEmail}, ${passwordHash}, ${adminName}, TRUE)
              ON CONFLICT (email) DO UPDATE
              SET display_name = EXCLUDED.display_name,
-                 is_admin = EXCLUDED.is_admin
+                 is_admin = EXCLUDED.is_admin,
+                 password_hash = EXCLUDED.password_hash
              RETURNING id`
 
   const [trip] =

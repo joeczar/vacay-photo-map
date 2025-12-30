@@ -65,30 +65,30 @@ describe("Trip Access Routes", () => {
   beforeAll(async () => {
     const db = getDbClient();
 
-    // Create admin user with unique email and webauthn_user_id to avoid conflicts
+    // Create admin user with unique email
     const now = Date.now();
-    const adminWebauthnId = `test-webauthn-${TEST_ADMIN_USER_ID}-${now}`;
     testAdminEmail = `test-admin-trip-access-${now}@example.com`;
+    const adminPasswordHash = await Bun.password.hash("password123");
     await db`
-      INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${adminWebauthnId}, true, 'Admin User')
+      INSERT INTO user_profiles (id, email, password_hash, is_admin, display_name)
+      VALUES (${TEST_ADMIN_USER_ID}, ${testAdminEmail}, ${adminPasswordHash}, true, 'Admin User')
       ON CONFLICT (id) DO UPDATE
         SET email = EXCLUDED.email,
             is_admin = EXCLUDED.is_admin,
-            webauthn_user_id = EXCLUDED.webauthn_user_id,
+            password_hash = EXCLUDED.password_hash,
             display_name = EXCLUDED.display_name
     `;
 
-    // Create regular test user with unique email and webauthn_user_id to avoid conflicts
-    const userWebauthnId = `test-webauthn-${TEST_USER_ID}-${now}`;
+    // Create regular test user with unique email
     testUserEmail = `test-user-trip-access-${now}@example.com`;
+    const userPasswordHash = await Bun.password.hash("password123");
     await db`
-      INSERT INTO user_profiles (id, email, webauthn_user_id, is_admin, display_name)
-      VALUES (${TEST_USER_ID}, ${testUserEmail}, ${userWebauthnId}, false, 'Test User')
+      INSERT INTO user_profiles (id, email, password_hash, is_admin, display_name)
+      VALUES (${TEST_USER_ID}, ${testUserEmail}, ${userPasswordHash}, false, 'Test User')
       ON CONFLICT (id) DO UPDATE
         SET email = EXCLUDED.email,
             is_admin = EXCLUDED.is_admin,
-            webauthn_user_id = EXCLUDED.webauthn_user_id,
+            password_hash = EXCLUDED.password_hash,
             display_name = EXCLUDED.display_name
     `;
     testUserId = TEST_USER_ID;

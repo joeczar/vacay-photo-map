@@ -3,15 +3,10 @@
     <Card class="w-full max-w-md">
       <CardHeader class="text-center">
         <CardTitle class="text-2xl">Create Account</CardTitle>
-        <CardDescription>Register a new passkey</CardDescription>
+        <CardDescription>Register with your email and password</CardDescription>
       </CardHeader>
 
       <CardContent>
-        <!-- WebAuthn not supported warning -->
-        <Alert v-if="!webAuthnSupported" variant="destructive" class="mb-4">
-          <AlertDescription>{{ webAuthnMessage }}</AlertDescription>
-        </Alert>
-
         <!-- Error alert -->
         <Alert v-if="error" variant="destructive" class="mb-4">
           <AlertDescription>{{ error }}</AlertDescription>
@@ -56,9 +51,39 @@
                   type="email"
                   placeholder="you@example.com"
                   v-bind="componentField"
-                  :disabled="isRegistering || !webAuthnSupported"
+                  :disabled="isRegistering"
                   :readonly="inviteStatus === 'valid'"
                   class="read-only:bg-muted read-only:cursor-not-allowed"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ componentField }" name="password">
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input
+                  type="password"
+                  placeholder="At least 8 characters"
+                  v-bind="componentField"
+                  :disabled="isRegistering"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ componentField }" name="confirmPassword">
+            <FormItem>
+              <FormLabel>Confirm Password</FormLabel>
+              <FormControl>
+                <Input
+                  type="password"
+                  placeholder="Repeat password"
+                  v-bind="componentField"
+                  :disabled="isRegistering"
                 />
               </FormControl>
               <FormMessage />
@@ -73,19 +98,15 @@
                   type="text"
                   placeholder="Your name"
                   v-bind="componentField"
-                  :disabled="isRegistering || !webAuthnSupported"
+                  :disabled="isRegistering"
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           </FormField>
 
-          <Button
-            type="submit"
-            class="w-full"
-            :disabled="isRegistering || !meta.valid || !webAuthnSupported"
-          >
-            {{ isRegistering ? 'Creating account...' : 'Register with Passkey' }}
+          <Button type="submit" class="w-full" :disabled="isRegistering || !meta.valid">
+            {{ isRegistering ? 'Creating account...' : 'Create Account' }}
           </Button>
         </form>
 
@@ -104,11 +125,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
-import { startRegistration } from '@simplewebauthn/browser'
-import type {
-  PublicKeyCredentialCreationOptionsJSON,
-  RegistrationResponseJSON
-} from '@simplewebauthn/types'
 import { useAuth, type User } from '@/composables/useAuth'
 import { api, ApiError } from '@/lib/api'
 import { validateInvite, type ValidateInviteResponse } from '@/lib/invites'
@@ -119,7 +135,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import RoleBadge from '@/components/RoleBadge.vue'
-import { checkWebAuthnSupport } from '@/utils/webauthn'
 
 const router = useRouter()
 const route = useRoute()
@@ -136,9 +151,6 @@ const error = ref('')
 const inviteStatus = ref<'idle' | 'loading' | 'valid' | 'invalid'>('idle')
 const inviteData = ref<ValidateInviteResponse | null>(null)
 const inviteError = ref('')
-
-// Check WebAuthn support
-const { supported: webAuthnSupported, message: webAuthnMessage } = checkWebAuthnSupport()
 
 // Check registration status on mount
 onMounted(async () => {
@@ -201,19 +213,22 @@ onMounted(async () => {
 
 // Form validation schema
 const registerSchema = toTypedSchema(
-  z.object({
-    email: z.string().email('Please enter a valid email address'),
-    displayName: z
-      .string()
-      .min(2, 'Display name must be at least 2 characters')
-      .optional()
-      .or(z.literal(''))
-  })
+  z
+    .object({
+      email: z.string().email('Please enter a valid email address'),
+      password: z.string().min(8, 'Password must be at least 8 characters'),
+      confirmPassword: z.string(),
+      displayName: z.string().optional().or(z.literal(''))
+    })
+    .refine(data => data.password === data.confirmPassword, {
+      message: "Passwords don't match",
+      path: ['confirmPassword']
+    })
 )
 
 const { handleSubmit, meta, setFieldValue } = useForm({
   validationSchema: registerSchema,
-  initialValues: { email: '', displayName: '' }
+  initialValues: { email: '', password: '', confirmPassword: '', displayName: '' }
 })
 
 // Form submission handler
@@ -228,29 +243,15 @@ const onSubmit = handleSubmit(async values => {
       ? route.query.invite[0]
       : route.query.invite
 
-    // Step 1: Get registration options from backend
-    const { options } = await api.post<{ options: PublicKeyCredentialCreationOptionsJSON }>(
-      '/api/auth/register/options',
-      {
-        email: values.email,
-        inviteCode
-      }
-    )
+    // Register with password
+    const { token, user } = await api.post<{ token: string; user: User }>('/api/auth/register', {
+      email: values.email,
+      password: values.password,
+      displayName: values.displayName || null,
+      inviteCode
+    })
 
-    // Step 2: Create passkey credential (browser prompts user)
-    const credential: RegistrationResponseJSON = await startRegistration({ optionsJSON: options })
-
-    // Step 3: Verify and create user with backend
-    const { token, user } = await api.post<{ token: string; user: User }>(
-      '/api/auth/register/verify',
-      {
-        email: values.email,
-        displayName: values.displayName || null,
-        credential
-      }
-    )
-
-    // Step 4: Set auth state and redirect
+    // Set auth state and redirect
     setAuthState(token, user)
     await router.push('/trips')
   } catch (err) {
@@ -264,10 +265,6 @@ const onSubmit = handleSubmit(async values => {
       } else {
         error.value = err.message || 'Registration failed. Please try again.'
       }
-    } else if (err instanceof Error && err.name === 'NotAllowedError') {
-      error.value = 'Passkey creation was cancelled. Please try again.'
-    } else if (err instanceof Error && err.name === 'InvalidStateError') {
-      error.value = 'This passkey is already registered. Please try a different authenticator.'
     } else {
       error.value = 'An unexpected error occurred. Please try again.'
     }

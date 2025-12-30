@@ -2,33 +2,28 @@
 -- Safe to run multiple times; used by docker-compose init and migration script
 --
 -- NOTE: This schema intentionally diverges from the Supabase-hosted version:
--- - Uses WebAuthn/passkeys for authentication (no passwords)
+-- - Uses password authentication with bcrypt hashing
 -- - Supabase version uses Supabase Auth service instead
 -- - See issue #55 for migration context
 
 -- Extensions
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- =============================================================================
+-- Migration: Drop deprecated tables from WebAuthn-based auth
+-- Safe to run multiple times (DROP IF EXISTS is idempotent)
+-- =============================================================================
+DROP TABLE IF EXISTS authenticators;
+
 -- Users/Auth
 CREATE TABLE IF NOT EXISTS user_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
-  webauthn_user_id TEXT UNIQUE NOT NULL,
   display_name TEXT,
+  password_hash TEXT NOT NULL,
   is_admin BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
-);
-
--- WebAuthn authenticators (passkeys)
-CREATE TABLE IF NOT EXISTS authenticators (
-  credential_id TEXT PRIMARY KEY,
-  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE NOT NULL,
-  public_key TEXT NOT NULL,
-  counter BIGINT DEFAULT 0 NOT NULL,
-  transports TEXT[],
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  last_used_at TIMESTAMPTZ
 );
 
 -- Trips
@@ -138,7 +133,6 @@ END $$;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON user_profiles(email);
-CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_id ON photos(trip_id);
 CREATE INDEX IF NOT EXISTS idx_photos_taken_at ON photos(taken_at);
 CREATE INDEX IF NOT EXISTS idx_photos_trip_taken ON photos(trip_id, taken_at);
@@ -251,30 +245,6 @@ DROP POLICY IF EXISTS "Allow inserts from API user for sections" ON sections;
 CREATE POLICY "Allow inserts from API user for sections"
   ON sections FOR INSERT
   WITH CHECK (current_user = 'vacay');
-
--- Recovery tokens for account recovery via Telegram
-CREATE TABLE IF NOT EXISTS recovery_tokens (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
-  code TEXT NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  used_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  attempts INT DEFAULT 0 NOT NULL,
-  locked_at TIMESTAMPTZ
-);
-
-CREATE INDEX IF NOT EXISTS idx_recovery_tokens_user_id ON recovery_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_recovery_tokens_code ON recovery_tokens(code);
-
--- Prevent code collisions
-CREATE UNIQUE INDEX IF NOT EXISTS idx_recovery_tokens_code_unique ON recovery_tokens(code) WHERE used_at IS NULL;
-
--- Prevent multiple unused tokens per user (cleanup old tokens on new request)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_recovery_tokens_unused_per_user ON recovery_tokens(user_id) WHERE used_at IS NULL AND locked_at IS NULL;
-
--- Optimize verify query
-CREATE INDEX IF NOT EXISTS idx_recovery_tokens_verify ON recovery_tokens(code, expires_at, used_at, locked_at);
 
 -- =============================================================================
 -- RBAC (Role-Based Access Control) for Trip Access
