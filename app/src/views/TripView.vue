@@ -132,6 +132,7 @@
                         "
                         :alt="photo.caption || 'Photo'"
                         class="w-full h-full object-cover"
+                        :style="{ transform: `rotate(${photo.rotation}deg)` }"
                       />
                     </div>
                   </div>
@@ -139,14 +140,16 @@
 
                 <l-popup :options="{ maxWidth: 300 }">
                   <div class="p-2">
-                    <ProgressiveImage
-                      :src="popupFallback(photo)"
-                      :srcset="popupSrcset(photo)"
-                      sizes="300px"
-                      :alt="photo.caption || 'Photo'"
-                      wrapper-class="w-full h-48 rounded mb-2"
-                      class="w-full h-48 object-cover rounded"
-                    />
+                    <div :style="{ transform: `rotate(${photo.rotation}deg)` }">
+                      <ProgressiveImage
+                        :src="popupFallback(photo)"
+                        :srcset="popupSrcset(photo)"
+                        sizes="300px"
+                        :alt="photo.caption || 'Photo'"
+                        wrapper-class="w-full h-48 rounded mb-2"
+                        class="w-full h-48 object-cover rounded"
+                      />
+                    </div>
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatDate(photo.taken_at) }}</p>
                   </div>
