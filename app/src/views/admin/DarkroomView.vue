@@ -54,6 +54,7 @@
               ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
               : 'hover:opacity-80'
           "
+          :aria-pressed="selectedPhotoId === photo.id"
         >
           <img
             :src="
@@ -166,7 +167,11 @@ async function loadTrip() {
   loading.value = true
   error.value = ''
   try {
-    const tripId = route.params.tripId as string
+    const tripIdParam = route.params.tripId
+    const tripId = Array.isArray(tripIdParam) ? tripIdParam[0] : tripIdParam
+    if (!tripId) {
+      throw new Error('Trip ID is missing from the URL.')
+    }
     trip.value = await getTripById(tripId)
 
     if (!trip.value) {

@@ -89,7 +89,7 @@ const router = createRouter({
       path: '/admin/darkroom/:tripId',
       name: 'admin-darkroom',
       component: () => import('../views/admin/DarkroomView.vue'),
-      meta: { requiresAuth: true, requiresAdmin: true }
+      meta: { requiresAuth: true } // Access controlled at API level (admin or editor)
     },
     {
       path: '/trip/:slug',
