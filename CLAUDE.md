@@ -185,7 +185,7 @@ VITE_CDN_URL=https://images.joeczar.com
 - **API**: Bun + Hono backend at `api/`, PostgreSQL database via `postgres` package
 - **Storage**: Cloudflare R2 (primary) with local filesystem fallback
 - **Image Processing**: Sharp generates thumbnails (800px wide) server-side
-- **Routes**: `/`, `/admin`, `/login`, `/register`, `/trips`, `/trip/:slug`
+- **Routes**: `/`, `/admin`, `/login`, `/register`, `/trips`, `/trip/:slug`, `/settings`
 - **Auth**: Password + bcrypt (via Bun.password) + JWT, enforced on admin routes
 
 **Schema:**
