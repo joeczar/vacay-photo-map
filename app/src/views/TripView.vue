@@ -140,14 +140,17 @@
 
                 <l-popup :options="{ maxWidth: 300 }">
                   <div class="p-2">
-                    <div :style="{ transform: `rotate(${photo.rotation}deg)` }">
+                    <div
+                      :style="{ transform: `rotate(${photo.rotation}deg)` }"
+                      class="w-full h-48 overflow-hidden rounded mb-2"
+                    >
                       <ProgressiveImage
                         :src="popupFallback(photo)"
                         :srcset="popupSrcset(photo)"
                         sizes="300px"
                         :alt="photo.caption || 'Photo'"
-                        wrapper-class="w-full h-48 rounded mb-2"
-                        class="w-full h-48 object-cover rounded"
+                        wrapper-class="w-full h-full"
+                        class="w-full h-full object-cover"
                       />
                     </div>
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
@@ -288,7 +291,7 @@
               sizes="100vw"
               decoding="async"
               :alt="selectedPhoto.caption || 'Photo'"
-              class="w-full h-auto block"
+              class="block object-contain max-w-full max-h-[90vh] mx-auto"
               draggable="false"
               :style="{ transform: `rotate(${selectedPhoto.rotation}deg)` }"
             />
