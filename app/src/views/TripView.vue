@@ -132,6 +132,7 @@
                         "
                         :alt="photo.caption || 'Photo'"
                         class="w-full h-full object-cover"
+                        :style="{ transform: `rotate(${photo.rotation}deg)` }"
                       />
                     </div>
                   </div>
@@ -139,14 +140,19 @@
 
                 <l-popup :options="{ maxWidth: 300 }">
                   <div class="p-2">
-                    <ProgressiveImage
-                      :src="popupFallback(photo)"
-                      :srcset="popupSrcset(photo)"
-                      sizes="300px"
-                      :alt="photo.caption || 'Photo'"
-                      wrapper-class="w-full h-48 rounded mb-2"
-                      class="w-full h-48 object-cover rounded"
-                    />
+                    <div
+                      :style="{ transform: `rotate(${photo.rotation}deg)` }"
+                      class="w-full h-48 overflow-hidden rounded mb-2"
+                    >
+                      <ProgressiveImage
+                        :src="popupFallback(photo)"
+                        :srcset="popupSrcset(photo)"
+                        sizes="300px"
+                        :alt="photo.caption || 'Photo'"
+                        wrapper-class="w-full h-full"
+                        class="w-full h-full object-cover"
+                      />
+                    </div>
                     <p v-if="photo.caption" class="text-sm font-medium mb-1">{{ photo.caption }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatDate(photo.taken_at) }}</p>
                   </div>
@@ -178,14 +184,16 @@
                 :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
                 @click="selectPhoto(photo)"
               >
-                <ProgressiveImage
-                  :src="gridFallback(photo)"
-                  :srcset="gridSrcset(photo)"
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                  :alt="photo.caption || 'Photo'"
-                  wrapper-class="w-full h-full"
-                  class="w-full h-full object-cover"
-                />
+                <div :style="{ transform: `rotate(${photo.rotation}deg)` }" class="w-full h-full">
+                  <ProgressiveImage
+                    :src="gridFallback(photo)"
+                    :srcset="gridSrcset(photo)"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                    :alt="photo.caption || 'Photo'"
+                    wrapper-class="w-full h-full"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
                 <div
                   v-if="!photo.latitude || !photo.longitude"
                   class="absolute top-1 right-1 bg-rose-500 rounded-full p-1"
@@ -283,8 +291,9 @@
               sizes="100vw"
               decoding="async"
               :alt="selectedPhoto.caption || 'Photo'"
-              class="w-full h-auto block"
+              class="block object-contain max-w-full max-h-[90vh] mx-auto"
               draggable="false"
+              :style="{ transform: `rotate(${selectedPhoto.rotation}deg)` }"
             />
           </div>
 
