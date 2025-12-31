@@ -58,6 +58,7 @@ const promptHidden = (question: string): Promise<string> => {
       process.stdin.on('data', onData)
     } else {
       // Fallback for environments without setRawMode
+      console.warn('\n⚠️  Warning: Raw mode not supported. Password will be visible as you type.')
       process.stdin.resume()
       process.stdin.setEncoding('utf8')
       process.stdin.once('data', (data) => {
@@ -144,5 +145,5 @@ setPassword()
   })
   .finally(async () => {
     await closeDbClient()
-    process.exit()
+    process.exit(process.exitCode)
   })
