@@ -106,7 +106,33 @@ docker compose -p vacay-dev up -d postgres  # Development database
 docker compose -p vacay-prod up -d postgres # Production database (different project)
 ```
 
-**First user registration:** Navigate to localhost:5173/register (or https://photos-dev.joeczar.com/register for dev tunnel) - first user becomes admin.
+### First-Time Setup
+
+**Choose ONE approach:**
+
+**Option A: Manual registration (recommended)**
+1. Start dev server: `pnpm dev:docker`
+2. Navigate to http://localhost:5173/register
+3. Register with your email - first user becomes admin
+4. Credentials persist in Docker volume across restarts
+
+**Option B: Seed script (quick setup with sample data)**
+1. Start dev server: `pnpm dev:docker`
+2. Run seed: `cd api && pnpm seed`
+3. Default admin: `admin@example.com` / `changeme123`
+4. Creates sample trip with photos
+
+**Note:** Running seed after manual registration will NOT overwrite your password (shows warning instead).
+
+### Password Recovery (Local Dev)
+
+If you forget your local admin password:
+
+```bash
+cd api
+pnpm reset-password
+# Follow prompts to reset any user's password
+```
 
 ### Dev Server Management
 

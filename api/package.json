@@ -10,7 +10,8 @@
     "test": "bun test",
     "type-check": "tsc --noEmit",
     "migrate": "bun run scripts/migrate.ts",
-    "seed": "bun run scripts/seed.ts"
+    "seed": "bun run scripts/seed.ts",
+    "reset-password": "bun run scripts/set-password.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.956.0",
