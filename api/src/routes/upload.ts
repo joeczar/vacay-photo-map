@@ -105,6 +105,51 @@ upload.post("/trips/:tripId/photos/upload", requireAdmin, async (c) => {
   return c.json(result, 201);
 });
 
+// Valid rotation values (matches frontend ValidRotation type)
+const VALID_ROTATIONS = [0, 90, 180, 270] as const;
+type ValidRotation = (typeof VALID_ROTATIONS)[number];
+
+function parseRotation(value: string | undefined): ValidRotation | null {
+  if (!value) return null;
+  const parsed = parseInt(value, 10);
+  if (VALID_ROTATIONS.includes(parsed as ValidRotation)) {
+    return parsed as ValidRotation;
+  }
+  return null;
+}
+
+/**
+ * Apply image transformations (rotation, resize) using Sharp
+ * Only processes if transformations are requested
+ */
+async function applyTransformations(
+  buffer: Buffer,
+  rotation: ValidRotation | null,
+  width: number | null,
+): Promise<Buffer> {
+  // No transformations needed (rotation 0 means no rotation)
+  const needsRotation = rotation !== null && rotation !== 0;
+  const needsResize = width !== null && width > 0;
+
+  if (!needsRotation && !needsResize) {
+    return buffer;
+  }
+
+  let pipeline = sharp(buffer);
+
+  // Apply rotation (Sharp uses degrees)
+  if (needsRotation) {
+    pipeline = pipeline.rotate(rotation);
+  }
+
+  // Apply resize if width specified
+  if (needsResize) {
+    pipeline = pipeline.resize(width, null, { withoutEnlargement: true });
+  }
+
+  return pipeline.toBuffer();
+}
+
 // =============================================================================
 // GET /api/photos/:tripId/:filename - Serve photo (public)
 // =============================================================================
@@ -127,6 +172,11 @@ upload.get("/photos/:tripId/:filename", async (c) => {
     return c.json({ error: "Invalid filename" }, 400);
   }
 
+  // Parse transformation query params (matches CDN behavior)
+  const rotation = parseRotation(c.req.query("r"));
+  const widthParam = c.req.query("w");
+  const width = widthParam ? parseInt(widthParam, 10) : null;
+
   // Determine content type
   const ext = filename.split(".").pop()?.toLowerCase();
   const contentType =
@@ -143,12 +193,18 @@ upload.get("/photos/:tripId/:filename", async (c) => {
     }
 
     // Convert R2 stream to buffer using SDK helper
-    const buffer = Buffer.from(await r2Object.Body.transformToByteArray());
+    const rawBuffer = Buffer.from(await r2Object.Body.transformToByteArray());
+
+    // Apply transformations if requested
+    const buffer = await applyTransformations(rawBuffer, rotation, width);
 
     return new Response(buffer, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control":
+          rotation || width
+            ? "public, max-age=3600" // Shorter cache for transformed images
+            : "public, max-age=31536000, immutable",
       },
     });
   }
@@ -161,11 +217,18 @@ upload.get("/photos/:tripId/:filename", async (c) => {
     return c.json({ error: "Photo not found" }, 404);
   }
 
+  // Read file and apply transformations if requested
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+  const buffer = await applyTransformations(rawBuffer, rotation, width);
+
   // Serve with cache headers
-  return new Response(file, {
+  return new Response(buffer, {
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control":
+        rotation || width
+          ? "public, max-age=3600" // Shorter cache for transformed images
+          : "public, max-age=31536000, immutable",
     },
   });
 });
