@@ -12,14 +12,31 @@ const seed = async () => {
   // Hash password
   const passwordHash = await Bun.password.hash(adminPassword)
 
-  const [user] =
+  const [insertedUser] =
     await db`INSERT INTO user_profiles (email, password_hash, display_name, is_admin)
              VALUES (${adminEmail}, ${passwordHash}, ${adminName}, TRUE)
-             ON CONFLICT (email) DO UPDATE
-             SET display_name = EXCLUDED.display_name,
-                 is_admin = EXCLUDED.is_admin,
-                 password_hash = EXCLUDED.password_hash
+             ON CONFLICT (email) DO NOTHING
              RETURNING id`
+
+  let userId: string
+  if (insertedUser) {
+    userId = insertedUser.id
+    console.info(`Created admin user: ${adminEmail}`)
+  } else {
+    const [existingUser] =
+      await db`SELECT id FROM user_profiles WHERE email = ${adminEmail}`
+    if (!existingUser) {
+      throw new Error(
+        `Failed to seed: User ${adminEmail} not found after INSERT conflict. ` +
+          `This indicates a data integrity issue.`
+      )
+    }
+    userId = existingUser.id
+    console.warn(
+      `⚠️  Admin user ${adminEmail} already exists (password NOT overwritten)`
+    )
+    console.warn(`   To reset password: cd api && pnpm reset-password`)
+  }
 
   const [trip] =
     await db`INSERT INTO trips (title, description, cover_photo_url, slug, is_public)
@@ -59,7 +76,7 @@ const seed = async () => {
   `
 
   console.info(
-    `Seed complete. Admin: ${adminEmail} (user id: ${user.id}), trip id: ${trip.id}`
+    `Seed complete. Admin: ${adminEmail} (user id: ${userId}), trip id: ${trip.id}`
   )
 }
 
