@@ -25,6 +25,12 @@ const seed = async () => {
   } else {
     const [existingUser] =
       await db`SELECT id FROM user_profiles WHERE email = ${adminEmail}`
+    if (!existingUser) {
+      throw new Error(
+        `Failed to seed: User ${adminEmail} not found after INSERT conflict. ` +
+          `This indicates a data integrity issue.`
+      )
+    }
     userId = existingUser.id
     console.warn(
       `⚠️  Admin user ${adminEmail} already exists (password NOT overwritten)`
