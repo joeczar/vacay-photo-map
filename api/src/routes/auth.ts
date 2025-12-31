@@ -488,7 +488,16 @@ auth.post("/admin/reset-password", requireAdmin, async (c) => {
 // POST /change-password - Change current user's password
 // =============================================================================
 auth.post("/change-password", requireAuth, async (c) => {
-  const currentUser = c.var.user!;
+  const currentUser = c.var.user;
+  if (!currentUser) {
+    console.error(
+      "[AUTH] Change password: User not found in context after requireAuth",
+    );
+    return c.json(
+      { error: "Unauthorized", message: "Authentication required" },
+      401,
+    );
+  }
   const body = await c.req.json<{
     currentPassword: string;
     newPassword: string;
