@@ -181,14 +181,16 @@
                 :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
                 @click="selectPhoto(photo)"
               >
-                <ProgressiveImage
-                  :src="gridFallback(photo)"
-                  :srcset="gridSrcset(photo)"
-                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                  :alt="photo.caption || 'Photo'"
-                  wrapper-class="w-full h-full"
-                  class="w-full h-full object-cover"
-                />
+                <div :style="{ transform: `rotate(${photo.rotation}deg)` }" class="w-full h-full">
+                  <ProgressiveImage
+                    :src="gridFallback(photo)"
+                    :srcset="gridSrcset(photo)"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                    :alt="photo.caption || 'Photo'"
+                    wrapper-class="w-full h-full"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
                 <div
                   v-if="!photo.latitude || !photo.longitude"
                   class="absolute top-1 right-1 bg-rose-500 rounded-full p-1"
@@ -288,6 +290,7 @@
               :alt="selectedPhoto.caption || 'Photo'"
               class="w-full h-auto block"
               draggable="false"
+              :style="{ transform: `rotate(${selectedPhoto.rotation}deg)` }"
             />
           </div>
 
