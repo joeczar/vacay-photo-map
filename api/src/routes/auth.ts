@@ -485,6 +485,108 @@ auth.post("/admin/reset-password", requireAdmin, async (c) => {
 });
 
 // =============================================================================
+// POST /change-password - Change current user's password
+// =============================================================================
+auth.post("/change-password", requireAuth, async (c) => {
+  const currentUser = c.var.user!;
+  const body = await c.req.json<{
+    currentPassword: string;
+    newPassword: string;
+  }>();
+
+  const { currentPassword, newPassword } = body;
+
+  // Validate required fields
+  if (!currentPassword || !newPassword) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Current password and new password are required",
+      },
+      400,
+    );
+  }
+
+  // Validate new password length
+  if (newPassword.length < MIN_PASSWORD_LENGTH) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      },
+      400,
+    );
+  }
+
+  // Validate new password is different from current password
+  if (currentPassword === newPassword) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "New password must be different from current password",
+      },
+      400,
+    );
+  }
+
+  try {
+    const db = getDbClient();
+
+    // Fetch user's current password hash
+    const users = await db<Pick<DbUser, "id" | "password_hash">[]>`
+      SELECT id, password_hash
+      FROM user_profiles
+      WHERE id = ${currentUser.id}
+    `;
+
+    if (users.length === 0) {
+      return c.json({ error: "Not Found", message: "User not found" }, 404);
+    }
+
+    const user = users[0];
+
+    // Verify current password
+    const isValid = await Bun.password.verify(
+      currentPassword,
+      user.password_hash,
+    );
+
+    if (!isValid) {
+      return c.json(
+        { error: "Unauthorized", message: "Current password is incorrect" },
+        401,
+      );
+    }
+
+    // Hash new password
+    const newPasswordHash = await Bun.password.hash(newPassword);
+
+    // Update password in database
+    await db`
+      UPDATE user_profiles
+      SET password_hash = ${newPasswordHash}, updated_at = NOW()
+      WHERE id = ${currentUser.id}
+    `;
+
+    console.log(`[AUTH] Password changed for user ${currentUser.id}`);
+
+    return c.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error(
+      "[AUTH] Change password error:",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+    return c.json(
+      { error: "Internal Server Error", message: "Password change failed" },
+      500,
+    );
+  }
+});
+
+// =============================================================================
 // GET /me - Get current user profile
 // =============================================================================
 auth.get("/me", requireAuth, async (c) => {
