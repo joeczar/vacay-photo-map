@@ -1020,10 +1020,11 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
 });
 
 // =============================================================================
-// PATCH /api/trips/photos/:id - Update photo rotation (admin only)
+// PATCH /api/trips/photos/:id - Update photo rotation (admin or editor)
 // =============================================================================
-trips.patch("/photos/:id", requireAdmin, async (c) => {
+trips.patch("/photos/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
+  const user = c.var.user!;
   const body = await c.req.json<{
     rotation?: number;
   }>();
@@ -1059,7 +1060,31 @@ trips.patch("/photos/:id", requireAdmin, async (c) => {
 
   const db = getDbClient();
 
-  // Update photo rotation (returns empty if photo doesn't exist)
+  // First, get the photo to check its trip
+  const [photo] = await db<{ trip_id: string }[]>`
+    SELECT trip_id FROM photos WHERE id = ${id}
+  `;
+
+  if (!photo) {
+    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
+  }
+
+  // Check if user has edit access (admin or editor role for this trip)
+  if (!user.isAdmin) {
+    const [access] = await db<{ role: string }[]>`
+      SELECT role FROM trip_access
+      WHERE user_id = ${user.id} AND trip_id = ${photo.trip_id}
+    `;
+
+    if (!access || access.role !== "editor") {
+      return c.json(
+        { error: "Forbidden", message: "Editor access required for this trip" },
+        403,
+      );
+    }
+  }
+
+  // Update photo rotation
   const [updatedPhoto] = await db<DbPhoto[]>`
     UPDATE photos
     SET rotation = ${rotation}
@@ -1067,10 +1092,6 @@ trips.patch("/photos/:id", requireAdmin, async (c) => {
     RETURNING id, trip_id, storage_key, url, thumbnail_url,
               latitude, longitude, taken_at, caption, album, rotation, created_at
   `;
-
-  if (!updatedPhoto) {
-    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
-  }
 
   return c.json(toPhotoResponse(updatedPhoto));
 });
