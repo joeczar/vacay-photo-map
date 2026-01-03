@@ -1,7 +1,9 @@
 // Utilities for resolving image URLs
 
-const API_URL = import.meta.env.VITE_API_URL || ''
-const RAW_CDN_URL = import.meta.env.VITE_CDN_URL || ''
+import { trimVercelEnv } from './env'
+
+const API_URL = trimVercelEnv(import.meta.env.VITE_API_URL)
+const RAW_CDN_URL = trimVercelEnv(import.meta.env.VITE_CDN_URL)
 
 // Validate and normalize CDN URL at module load
 const CDN_URL = RAW_CDN_URL.replace(/\/$/, '') // Remove trailing slash

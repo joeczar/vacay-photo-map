@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+import { trimVercelEnv } from '@/utils/env'
+
+const API_URL = trimVercelEnv(import.meta.env.VITE_API_URL) || 'http://localhost:3000'
 
 export class ApiError extends Error {
   constructor(
