@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getConnInfo } from "hono/bun";
+import { z } from "zod";
 import { getDbClient } from "../db/client";
 import { signToken } from "../utils/jwt";
 import { requireAuth, requireAdmin } from "../middleware/auth";
@@ -487,56 +488,49 @@ auth.post("/admin/reset-password", requireAdmin, async (c) => {
 // =============================================================================
 // POST /change-password - Change current user's password
 // =============================================================================
+
+// Zod schema for change password validation
+const ChangePasswordSchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, "Current password and new password are required"),
+    newPassword: z
+      .string()
+      .min(1, "Current password and new password are required")
+      .min(
+        MIN_PASSWORD_LENGTH,
+        `New password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      ),
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "New password must be different from current password",
+    path: ["newPassword"],
+  });
+
 auth.post("/change-password", requireAuth, async (c) => {
-  const currentUser = c.var.user;
-  if (!currentUser) {
-    console.error(
-      "[AUTH] Change password: User not found in context after requireAuth",
-    );
-    return c.json(
-      { error: "Unauthorized", message: "Authentication required" },
-      401,
-    );
-  }
-  const body = await c.req.json<{
-    currentPassword: string;
-    newPassword: string;
-  }>();
+  // requireAuth middleware guarantees c.var.user is populated
+  const currentUser = c.var.user!;
 
-  const { currentPassword, newPassword } = body;
+  const body = await c.req.json();
 
-  // Validate required fields
-  if (!currentPassword || !newPassword) {
+  // Validate request body with zod
+  const parseResult = ChangePasswordSchema.safeParse(body);
+  if (!parseResult.success) {
+    // Zod 4 uses 'issues' instead of 'errors'
+    const errorMessage = parseResult.error.issues
+      .map((e) => e.message)
+      .join(". ");
     return c.json(
       {
         error: "Bad Request",
-        message: "Current password and new password are required",
+        message: errorMessage,
       },
       400,
     );
   }
 
-  // Validate new password length
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return c.json(
-      {
-        error: "Bad Request",
-        message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters`,
-      },
-      400,
-    );
-  }
-
-  // Validate new password is different from current password
-  if (currentPassword === newPassword) {
-    return c.json(
-      {
-        error: "Bad Request",
-        message: "New password must be different from current password",
-      },
-      400,
-    );
-  }
+  const { currentPassword, newPassword } = parseResult.data;
 
   try {
     const db = getDbClient();
