@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getConnInfo } from "hono/bun";
+import { z } from "zod";
 import { getDbClient } from "../db/client";
 import { signToken } from "../utils/jwt";
 import { requireAuth, requireAdmin } from "../middleware/auth";
@@ -479,6 +480,110 @@ auth.post("/admin/reset-password", requireAdmin, async (c) => {
     );
     return c.json(
       { error: "Internal Server Error", message: "Password reset failed" },
+      500,
+    );
+  }
+});
+
+// =============================================================================
+// POST /change-password - Change current user's password
+// =============================================================================
+
+// Zod schema for change password validation
+const ChangePasswordSchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, "Current password and new password are required"),
+    newPassword: z
+      .string()
+      .min(1, "Current password and new password are required")
+      .min(
+        MIN_PASSWORD_LENGTH,
+        `New password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      ),
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: "New password must be different from current password",
+    path: ["newPassword"],
+  });
+
+auth.post("/change-password", requireAuth, async (c) => {
+  // requireAuth middleware guarantees c.var.user is populated
+  const currentUser = c.var.user!;
+
+  const body = await c.req.json();
+
+  // Validate request body with zod
+  const parseResult = ChangePasswordSchema.safeParse(body);
+  if (!parseResult.success) {
+    // Zod 4 uses 'issues' instead of 'errors'
+    const errorMessage = parseResult.error.issues
+      .map((e) => e.message)
+      .join(". ");
+    return c.json(
+      {
+        error: "Bad Request",
+        message: errorMessage,
+      },
+      400,
+    );
+  }
+
+  const { currentPassword, newPassword } = parseResult.data;
+
+  try {
+    const db = getDbClient();
+
+    // Fetch user's current password hash
+    const users = await db<Pick<DbUser, "id" | "password_hash">[]>`
+      SELECT id, password_hash
+      FROM user_profiles
+      WHERE id = ${currentUser.id}
+    `;
+
+    if (users.length === 0) {
+      return c.json({ error: "Not Found", message: "User not found" }, 404);
+    }
+
+    const user = users[0];
+
+    // Verify current password
+    const isValid = await Bun.password.verify(
+      currentPassword,
+      user.password_hash,
+    );
+
+    if (!isValid) {
+      return c.json(
+        { error: "Unauthorized", message: "Current password is incorrect" },
+        401,
+      );
+    }
+
+    // Hash new password
+    const newPasswordHash = await Bun.password.hash(newPassword);
+
+    // Update password in database
+    await db`
+      UPDATE user_profiles
+      SET password_hash = ${newPasswordHash}, updated_at = NOW()
+      WHERE id = ${currentUser.id}
+    `;
+
+    console.log(`[AUTH] Password changed for user ${currentUser.id}`);
+
+    return c.json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    console.error(
+      "[AUTH] Change password error:",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+    return c.json(
+      { error: "Internal Server Error", message: "Password change failed" },
       500,
     );
   }

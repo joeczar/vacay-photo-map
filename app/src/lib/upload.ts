@@ -1,6 +1,8 @@
 // Upload client for self-hosted photo storage (R2/local)
 
-const API_URL = import.meta.env.VITE_API_URL || ''
+import { trimVercelEnv } from '@/utils/env'
+
+const API_URL = trimVercelEnv(import.meta.env.VITE_API_URL)
 
 export interface UploadProgress {
   loaded: number

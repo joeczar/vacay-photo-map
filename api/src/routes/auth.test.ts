@@ -567,3 +567,291 @@ describe("Rate Limiting", () => {
     expect(statuses.filter((s) => s === 429).length).toBe(1);
   });
 });
+
+// =============================================================================
+// POST /change-password - Change current user's password
+// =============================================================================
+
+describe("POST /api/auth/change-password", () => {
+  let userId: string | null = null;
+  const originalPassword = "original-pass-123";
+  const newPassword = "new-password-456";
+
+  afterEach(async () => {
+    if (userId) {
+      await cleanupUser(userId);
+      userId = null;
+    }
+  });
+
+  it("requires authentication", async () => {
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: originalPassword,
+          newPassword: newPassword,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(401);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Unauthorized");
+  });
+
+  it("validates current password is required", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: "",
+          newPassword: newPassword,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Bad Request");
+    expect(data.message).toContain("required");
+  });
+
+  it("validates new password is required", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: originalPassword,
+          newPassword: "",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Bad Request");
+    expect(data.message).toContain("required");
+  });
+
+  it("validates new password minimum length", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: originalPassword,
+          newPassword: "short",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Bad Request");
+    expect(data.message).toContain("at least 8");
+  });
+
+  it("rejects same password", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: originalPassword,
+          newPassword: originalPassword,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Bad Request");
+    expect(data.message).toContain("different");
+  });
+
+  it("rejects incorrect current password", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: "wrong-password",
+          newPassword: newPassword,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(401);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Unauthorized");
+    expect(data.message).toContain("incorrect");
+  });
+
+  it("successfully changes password", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: originalPassword,
+          newPassword: newPassword,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as SuccessResponse;
+    expect(data.success).toBe(true);
+    expect(data.message).toBeDefined();
+  });
+
+  it("can login with new password after change", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    // Change password
+    const changeRes = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: originalPassword,
+          newPassword: newPassword,
+        }),
+      }),
+    );
+
+    expect(changeRes.status).toBe(200);
+
+    // Try to login with new password
+    const loginRes = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          password: newPassword,
+        }),
+      }),
+    );
+
+    expect(loginRes.status).toBe(200);
+    const loginData = (await loginRes.json()) as AuthResponse;
+    expect(loginData.token).toBeDefined();
+    expect(loginData.user.id).toBe(userId);
+  });
+
+  it("cannot login with old password after change", async () => {
+    const user = await createUser({
+      password: originalPassword,
+    });
+    userId = user.id;
+
+    const authHeader = await getUserAuthHeader(userId, user.email);
+
+    // Change password
+    const changeRes = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          currentPassword: originalPassword,
+          newPassword: newPassword,
+        }),
+      }),
+    );
+
+    expect(changeRes.status).toBe(200);
+
+    // Try to login with old password
+    const loginRes = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: user.email,
+          password: originalPassword,
+        }),
+      }),
+    );
+
+    expect(loginRes.status).toBe(401);
+    const loginData = (await loginRes.json()) as ErrorResponse;
+    expect(loginData.error).toBe("Unauthorized");
+    expect(loginData.message).toBe("Invalid credentials");
+  });
+});

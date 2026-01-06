@@ -19,7 +19,7 @@
             <router-link to="/admin/trips">Manage</router-link>
           </Button>
           <template v-if="isAuthenticated">
-            <Button variant="ghost" @click="handleLogout" :disabled="loading"> Logout </Button>
+            <UserProfileMenu :user-email="userEmail" @logout="handleLogout" />
           </template>
           <template v-else>
             <Button variant="ghost" as-child>
@@ -41,14 +41,18 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 import { Button } from '@/components/ui/button'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import BottomNav from '@/components/BottomNav.vue'
+import UserProfileMenu from '@/components/UserProfileMenu.vue'
 
 const router = useRouter()
-const { isAuthenticated, isAdmin, loading, logout } = useAuth()
+const { isAuthenticated, isAdmin, logout, user } = useAuth()
+
+const userEmail = computed(() => user.value?.email || 'Account')
 
 async function handleLogout() {
   try {
