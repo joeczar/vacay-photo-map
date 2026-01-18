@@ -100,8 +100,8 @@ message: "Working directory has uncommitted changes. Please commit or stash."
 
 Generate branch name from issue:
 ```bash
-# Extract first few words of title, slugified
-SLUG=$(echo "{title}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30)
+# Extract first few words of title, slugified (handles consecutive/trailing hyphens)
+SLUG=$(echo "{title}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed -e 's/^-*//' -e 's/-*$//' | cut -c1-30)
 BRANCH="feat/issue-{issue_number}-${SLUG}"
 
 # Update main and create branch

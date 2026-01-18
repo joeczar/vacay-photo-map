@@ -94,8 +94,7 @@ Remove the implementation plan (it served its purpose):
 # Find and remove plan file
 PLAN_FILE="docs/plans/issue-{issue_number}.md"
 if [ -f "$PLAN_FILE" ]; then
-    rm "$PLAN_FILE"
-    git add docs/plans/
+    git rm "$PLAN_FILE"
     git commit -m "chore: clean up dev-plan for issue #{issue_number}"
 fi
 ```
