@@ -125,6 +125,25 @@ describe("POST /api/auth/register", () => {
     expect(data.message).toBe("Invite code required");
   });
 
+  it("returns 400 for invalid invite code format", async () => {
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "test@example.com",
+          password: "password123",
+          inviteCode: "too-short", // Invalid: not 32 chars
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Bad Request");
+    expect(data.message).toBe("Invalid invite code format");
+  });
+
   it("returns 409 for duplicate email", async () => {
     // createUser generates unique email if not specified
     const admin = await createUser({ isAdmin: true });
@@ -133,7 +152,7 @@ describe("POST /api/auth/register", () => {
 
     // Create invite for the duplicate email test
     const db = getDbClient();
-    const inviteCode = `DUP_${crypto.randomUUID().slice(0, 27)}`;
+    const inviteCode = `DUP_${crypto.randomUUID().slice(0, 28)}`;
     await db`
       INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
       VALUES (${inviteCode}, ${user.email}, 'viewer', NOW() + INTERVAL '7 days', ${admin.id})
@@ -208,7 +227,7 @@ describe("POST /api/auth/register", () => {
 
       // Create invite with unique code
       const db = getDbClient();
-      const inviteCode = `VALID_${crypto.randomUUID().slice(0, 8)}`;
+      const inviteCode = `VALID_${crypto.randomUUID().slice(0, 26)}`;
       const [invite] = await db<{ id: string; code: string }[]>`
         INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
         VALUES (${inviteCode}, NULL, 'viewer', NOW() + INTERVAL '7 days', ${adminUserId})
@@ -251,7 +270,9 @@ describe("POST /api/auth/register", () => {
     }
   });
 
-  it("registration with invalid invite code returns 400", async () => {
+  it("registration with non-existent invite code returns 400", async () => {
+    // Use a properly formatted 32-char invite code that doesn't exist
+    const nonExistentCode = "NONEXISTENT_CODE_1234567890abcde";
     const res = await app.fetch(
       createRequestWithUniqueIp("http://localhost/api/auth/register", {
         method: "POST",
@@ -259,7 +280,7 @@ describe("POST /api/auth/register", () => {
         body: JSON.stringify({
           email: "test@example.com",
           password: "password123",
-          inviteCode: "INVALID123",
+          inviteCode: nonExistentCode,
         }),
       }),
     );

@@ -190,6 +190,14 @@ auth.post("/register", async (c) => {
     );
   }
 
+  // Validate invite code format (must be 32 alphanumeric chars)
+  if (inviteCode.length !== 32 || !/^[A-Za-z0-9_-]+$/.test(inviteCode)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid invite code format" },
+      400,
+    );
+  }
+
   const db = getDbClient();
   const sanitizedEmail = sanitizeEmail(email);
 
