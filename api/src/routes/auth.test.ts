@@ -31,12 +31,20 @@ describe("POST /api/auth/register", () => {
     }
   });
 
-  it("successfully registers new user with email + password", async () => {
-    // Ensure there's already a user so new registrations aren't admin
-    const existingUser = await createUser({
-      email: "existing-admin@example.com",
+  it("successfully registers new user with valid invite", async () => {
+    // Create admin to create invite
+    const admin = await createUser({
+      email: "invite-admin@example.com",
       isAdmin: true,
     });
+
+    // Create invite
+    const db = getDbClient();
+    const inviteCode = `REG_${crypto.randomUUID().slice(0, 8)}`.padEnd(32, "X");
+    await db`
+      INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
+      VALUES (${inviteCode}, 'newuser@example.com', 'viewer', NOW() + INTERVAL '7 days', ${admin.id})
+    `;
 
     const res = await app.fetch(
       createRequestWithUniqueIp("http://localhost/api/auth/register", {
@@ -45,6 +53,7 @@ describe("POST /api/auth/register", () => {
         body: JSON.stringify({
           email: "newuser@example.com",
           password: "password123",
+          inviteCode,
         }),
       }),
     );
@@ -57,8 +66,8 @@ describe("POST /api/auth/register", () => {
     expect(data.user.isAdmin).toBe(false);
     userId = data.user.id;
 
-    // Cleanup existing user
-    await cleanupUser(existingUser.id);
+    // Cleanup
+    await cleanupUser(admin.id);
   });
 
   it("returns 400 for invalid email format", async () => {
@@ -119,54 +128,8 @@ describe("POST /api/auth/register", () => {
     expect(data.message).toBe("Email already registered");
   });
 
-  it("first user becomes admin", async () => {
-    // Clean database first
-    const db = getDbClient();
-    await db`DELETE FROM user_profiles`;
-
-    const res = await app.fetch(
-      createRequestWithUniqueIp("http://localhost/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "firstuser@example.com",
-          password: "password123",
-        }),
-      }),
-    );
-
-    expect(res.status).toBe(201);
-    const data = (await res.json()) as AuthResponse;
-    expect(data.user.isAdmin).toBe(true);
-    userId = data.user.id;
-  });
-
-  it("second user is not admin", async () => {
-    // Create first user (admin)
-    const firstUser = await createUser({
-      email: "admin@example.com",
-      isAdmin: true,
-    });
-
-    const res = await app.fetch(
-      createRequestWithUniqueIp("http://localhost/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "seconduser@example.com",
-          password: "password123",
-        }),
-      }),
-    );
-
-    expect(res.status).toBe(201);
-    const data = (await res.json()) as AuthResponse;
-    expect(data.user.isAdmin).toBe(false);
-
-    // Cleanup
-    userId = data.user.id;
-    await cleanupUser(firstUser.id);
-  });
+  // NOTE: "first user becomes admin" test removed - admins now created via CLI only
+  // All registration is invite-only, no special first-user case
 
   it("registration with valid invite code grants trip access", async () => {
     let adminUserId: string | null = null;
@@ -243,6 +206,161 @@ describe("POST /api/auth/register", () => {
     const data = (await res.json()) as ErrorResponse;
     expect(data.error).toBe("Bad Request");
     expect(data.message).toBe("Invalid or expired invite code");
+  });
+});
+
+// =============================================================================
+// GET /registration-status - Registration status endpoint tests
+// =============================================================================
+
+describe("GET /api/auth/registration-status", () => {
+  it("returns closed when no invite provided", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/registration-status"),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      registrationOpen: boolean;
+      reason: string;
+    };
+    expect(data.registrationOpen).toBe(false);
+    expect(data.reason).toBe("invite_required");
+  });
+
+  it("returns closed for invalid invite format", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/api/auth/registration-status?invite=short"),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      registrationOpen: boolean;
+      reason: string;
+    };
+    expect(data.registrationOpen).toBe(false);
+    expect(data.reason).toBe("invalid_invite");
+  });
+
+  it("returns closed for non-existent invite", async () => {
+    const res = await app.fetch(
+      new Request(
+        "http://localhost/api/auth/registration-status?invite=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      registrationOpen: boolean;
+      reason: string;
+    };
+    expect(data.registrationOpen).toBe(false);
+    expect(data.reason).toBe("invalid_invite");
+  });
+
+  it("returns open for valid invite", async () => {
+    // Create admin to create invite
+    const admin = await createUser({
+      email: "status-admin@example.com",
+      isAdmin: true,
+    });
+
+    // Create valid invite
+    const db = getDbClient();
+    const inviteCode = "STATUSTEST01234567890123456789AB";
+    await db`
+      INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
+      VALUES (${inviteCode}, 'invited@example.com', 'viewer', NOW() + INTERVAL '7 days', ${admin.id})
+    `;
+
+    const res = await app.fetch(
+      new Request(
+        `http://localhost/api/auth/registration-status?invite=${inviteCode}`,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      registrationOpen: boolean;
+      reason: string;
+      email: string;
+    };
+    expect(data.registrationOpen).toBe(true);
+    expect(data.reason).toBe("valid_invite");
+    expect(data.email).toBe("invited@example.com");
+
+    // Cleanup
+    await cleanupUser(admin.id);
+  });
+
+  it("returns closed for used invite", async () => {
+    // Create admin and invited user
+    const admin = await createUser({
+      email: "used-invite-admin@example.com",
+      isAdmin: true,
+    });
+    const invitedUser = await createUser({
+      email: "already-used@example.com",
+    });
+
+    // Create used invite
+    const db = getDbClient();
+    const inviteCode = "USEDTEST0123456789012345678901AB";
+    await db`
+      INSERT INTO invites (code, email, role, expires_at, created_by_user_id, used_at, used_by_user_id)
+      VALUES (${inviteCode}, 'already-used@example.com', 'viewer', NOW() + INTERVAL '7 days', ${admin.id}, NOW(), ${invitedUser.id})
+    `;
+
+    const res = await app.fetch(
+      new Request(
+        `http://localhost/api/auth/registration-status?invite=${inviteCode}`,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      registrationOpen: boolean;
+      reason: string;
+    };
+    expect(data.registrationOpen).toBe(false);
+    expect(data.reason).toBe("invite_used");
+
+    // Cleanup
+    await cleanupUser(admin.id);
+    await cleanupUser(invitedUser.id);
+  });
+
+  it("returns closed for expired invite", async () => {
+    // Create admin
+    const admin = await createUser({
+      email: "expired-invite-admin@example.com",
+      isAdmin: true,
+    });
+
+    // Create expired invite
+    const db = getDbClient();
+    const inviteCode = "EXPIREDTEST12345678901234567890AB";
+    await db`
+      INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
+      VALUES (${inviteCode}, 'expired@example.com', 'viewer', NOW() - INTERVAL '1 day', ${admin.id})
+    `;
+
+    const res = await app.fetch(
+      new Request(
+        `http://localhost/api/auth/registration-status?invite=${inviteCode}`,
+      ),
+    );
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      registrationOpen: boolean;
+      reason: string;
+    };
+    expect(data.registrationOpen).toBe(false);
+    expect(data.reason).toBe("invite_expired");
+
+    // Cleanup
+    await cleanupUser(admin.id);
   });
 });
 
