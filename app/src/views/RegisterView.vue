@@ -152,62 +152,34 @@ const inviteStatus = ref<'idle' | 'loading' | 'valid' | 'invalid'>('idle')
 const inviteData = ref<ValidateInviteResponse | null>(null)
 const inviteError = ref('')
 
-// Check registration status on mount
+// Validate invite on mount
 onMounted(async () => {
-  try {
-    // Pass invite code to registration-status check if present
-    const inviteCode = route.query.invite as string | undefined
+  const inviteCode = route.query.invite as string | undefined
 
-    // Validate invite if present
-    if (inviteCode) {
-      inviteStatus.value = 'loading'
-      try {
-        const response = await validateInvite(inviteCode)
+  // Validate invite if present (router guard already verified it's valid)
+  if (inviteCode) {
+    inviteStatus.value = 'loading'
+    try {
+      const response = await validateInvite(inviteCode)
 
-        if (response.valid && response.invite) {
-          inviteStatus.value = 'valid'
-          inviteData.value = response
-          // Pre-fill email from invite
-          setFieldValue('email', response.invite.email)
-        } else {
-          inviteStatus.value = 'invalid'
-          inviteError.value = response.message || 'Invalid or expired invite'
-        }
-      } catch (err) {
+      if (response.valid && response.invite) {
+        inviteStatus.value = 'valid'
+        inviteData.value = response
+        // Pre-fill email from invite
+        setFieldValue('email', response.invite.email)
+      } else {
         inviteStatus.value = 'invalid'
-        if (err instanceof ApiError) {
-          inviteError.value = err.message || 'Failed to validate invite'
-        } else {
-          inviteError.value = 'Failed to validate invite'
-        }
-        console.error('[REGISTER] Failed to validate invite:', err)
+        inviteError.value = response.message || 'Invalid or expired invite'
       }
-    }
-
-    const url = new URL(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
-    if (inviteCode) {
-      url.searchParams.set('invite', inviteCode)
-    }
-
-    const response = await fetch(url.toString())
-
-    if (response.ok) {
-      const { registrationOpen } = await response.json()
-
-      if (!registrationOpen) {
-        error.value = 'Registration is closed. The first user has already been registered.'
-
-        // Redirect to login after showing error briefly
-        setTimeout(() => {
-          router.push('/login')
-        }, 2000)
+    } catch (err) {
+      inviteStatus.value = 'invalid'
+      if (err instanceof ApiError) {
+        inviteError.value = err.message || 'Failed to validate invite'
+      } else {
+        inviteError.value = 'Failed to validate invite'
       }
+      console.error('[REGISTER] Failed to validate invite:', err)
     }
-    // If API call fails, let user try - backend will validate
-  } catch (err) {
-    // Network error - let user try to register
-    // Backend will return 409 if user exists
-    console.error('[REGISTER] Failed to fetch registration status:', err)
   }
 })
 

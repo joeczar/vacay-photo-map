@@ -108,13 +108,15 @@ docker compose -p vacay-prod up -d postgres # Production database (different pro
 
 ### First-Time Setup
 
+**Registration is invite-only.** The first admin must be created via CLI or seed script.
+
 **Choose ONE approach:**
 
-**Option A: Manual registration (recommended)**
+**Option A: CLI admin creation (recommended for production)**
 1. Start dev server: `pnpm dev:docker`
-2. Navigate to http://localhost:5173/register
-3. Register with your email - first user becomes admin
-4. Credentials persist in Docker volume across restarts
+2. Create admin: `cd api && pnpm create-admin`
+3. Follow interactive prompts for email, password, display name
+4. Admin can then create invites at `/admin/invites`
 
 **Option B: Seed script (quick setup with sample data)**
 1. Start dev server: `pnpm dev:docker`
@@ -122,7 +124,7 @@ docker compose -p vacay-prod up -d postgres # Production database (different pro
 3. Default admin: `admin@example.com` / `changeme123`
 4. Creates sample trip with photos
 
-**Note:** Running seed after manual registration will NOT overwrite your password (shows warning instead).
+**Note:** Running seed after CLI admin creation will NOT overwrite your password (shows warning instead).
 
 ### Password Recovery (Local Dev)
 
@@ -132,6 +134,14 @@ If you forget your local admin password:
 cd api
 pnpm reset-password
 # Follow prompts to reset any user's password
+```
+
+To create a new admin user:
+
+```bash
+cd api
+pnpm create-admin
+# Follow prompts for email, password, display name
 ```
 
 ### Dev Server Management
