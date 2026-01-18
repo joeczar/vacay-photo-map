@@ -47,19 +47,13 @@
             {{ isLoggingIn ? 'Signing in...' : 'Sign In' }}
           </Button>
         </form>
-
-        <!-- Dev-only registration link -->
-        <div v-if="registrationOpen" class="mt-4 text-center text-sm text-muted-foreground">
-          Need an account?
-          <router-link to="/register" class="text-primary hover:underline"> Register </router-link>
-        </div>
       </CardContent>
     </Card>
   </AuthLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -85,23 +79,6 @@ if (isAuthenticated.value) {
 // State
 const isLoggingIn = ref(false)
 const error = ref('')
-
-// Check if registration is open
-const registrationOpen = ref(false)
-
-onMounted(async () => {
-  try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/registration-status`)
-
-    if (response.ok) {
-      const { registrationOpen: isOpen } = await response.json()
-      registrationOpen.value = isOpen
-    }
-  } catch (error) {
-    // Fail closed - keep registrationOpen as false
-    console.error('[LOGIN] Failed to fetch registration status:', error)
-  }
-})
 
 // Form validation schema
 const loginSchema = toTypedSchema(
