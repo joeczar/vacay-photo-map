@@ -182,10 +182,18 @@ auth.post("/register", async (c) => {
     );
   }
 
+  // Require invite code (registration is invite-only)
+  if (!inviteCode) {
+    return c.json(
+      { error: "Bad Request", message: "Invite code required" },
+      400,
+    );
+  }
+
   const db = getDbClient();
   const sanitizedEmail = sanitizeEmail(email);
 
-  // Validate invite code if provided
+  // Validate invite code
   let validatedInviteCode: string | undefined;
   if (inviteCode) {
     const [invite] = await db<

@@ -106,10 +106,38 @@ describe("POST /api/auth/register", () => {
     expect(data.message).toBe("Password must be at least 8 characters");
   });
 
+  it("returns 400 when registering without invite code", async () => {
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "noinvite@example.com",
+          password: "password123",
+          // No inviteCode provided
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.error).toBe("Bad Request");
+    expect(data.message).toBe("Invite code required");
+  });
+
   it("returns 409 for duplicate email", async () => {
     // createUser generates unique email if not specified
+    const admin = await createUser({ isAdmin: true });
     const user = await createUser();
     userId = user.id;
+
+    // Create invite for the duplicate email test
+    const db = getDbClient();
+    const inviteCode = `DUP_${crypto.randomUUID().slice(0, 27)}`;
+    await db`
+      INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
+      VALUES (${inviteCode}, ${user.email}, 'viewer', NOW() + INTERVAL '7 days', ${admin.id})
+    `;
 
     const res = await app.fetch(
       createRequestWithUniqueIp("http://localhost/api/auth/register", {
@@ -118,6 +146,7 @@ describe("POST /api/auth/register", () => {
         body: JSON.stringify({
           email: user.email, // Use the generated email
           password: "password123",
+          inviteCode,
         }),
       }),
     );
@@ -126,6 +155,9 @@ describe("POST /api/auth/register", () => {
     const data = (await res.json()) as ErrorResponse;
     expect(data.error).toBe("Conflict");
     expect(data.message).toBe("Email already registered");
+
+    // Cleanup
+    await cleanupUser(admin.id);
   });
 
   // NOTE: "first user becomes admin" test removed - admins now created via CLI only
