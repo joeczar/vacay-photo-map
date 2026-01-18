@@ -216,7 +216,9 @@ describe("POST /api/auth/register", () => {
 describe("GET /api/auth/registration-status", () => {
   it("returns closed when no invite provided", async () => {
     const res = await app.fetch(
-      new Request("http://localhost/api/auth/registration-status"),
+      createRequestWithUniqueIp(
+        "http://localhost/api/auth/registration-status",
+      ),
     );
 
     expect(res.status).toBe(200);
@@ -230,7 +232,9 @@ describe("GET /api/auth/registration-status", () => {
 
   it("returns closed for invalid invite format", async () => {
     const res = await app.fetch(
-      new Request("http://localhost/api/auth/registration-status?invite=short"),
+      createRequestWithUniqueIp(
+        "http://localhost/api/auth/registration-status?invite=short",
+      ),
     );
 
     expect(res.status).toBe(200);
@@ -244,7 +248,7 @@ describe("GET /api/auth/registration-status", () => {
 
   it("returns closed for non-existent invite", async () => {
     const res = await app.fetch(
-      new Request(
+      createRequestWithUniqueIp(
         "http://localhost/api/auth/registration-status?invite=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
       ),
     );
@@ -259,22 +263,20 @@ describe("GET /api/auth/registration-status", () => {
   });
 
   it("returns open for valid invite", async () => {
-    // Create admin to create invite
-    const admin = await createUser({
-      email: "status-admin@example.com",
-      isAdmin: true,
-    });
+    // Create admin to create invite (factory generates unique email)
+    const admin = await createUser({ isAdmin: true });
 
-    // Create valid invite
+    // Create valid invite with unique code
     const db = getDbClient();
-    const inviteCode = "STATUSTEST01234567890123456789AB";
+    const inviteCode = `VALID${crypto.randomUUID().slice(0, 27)}`;
+    const inviteEmail = `invite-${crypto.randomUUID().slice(0, 8)}@example.com`;
     await db`
       INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
-      VALUES (${inviteCode}, 'invited@example.com', 'viewer', NOW() + INTERVAL '7 days', ${admin.id})
+      VALUES (${inviteCode}, ${inviteEmail}, 'viewer', NOW() + INTERVAL '7 days', ${admin.id})
     `;
 
     const res = await app.fetch(
-      new Request(
+      createRequestWithUniqueIp(
         `http://localhost/api/auth/registration-status?invite=${inviteCode}`,
       ),
     );
@@ -287,32 +289,27 @@ describe("GET /api/auth/registration-status", () => {
     };
     expect(data.registrationOpen).toBe(true);
     expect(data.reason).toBe("valid_invite");
-    expect(data.email).toBe("invited@example.com");
+    expect(data.email).toBe(inviteEmail);
 
     // Cleanup
     await cleanupUser(admin.id);
   });
 
   it("returns closed for used invite", async () => {
-    // Create admin and invited user
-    const admin = await createUser({
-      email: "used-invite-admin@example.com",
-      isAdmin: true,
-    });
-    const invitedUser = await createUser({
-      email: "already-used@example.com",
-    });
+    // Create admin and invited user (factory generates unique emails)
+    const admin = await createUser({ isAdmin: true });
+    const invitedUser = await createUser();
 
-    // Create used invite
+    // Create used invite with unique code
     const db = getDbClient();
-    const inviteCode = "USEDTEST0123456789012345678901AB";
+    const inviteCode = `USED${crypto.randomUUID().slice(0, 28)}`;
     await db`
       INSERT INTO invites (code, email, role, expires_at, created_by_user_id, used_at, used_by_user_id)
-      VALUES (${inviteCode}, 'already-used@example.com', 'viewer', NOW() + INTERVAL '7 days', ${admin.id}, NOW(), ${invitedUser.id})
+      VALUES (${inviteCode}, ${invitedUser.email}, 'viewer', NOW() + INTERVAL '7 days', ${admin.id}, NOW(), ${invitedUser.id})
     `;
 
     const res = await app.fetch(
-      new Request(
+      createRequestWithUniqueIp(
         `http://localhost/api/auth/registration-status?invite=${inviteCode}`,
       ),
     );
@@ -331,22 +328,20 @@ describe("GET /api/auth/registration-status", () => {
   });
 
   it("returns closed for expired invite", async () => {
-    // Create admin
-    const admin = await createUser({
-      email: "expired-invite-admin@example.com",
-      isAdmin: true,
-    });
+    // Create admin (factory generates unique email)
+    const admin = await createUser({ isAdmin: true });
 
-    // Create expired invite
+    // Create expired invite with unique code
     const db = getDbClient();
-    const inviteCode = "EXPIREDTEST12345678901234567890AB";
+    const inviteCode = `EXPR${crypto.randomUUID().slice(0, 28)}`;
+    const expiredEmail = `expired-${crypto.randomUUID().slice(0, 8)}@example.com`;
     await db`
       INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
-      VALUES (${inviteCode}, 'expired@example.com', 'viewer', NOW() - INTERVAL '1 day', ${admin.id})
+      VALUES (${inviteCode}, ${expiredEmail}, 'viewer', NOW() - INTERVAL '1 day', ${admin.id})
     `;
 
     const res = await app.fetch(
-      new Request(
+      createRequestWithUniqueIp(
         `http://localhost/api/auth/registration-status?invite=${inviteCode}`,
       ),
     );
