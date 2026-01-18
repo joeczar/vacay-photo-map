@@ -73,6 +73,14 @@ This expands to a prompt that guides Claude through the gated workflow.
 
 These are subagents that do focused work and return results:
 
+### setup-agent
+**Purpose:** Issue setup and branch creation.
+- Validates issue exists
+- Checks for blockers
+- Creates feature branch
+- Updates project board
+- Returns issue details and branch name
+
 ### researcher
 **Purpose:** Gathers context before planning.
 - Analyzes codebase for relevant patterns
@@ -82,7 +90,7 @@ These are subagents that do focused work and return results:
 
 ### planner
 **Purpose:** Creates atomic commit plans.
-- Writes plan to `/docs/implementation-plan-issue-{N}.md`
+- Writes plan to `/docs/plans/issue-{N}.md`
 - Each commit: message, files, acceptance criteria
 - Returns when plan file is written
 
@@ -96,6 +104,7 @@ These are subagents that do focused work and return results:
 **Purpose:** Writes and runs tests.
 - Creates unit, integration, E2E tests
 - Runs full test suite
+- Audits test infrastructure in review mode
 - Returns test results
 
 ### reviewer
@@ -106,6 +115,21 @@ These are subagents that do focused work and return results:
 - Unused code detection
 - Auto-fixes Critical/High issues
 - Returns findings
+
+### review-orchestrator
+**Purpose:** Coordinates parallel reviews and auto-fix loop.
+- Spawns code-reviewer, pr-test-analyzer, silent-failure-hunter
+- Classifies findings as CRITICAL vs NON-CRITICAL
+- Runs auto-fix loop (up to MAX_RETRY per finding)
+- Returns summary with fixed/unresolved counts
+
+### finalize-agent
+**Purpose:** Final validation and PR creation.
+- Runs final validation (tests, type-check, lint)
+- Cleans up plan files
+- Pushes branch and creates PR
+- Updates project board
+- Returns PR URL
 
 ### doc-writer (utility)
 **Purpose:** Technical documentation.
@@ -175,19 +199,41 @@ Based on [Anthropic's research](https://www.anthropic.com/engineering/claude-cod
 ```
 .claude/agents/
 ├── README.md              # This file
+├── setup-agent.md         # Issue setup, branch creation
 ├── researcher.md          # Context gathering
 ├── planner.md             # Implementation planning
 ├── implementer.md         # Feature building (one commit)
 ├── tester.md              # Test writing & verification
 ├── reviewer.md            # Code review & validation
+├── review-orchestrator.md # Parallel reviews + auto-fix loop
+├── finalize-agent.md      # PR creation & cleanup
 ├── doc-writer.md          # Documentation utility
 └── ui-polisher.md         # UI polish utility
 
 .claude/commands/
-└── work-on-issue.md       # Slash command for gated workflow
+├── work-on-issue.md       # Slash command for gated workflow
+└── auto-issue.md          # Slash command for autonomous workflow
+
+.claude/shared/
+├── finding-classification.md  # CRITICAL vs NON-CRITICAL rules
+├── escalation-patterns.md     # When/how to escalate
+└── break-glass-commands.md    # Emergency user commands
+
+.claude/rules/
+├── gate-workflow.md       # Gate rules for /work-on-issue
+└── auto-issue-rules.md    # Limits & triggers for /auto-issue
 ```
 
 ---
 
-**Version:** 3.0
-**Last Updated:** December 2025
+**Version:** 4.0
+**Last Updated:** January 2026
+
+### Changelog (v4.0)
+- Added `setup-agent` for issue validation and branch creation
+- Added `review-orchestrator` for parallel reviews and auto-fix loop
+- Added `finalize-agent` for PR creation and cleanup
+- Added INPUT/OUTPUT/ERROR contracts to all agents
+- Added `.claude/shared/` for cross-cutting patterns
+- Added `.claude/rules/gate-workflow.md` and `auto-issue-rules.md`
+- Updated `/work-on-issue` and `/auto-issue` to use new agents
