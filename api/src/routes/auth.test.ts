@@ -163,6 +163,36 @@ describe("POST /api/auth/register", () => {
   // NOTE: "first user becomes admin" test removed - admins now created via CLI only
   // All registration is invite-only, no special first-user case
 
+  it("returns 400 when registration email does not match invite email", async () => {
+    const admin = await createUser({ isAdmin: true });
+    const db = getDbClient();
+    const inviteCode = `MISMATCH_${crypto.randomUUID().slice(0, 23)}`;
+
+    // Create invite locked to a specific email
+    await db`
+      INSERT INTO invites (code, email, role, expires_at, created_by_user_id)
+      VALUES (${inviteCode}, 'alice@example.com', 'viewer', NOW() + INTERVAL '7 days', ${admin.id})
+    `;
+
+    const res = await app.fetch(
+      createRequestWithUniqueIp("http://localhost/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "bob@example.com", // Different email than invite
+          password: "password123",
+          inviteCode,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as ErrorResponse;
+    expect(data.message).toBe("Invite email does not match registration email");
+
+    await cleanupUser(admin.id);
+  });
+
   it("registration with valid invite code grants trip access", async () => {
     let adminUserId: string | null = null;
     let tripId: string | null = null;

@@ -193,44 +193,38 @@ auth.post("/register", async (c) => {
   const db = getDbClient();
   const sanitizedEmail = sanitizeEmail(email);
 
-  // Validate invite code
-  let validatedInviteCode: string | undefined;
-  if (inviteCode) {
-    const [invite] = await db<
-      {
-        id: string;
-        email: string | null;
-      }[]
-    >`
-      SELECT id, email
-      FROM invites
-      WHERE code = ${inviteCode}
-        AND used_at IS NULL
-        AND expires_at > NOW()
-    `;
+  // Validate invite code (already verified to be present above)
+  const [invite] = await db<
+    {
+      id: string;
+      email: string | null;
+    }[]
+  >`
+    SELECT id, email
+    FROM invites
+    WHERE code = ${inviteCode}
+      AND used_at IS NULL
+      AND expires_at > NOW()
+  `;
 
-    if (!invite) {
-      return c.json(
-        { error: "Bad Request", message: "Invalid or expired invite code" },
-        400,
-      );
-    }
-
-    if (
-      invite.email !== null &&
-      invite.email.toLowerCase() !== sanitizedEmail
-    ) {
-      return c.json(
-        {
-          error: "Bad Request",
-          message: "Invite email does not match registration email",
-        },
-        400,
-      );
-    }
-
-    validatedInviteCode = inviteCode;
+  if (!invite) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid or expired invite code" },
+      400,
+    );
   }
+
+  if (invite.email !== null && invite.email.toLowerCase() !== sanitizedEmail) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Invite email does not match registration email",
+      },
+      400,
+    );
+  }
+
+  const validatedInviteCode = inviteCode;
 
   // Check if email already exists
   const existing = await db<Pick<DbUser, "id">[]>`

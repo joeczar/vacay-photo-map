@@ -99,9 +99,21 @@ const createAdmin = async () => {
   const sanitizedEmail = email.toLowerCase().trim()
 
   // Check if user with this email already exists (early check)
-  const [existingUser] = await db<{ id: string }[]>`
-    SELECT id FROM user_profiles WHERE email = ${sanitizedEmail}
-  `
+  let existingUser: { id: string } | undefined
+  try {
+    [existingUser] = await db<{ id: string }[]>`
+      SELECT id FROM user_profiles WHERE email = ${sanitizedEmail}
+    `
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('ECONNREFUSED')) {
+      console.error('\n  Error: Cannot connect to database.')
+      console.error('  Make sure the database is running: pnpm dev:docker')
+    } else {
+      console.error('\n  Database error:', err instanceof Error ? err.message : 'Unknown error')
+    }
+    process.exitCode = 1
+    return
+  }
 
   if (existingUser) {
     console.error(`\n  User with email ${sanitizedEmail} already exists`)
@@ -150,12 +162,20 @@ const createAdmin = async () => {
   // Hash password and create user
   const passwordHash = await Bun.password.hash(password)
 
-  const [newUser] = await db<{ id: string; email: string }[]>`
+  const result = await db<{ id: string; email: string }[]>`
     INSERT INTO user_profiles (email, password_hash, display_name, is_admin)
     VALUES (${sanitizedEmail}, ${passwordHash}, ${sanitizedDisplayName}, true)
     RETURNING id, email
   `
 
+  if (result.length === 0) {
+    console.error('\n  Error: Failed to create user. The insert operation returned no rows.')
+    console.error('  This may indicate a database policy issue or a race condition.')
+    process.exitCode = 1
+    return
+  }
+
+  const newUser = result[0]
   console.info(`\n  Admin user created successfully!`)
   console.info(`  ID: ${newUser.id}`)
   console.info(`  Email: ${newUser.email}`)
