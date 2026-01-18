@@ -246,18 +246,10 @@ auth.post("/register", async (c) => {
 
     // Create user and process invite in transaction
     const user = await db.begin(async (tx) => {
-      // Lock table to prevent race condition on first user creation
-      await tx`LOCK TABLE user_profiles IN SHARE ROW EXCLUSIVE MODE`;
-
-      // Check if this is the first user - they become admin automatically
-      const [{ exists }] = await tx<{ exists: boolean }[]>`
-        SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
-      `;
-      const isFirstUser = !exists;
-
+      // Create user (always non-admin - admins created via CLI)
       const [newUser] = await tx<DbUser[]>`
         INSERT INTO user_profiles (email, password_hash, display_name, is_admin)
-        VALUES (${sanitizedEmail}, ${passwordHash}, ${sanitizedDisplayName}, ${isFirstUser})
+        VALUES (${sanitizedEmail}, ${passwordHash}, ${sanitizedDisplayName}, false)
         RETURNING id, email, display_name, is_admin, created_at, updated_at
       `;
 
@@ -627,63 +619,72 @@ auth.post("/logout", (_c) => {
 
 // =============================================================================
 // GET /registration-status - Check if registration is open
-// Allows registration if: no users yet OR valid invite code provided
+// Registration requires a valid invite code
 // =============================================================================
 auth.get("/registration-status", async (c) => {
   const db = getDbClient();
   const inviteCode = c.req.query("invite");
 
-  // Check if any users exist
-  const [{ exists }] = await db<{ exists: boolean }[]>`
-    SELECT EXISTS (SELECT 1 FROM user_profiles) as exists
-  `;
-
-  // No users yet - registration open for first user
-  if (!exists) {
+  // No invite code provided - registration requires invite
+  if (!inviteCode) {
     return c.json({
-      registrationOpen: true,
-      reason: "no_users_yet",
+      registrationOpen: false,
+      reason: "invite_required",
     });
   }
 
-  // Users exist - check for valid invite code
-  if (
-    inviteCode &&
-    inviteCode.length === 32 &&
-    /^[A-Za-z0-9_-]+$/.test(inviteCode)
-  ) {
-    const inviteRows = await db<
-      {
-        id: string;
-        email: string | null;
-        used_at: Date | null;
-        expires_at: Date;
-      }[]
-    >`
-      SELECT id, email, used_at, expires_at
-      FROM invites
-      WHERE code = ${inviteCode}
-    `;
-
-    if (inviteRows.length > 0) {
-      const invite = inviteRows[0];
-      const isUsed = invite.used_at !== null;
-      const isExpired = new Date(invite.expires_at) <= new Date();
-
-      if (!isUsed && !isExpired) {
-        return c.json({
-          registrationOpen: true,
-          reason: "valid_invite",
-          email: invite.email,
-        });
-      }
-    }
+  // Validate invite code format
+  if (inviteCode.length !== 32 || !/^[A-Za-z0-9_-]+$/.test(inviteCode)) {
+    return c.json({
+      registrationOpen: false,
+      reason: "invalid_invite",
+    });
   }
 
-  // No valid invite - registration closed
+  // Check if invite exists and is valid
+  const inviteRows = await db<
+    {
+      id: string;
+      email: string | null;
+      used_at: Date | null;
+      expires_at: Date;
+    }[]
+  >`
+    SELECT id, email, used_at, expires_at
+    FROM invites
+    WHERE code = ${inviteCode}
+  `;
+
+  if (inviteRows.length === 0) {
+    return c.json({
+      registrationOpen: false,
+      reason: "invalid_invite",
+    });
+  }
+
+  const invite = inviteRows[0];
+  const isUsed = invite.used_at !== null;
+  const isExpired = new Date(invite.expires_at) <= new Date();
+
+  if (isUsed) {
+    return c.json({
+      registrationOpen: false,
+      reason: "invite_used",
+    });
+  }
+
+  if (isExpired) {
+    return c.json({
+      registrationOpen: false,
+      reason: "invite_expired",
+    });
+  }
+
+  // Valid invite - registration open
   return c.json({
-    registrationOpen: false,
-    reason: "first_user_registered",
+    registrationOpen: true,
+    reason: "valid_invite",
+    email: invite.email,
   });
 });
 
