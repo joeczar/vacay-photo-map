@@ -39,7 +39,17 @@ interface DbPhoto {
   album: string | null;
   rotation: number;
   description: string | null;
+  section_id: string | null;
   created_at: Date;
+}
+
+interface DbSection {
+  id: string;
+  trip_id: string;
+  title: string;
+  order_index: number;
+  created_at: Date;
+  updated_at: Date;
 }
 
 // =============================================================================
@@ -85,7 +95,17 @@ export interface PhotoResponse {
   album: string | null;
   rotation: number;
   description: string | null;
+  sectionId: string | null;
   createdAt: Date;
+}
+
+export interface SectionResponse {
+  id: string;
+  tripId: string;
+  title: string;
+  orderIndex: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // =============================================================================
@@ -244,7 +264,19 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
     album: photo.album,
     rotation: photo.rotation,
     description: photo.description,
+    sectionId: photo.section_id,
     createdAt: photo.created_at,
+  };
+}
+
+function toSectionResponse(section: DbSection): SectionResponse {
+  return {
+    id: section.id,
+    tripId: section.trip_id,
+    title: section.title,
+    orderIndex: section.order_index,
+    createdAt: section.created_at,
+    updatedAt: section.updated_at,
   };
 }
 
@@ -294,7 +326,7 @@ async function buildTripWithPhotosResponse(
   // Fetch paginated photos for this trip
   const photos = await db<DbPhoto[]>`
     SELECT id, trip_id, storage_key, url, thumbnail_url,
-           latitude, longitude, taken_at, caption, album, rotation, description, created_at
+           latitude, longitude, taken_at, caption, album, rotation, description, section_id, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
     ORDER BY taken_at ASC
@@ -1111,7 +1143,7 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
     SET ${db(updates)}
     WHERE id = ${id}
     RETURNING id, trip_id, storage_key, url, thumbnail_url,
-              latitude, longitude, taken_at, caption, album, rotation, description, created_at
+              latitude, longitude, taken_at, caption, album, rotation, description, section_id, created_at
   `;
 
   // Handle race condition: photo may have been deleted between existence check and update
@@ -1122,4 +1154,4 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
   return c.json(toPhotoResponse(updatedPhoto));
 });
 
-export { trips };
+export { trips, toSectionResponse };
