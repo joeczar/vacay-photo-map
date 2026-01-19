@@ -5,10 +5,16 @@ import type {
   TripResponse,
   TripWithPhotosResponse,
   PhotoResponse,
+  SectionResponse,
 } from "./routes/trips";
 
 // Re-export route types
-export type { TripResponse, TripWithPhotosResponse, PhotoResponse };
+export type {
+  TripResponse,
+  TripWithPhotosResponse,
+  PhotoResponse,
+  SectionResponse,
+};
 
 // Error responses
 export interface ErrorResponse {

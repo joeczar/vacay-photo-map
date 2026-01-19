@@ -39,6 +39,7 @@ interface DbPhoto {
   album: string | null;
   rotation: number;
   description: string | null;
+  section_id: string | null;
   created_at: Date;
 }
 
@@ -94,6 +95,7 @@ export interface PhotoResponse {
   album: string | null;
   rotation: number;
   description: string | null;
+  sectionId: string | null;
   createdAt: Date;
 }
 
@@ -262,6 +264,7 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
     album: photo.album,
     rotation: photo.rotation,
     description: photo.description,
+    sectionId: photo.section_id,
     createdAt: photo.created_at,
   };
 }
@@ -323,7 +326,7 @@ async function buildTripWithPhotosResponse(
   // Fetch paginated photos for this trip
   const photos = await db<DbPhoto[]>`
     SELECT id, trip_id, storage_key, url, thumbnail_url,
-           latitude, longitude, taken_at, caption, album, rotation, description, created_at
+           latitude, longitude, taken_at, caption, album, rotation, description, section_id, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
     ORDER BY taken_at ASC
@@ -1140,7 +1143,7 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
     SET ${db(updates)}
     WHERE id = ${id}
     RETURNING id, trip_id, storage_key, url, thumbnail_url,
-              latitude, longitude, taken_at, caption, album, rotation, description, created_at
+              latitude, longitude, taken_at, caption, album, rotation, description, section_id, created_at
   `;
 
   // Handle race condition: photo may have been deleted between existence check and update
