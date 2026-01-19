@@ -386,7 +386,7 @@ describe("Section Routes", () => {
 
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ title: "Updated Title" }),
@@ -408,7 +408,7 @@ describe("Section Routes", () => {
 
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ orderIndex: 5 }),
@@ -430,7 +430,7 @@ describe("Section Routes", () => {
 
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ title: "Updated", orderIndex: 3 }),
@@ -452,7 +452,7 @@ describe("Section Routes", () => {
 
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({}),
@@ -474,7 +474,7 @@ describe("Section Routes", () => {
 
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ title: "   " }),
@@ -496,7 +496,7 @@ describe("Section Routes", () => {
 
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ orderIndex: -1 }),
@@ -521,7 +521,7 @@ describe("Section Routes", () => {
       // Try to update section2 to have same orderIndex as section1
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section2.id}`, {
+        new Request(`http://localhost/api/sections/${section2.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ orderIndex: 0 }),
@@ -540,7 +540,7 @@ describe("Section Routes", () => {
 
       const fakeUuid = "00000000-0000-0000-0000-000000000000";
       const res = await app.fetch(
-        new Request(`http://localhost/api/${fakeUuid}`, {
+        new Request(`http://localhost/api/sections/${fakeUuid}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ title: "Updated" }),
@@ -557,7 +557,7 @@ describe("Section Routes", () => {
       const headers = await getAdminAuthHeader();
 
       const res = await app.fetch(
-        new Request("http://localhost/api/not-a-uuid", {
+        new Request("http://localhost/api/sections/not-a-uuid", {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ title: "Updated" }),
@@ -578,7 +578,7 @@ describe("Section Routes", () => {
       const section = await createSection(app, trip.id, "Section", 0);
 
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title: "Updated" }),
@@ -597,7 +597,7 @@ describe("Section Routes", () => {
 
       const headers = await getUserAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify({ title: "Updated" }),
@@ -628,7 +628,7 @@ describe("Section Routes", () => {
 
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "DELETE",
           headers,
         }),
@@ -670,7 +670,7 @@ describe("Section Routes", () => {
       // Delete section
       const headers = await getAdminAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "DELETE",
           headers,
         }),
@@ -691,7 +691,7 @@ describe("Section Routes", () => {
 
       const fakeUuid = "00000000-0000-0000-0000-000000000000";
       const res = await app.fetch(
-        new Request(`http://localhost/api/${fakeUuid}`, {
+        new Request(`http://localhost/api/sections/${fakeUuid}`, {
           method: "DELETE",
           headers,
         }),
@@ -707,7 +707,7 @@ describe("Section Routes", () => {
       const headers = await getAdminAuthHeader();
 
       const res = await app.fetch(
-        new Request("http://localhost/api/not-a-uuid", {
+        new Request("http://localhost/api/sections/not-a-uuid", {
           method: "DELETE",
           headers,
         }),
@@ -727,7 +727,7 @@ describe("Section Routes", () => {
       const section = await createSection(app, trip.id, "Section", 0);
 
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "DELETE",
         }),
       );
@@ -744,7 +744,7 @@ describe("Section Routes", () => {
 
       const headers = await getUserAuthHeader();
       const res = await app.fetch(
-        new Request(`http://localhost/api/${section.id}`, {
+        new Request(`http://localhost/api/sections/${section.id}`, {
           method: "DELETE",
           headers,
         }),
