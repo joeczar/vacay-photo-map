@@ -252,6 +252,26 @@ describe("Section Routes", () => {
       expect(data.message).toContain("non-negative");
     });
 
+    it("returns 400 for missing orderIndex", async () => {
+      const app = createTestApp();
+      const trip = await createTrip({ title: "Missing Order Test" });
+      createdTripIds.push(trip.id);
+
+      const headers = await getAdminAuthHeader();
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/${trip.id}/sections`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ title: "Valid Title" }), // No orderIndex
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.error).toBe("Bad Request");
+      expect(data.message).toContain("required");
+    });
+
     it("returns 409 for duplicate (trip_id, order_index)", async () => {
       const app = createTestApp();
       const trip = await createTrip({ title: "Duplicate Order Test" });
