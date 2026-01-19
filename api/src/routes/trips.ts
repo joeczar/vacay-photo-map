@@ -38,6 +38,7 @@ interface DbPhoto {
   caption: string | null;
   album: string | null;
   rotation: number;
+  description: string | null;
   created_at: Date;
 }
 
@@ -83,6 +84,7 @@ export interface PhotoResponse {
   caption: string | null;
   album: string | null;
   rotation: number;
+  description: string | null;
   createdAt: Date;
 }
 
@@ -241,6 +243,7 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
     caption: photo.caption,
     album: photo.album,
     rotation: photo.rotation,
+    description: photo.description,
     createdAt: photo.created_at,
   };
 }
@@ -291,7 +294,7 @@ async function buildTripWithPhotosResponse(
   // Fetch paginated photos for this trip
   const photos = await db<DbPhoto[]>`
     SELECT id, trip_id, storage_key, url, thumbnail_url,
-           latitude, longitude, taken_at, caption, album, rotation, created_at
+           latitude, longitude, taken_at, caption, album, rotation, description, created_at
     FROM photos
     WHERE trip_id = ${trip.id}
     ORDER BY taken_at ASC
@@ -1090,7 +1093,7 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
     SET rotation = ${rotation}
     WHERE id = ${id}
     RETURNING id, trip_id, storage_key, url, thumbnail_url,
-              latitude, longitude, taken_at, caption, album, rotation, created_at
+              latitude, longitude, taken_at, caption, album, rotation, description, created_at
   `;
 
   return c.json(toPhotoResponse(updatedPhoto));
