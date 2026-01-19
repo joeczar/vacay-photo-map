@@ -17,6 +17,7 @@ import {
 } from "../test-factories";
 import type {
   ErrorResponse,
+  PhotoResponse,
   TripListResponse,
   TripWithPhotosResponse,
 } from "../test-types";
@@ -567,9 +568,9 @@ describe("Trip Routes", () => {
   });
 
   // ==========================================================================
-  // PATCH /api/trips/photos/:id - Update photo rotation
+  // PATCH /api/trips/photos/:id - Update photo rotation and/or description
   // ==========================================================================
-  describe("PATCH /api/trips/photos/:id - Update photo rotation", () => {
+  describe("PATCH /api/trips/photos/:id - Update photo", () => {
     const createdTripIds: string[] = [];
 
     afterEach(async () => {
@@ -628,6 +629,159 @@ describe("Trip Routes", () => {
       const [updatedPhoto] =
         await db`SELECT rotation FROM photos WHERE id = ${photo.id}`;
       expect(updatedPhoto.rotation).toBe(90);
+    });
+
+    it("successfully updates photo description", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const trip = await createTrip({ title: "Test Trip for Description" });
+      createdTripIds.push(trip.id);
+
+      const [photo] = await db`
+        INSERT INTO photos (
+          trip_id, storage_key, url, thumbnail_url,
+          latitude, longitude, taken_at, rotation, description
+        )
+        VALUES (
+          ${trip.id}, 'test-description-photo', 'https://example.com/photo.jpg',
+          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060, NOW(), 0, NULL
+        )
+        RETURNING id
+      `;
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ description: "A beautiful sunset" }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as PhotoResponse;
+      expect(data.description).toBe("A beautiful sunset");
+
+      const [updatedPhoto] =
+        await db`SELECT description FROM photos WHERE id = ${photo.id}`;
+      expect(updatedPhoto.description).toBe("A beautiful sunset");
+    });
+
+    it("successfully updates both rotation and description", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const trip = await createTrip({ title: "Test Trip for Both" });
+      createdTripIds.push(trip.id);
+
+      const [photo] = await db`
+        INSERT INTO photos (
+          trip_id, storage_key, url, thumbnail_url,
+          latitude, longitude, taken_at, rotation, description
+        )
+        VALUES (
+          ${trip.id}, 'test-both-photo', 'https://example.com/photo.jpg',
+          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060, NOW(), 0, NULL
+        )
+        RETURNING id
+      `;
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({
+            rotation: 180,
+            description: "Rotated landscape",
+          }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as PhotoResponse;
+      expect(data.rotation).toBe(180);
+      expect(data.description).toBe("Rotated landscape");
+
+      const [updatedPhoto] =
+        await db`SELECT rotation, description FROM photos WHERE id = ${photo.id}`;
+      expect(updatedPhoto.rotation).toBe(180);
+      expect(updatedPhoto.description).toBe("Rotated landscape");
+    });
+
+    it("successfully clears description with null", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+
+      const trip = await createTrip({ title: "Test Trip for Clear" });
+      createdTripIds.push(trip.id);
+
+      const [photo] = await db`
+        INSERT INTO photos (
+          trip_id, storage_key, url, thumbnail_url,
+          latitude, longitude, taken_at, rotation, description
+        )
+        VALUES (
+          ${trip.id}, 'test-clear-photo', 'https://example.com/photo.jpg',
+          'https://example.com/photo-thumb.jpg', 40.7128, -74.0060, NOW(), 0, 'Existing description'
+        )
+        RETURNING id
+      `;
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ description: null }),
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as PhotoResponse;
+      expect(data.description).toBeNull();
+
+      const [updatedPhoto] =
+        await db`SELECT description FROM photos WHERE id = ${photo.id}`;
+      expect(updatedPhoto.description).toBeNull();
+    });
+
+    it("returns 400 when neither rotation nor description provided", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({}),
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("No fields to update.");
+    });
+
+    it("returns 400 for description exceeding max length", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const validUuid = "550e8400-e29b-41d4-a716-446655440000";
+      const longDescription = "a".repeat(2001);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${validUuid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ description: longDescription }),
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("Description must be 2000 characters or less.");
     });
   });
 
