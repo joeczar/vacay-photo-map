@@ -100,6 +100,9 @@ ESCALATION           → Only if auto-fix fails MAX_RETRY times
 9. **For each commit in plan:**
 
    a. **Spawn `implementer` agent:**
+
+      Use the Task tool to spawn implementer with the current commit spec.
+
       ```yaml
       INPUT:
         issue_number: $ARGUMENTS
@@ -108,6 +111,13 @@ ESCALATION           → Only if auto-fix fails MAX_RETRY times
         plan_file: docs/plans/issue-$ARGUMENTS.md
         branch_name: {from setup}
       ```
+
+      <why>
+      The implementer agent ensures consistent commit-by-commit execution,
+      proper diff preparation for review, and adherence to project patterns.
+      Spawning implementer rather than editing directly keeps the workflow
+      predictable and reviewable.
+      </why>
 
    b. **On success:** Commit changes (no gate)
 

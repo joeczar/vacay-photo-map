@@ -115,6 +115,9 @@ Execute the gated workflow for issue #$ARGUMENTS.
 12. **For each commit in the plan:**
 
     a. **Spawn `implementer` agent:**
+
+       Use the Task tool to spawn implementer with the current commit spec.
+
        ```yaml
        INPUT:
          issue_number: $ARGUMENTS
@@ -123,6 +126,13 @@ Execute the gated workflow for issue #$ARGUMENTS.
          plan_file: docs/plans/issue-$ARGUMENTS.md
          branch_name: {from setup}
        ```
+
+       <why>
+       The implementer agent ensures consistent commit-by-commit execution,
+       proper diff preparation for review, and adherence to project patterns.
+       Spawning implementer rather than editing directly keeps the workflow
+       predictable and reviewable.
+       </why>
 
     b. **For frontend changes:** Use Playwright to verify:
        - Navigate to affected pages

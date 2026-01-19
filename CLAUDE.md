@@ -263,9 +263,11 @@ Milestones in GitHub Issues. See GitHub project board for current priorities.
 
 ## Agent Workflow
 
-**I (Claude) am the orchestrator.** Worker agents handle focused tasks and return to me.
+**Agents do the work, orchestrator coordinates.** Each workflow phase has a designated agent.
+The orchestrator (Claude) spawns agents, presents gates, and handles user interaction.
 
 Use `/work-on-issue {number}` to start the workflow.
+See `.claude/rules/agent-usage.md` for agent spawning guidance.
 
 ### The Gated Workflow
 
@@ -304,8 +306,8 @@ IMPLEMENTATION (per commit) ─────────────────�
 │   └───────────────────────────────────────────
 └───────────────────────────────────────────────
 
-FINALIZATION (MANDATORY - DO NOT SKIP) ─────────
-│ ⚠️  HARD GATE: Complete ALL steps before PR creation
+FINALIZATION ───────────────────────────────────
+│ Complete all review steps before PR creation
 │
 │ [ ] 1. Spawn `tester` agent → reviews test quality
 │        - Verifies tests use shared infrastructure
