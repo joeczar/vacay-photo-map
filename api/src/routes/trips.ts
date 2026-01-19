@@ -1023,16 +1023,17 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
 });
 
 // =============================================================================
-// PATCH /api/trips/photos/:id - Update photo rotation (admin or editor)
+// PATCH /api/trips/photos/:id - Update photo rotation and/or description (admin or editor)
 // =============================================================================
 trips.patch("/photos/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
   const user = c.var.user!;
   const body = await c.req.json<{
     rotation?: number;
+    description?: string | null;
   }>();
 
-  const { rotation } = body;
+  const { rotation, description } = body;
 
   // Validate UUID format
   if (!UUID_REGEX.test(id)) {
@@ -1042,20 +1043,31 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
     );
   }
 
-  // Validate rotation field is provided
-  if (rotation === undefined) {
+  // Validate at least one field is provided
+  if (rotation === undefined && description === undefined) {
     return c.json(
-      { error: "Bad Request", message: "Rotation field is required." },
+      { error: "Bad Request", message: "No fields to update." },
       400,
     );
   }
 
-  // Validate rotation value
-  if (!isValidRotation(rotation)) {
+  // Validate rotation value if provided
+  if (rotation !== undefined && !isValidRotation(rotation)) {
     return c.json(
       {
         error: "Bad Request",
         message: "Rotation must be one of: 0, 90, 180, 270.",
+      },
+      400,
+    );
+  }
+
+  // Validate description if provided
+  if (description !== undefined && !isValidDescription(description)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or less.`,
       },
       400,
     );
@@ -1087,10 +1099,16 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
     }
   }
 
-  // Update photo rotation
+  // Build dynamic update - only update provided fields
+  const updates: Record<string, unknown> = {};
+  if (rotation !== undefined) updates.rotation = rotation;
+  if (description !== undefined)
+    updates.description = description?.trim() || null;
+
+  // Update photo
   const [updatedPhoto] = await db<DbPhoto[]>`
     UPDATE photos
-    SET rotation = ${rotation}
+    SET ${db(updates)}
     WHERE id = ${id}
     RETURNING id, trip_id, storage_key, url, thumbnail_url,
               latitude, longitude, taken_at, caption, album, rotation, description, created_at
