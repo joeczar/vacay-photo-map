@@ -42,6 +42,15 @@ interface DbPhoto {
   created_at: Date;
 }
 
+interface DbSection {
+  id: string;
+  trip_id: string;
+  title: string;
+  order_index: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
 // =============================================================================
 // Response Types
 // =============================================================================
@@ -86,6 +95,15 @@ export interface PhotoResponse {
   rotation: number;
   description: string | null;
   createdAt: Date;
+}
+
+export interface SectionResponse {
+  id: string;
+  tripId: string;
+  title: string;
+  orderIndex: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // =============================================================================
@@ -245,6 +263,17 @@ function toPhotoResponse(photo: DbPhoto): PhotoResponse {
     rotation: photo.rotation,
     description: photo.description,
     createdAt: photo.created_at,
+  };
+}
+
+function toSectionResponse(section: DbSection): SectionResponse {
+  return {
+    id: section.id,
+    tripId: section.trip_id,
+    title: section.title,
+    orderIndex: section.order_index,
+    createdAt: section.created_at,
+    updatedAt: section.updated_at,
   };
 }
 
@@ -1122,4 +1151,4 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
   return c.json(toPhotoResponse(updatedPhoto));
 });
 
-export { trips };
+export { trips, toSectionResponse };
