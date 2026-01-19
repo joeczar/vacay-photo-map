@@ -157,4 +157,130 @@ sections.post("/trips/:tripId/sections", requireAdmin, async (c) => {
   }
 });
 
+// =============================================================================
+// PATCH /api/sections/:id - Update a section
+// =============================================================================
+sections.patch("/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{
+    title?: string;
+    orderIndex?: number;
+  }>();
+
+  const { title, orderIndex } = body;
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid section ID format." },
+      400,
+    );
+  }
+
+  // Validate at least one field provided
+  if (title === undefined && orderIndex === undefined) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "At least one field (title or orderIndex) must be provided.",
+      },
+      400,
+    );
+  }
+
+  // Validate title if provided
+  if (title !== undefined && !isValidTitle(title)) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: `Title is required and must be ${MAX_TITLE_LENGTH} characters or less.`,
+      },
+      400,
+    );
+  }
+
+  // Validate orderIndex if provided
+  if (orderIndex !== undefined && orderIndex < 0) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Order index must be non-negative.",
+      },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Check if section exists
+  const existingSection = await db<DbSection[]>`
+    SELECT id FROM sections WHERE id = ${id}
+  `;
+
+  if (existingSection.length === 0) {
+    return c.json({ error: "Not Found", message: "Section not found" }, 404);
+  }
+
+  // Build dynamic update - only update provided fields
+  const updates: Record<string, unknown> = {};
+  if (title !== undefined) {
+    updates.title = title.trim();
+  }
+  if (orderIndex !== undefined) {
+    updates.order_index = orderIndex;
+  }
+
+  // Update section
+  try {
+    const [section] = await db<DbSection[]>`
+      UPDATE sections
+      SET ${db(updates)}
+      WHERE id = ${id}
+      RETURNING id, trip_id, title, order_index, created_at, updated_at
+    `;
+
+    return c.json(toSectionResponse(section), 200);
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return c.json(
+        {
+          error: "Conflict",
+          message: "A section with this order already exists for this trip",
+        },
+        409,
+      );
+    }
+    throw error;
+  }
+});
+
+// =============================================================================
+// DELETE /api/sections/:id - Delete a section
+// =============================================================================
+sections.delete("/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+
+  // Validate UUID format
+  if (!UUID_REGEX.test(id)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid section ID format." },
+      400,
+    );
+  }
+
+  const db = getDbClient();
+
+  // Delete section
+  const deletedSection = await db<{ id: string }[]>`
+    DELETE FROM sections WHERE id = ${id} RETURNING id
+  `;
+
+  if (deletedSection.length === 0) {
+    return c.json({ error: "Not Found", message: "Section not found" }, 404);
+  }
+
+  // Return 204 No Content on success
+  return c.body(null, 204);
+});
+
 export { sections };
