@@ -1114,6 +1114,11 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
               latitude, longitude, taken_at, caption, album, rotation, description, created_at
   `;
 
+  // Handle race condition: photo may have been deleted between existence check and update
+  if (!updatedPhoto) {
+    return c.json({ error: "Not Found", message: "Photo not found" }, 404);
+  }
+
   return c.json(toPhotoResponse(updatedPhoto));
 });
 
