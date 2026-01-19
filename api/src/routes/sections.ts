@@ -169,7 +169,7 @@ sections.post("/trips/:tripId/sections", requireAdmin, async (c) => {
 // =============================================================================
 // PATCH /api/sections/:id - Update a section
 // =============================================================================
-sections.patch("/:id", requireAdmin, async (c) => {
+sections.patch("/sections/:id", requireAdmin, async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json<{
     title?: string;
@@ -266,7 +266,7 @@ sections.patch("/:id", requireAdmin, async (c) => {
 // =============================================================================
 // DELETE /api/sections/:id - Delete a section
 // =============================================================================
-sections.delete("/:id", requireAdmin, async (c) => {
+sections.delete("/sections/:id", requireAdmin, async (c) => {
   const id = c.req.param("id");
 
   // Validate UUID format
