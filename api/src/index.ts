@@ -7,6 +7,7 @@ import { trips } from "./routes/trips";
 import { upload } from "./routes/upload";
 import { invites } from "./routes/invites";
 import { tripAccess } from "./routes/trip-access";
+import { sections } from "./routes/sections";
 import { connectWithRetry } from "./db/client";
 
 const app = new Hono();
@@ -21,6 +22,7 @@ app.route("/api/auth", auth);
 app.route("/api/trips", trips);
 app.route("/api/invites", invites);
 app.route("/api", tripAccess);
+app.route("/api", sections);
 app.route("/api", upload);
 
 // Root
