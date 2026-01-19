@@ -113,11 +113,20 @@ sections.post("/trips/:tripId/sections", requireAdmin, async (c) => {
   }
 
   // Validate orderIndex
-  if (orderIndex < 0) {
+  if (orderIndex === undefined || orderIndex === null) {
     return c.json(
       {
         error: "Bad Request",
-        message: "Order index must be non-negative.",
+        message: "Order index is required.",
+      },
+      400,
+    );
+  }
+  if (typeof orderIndex !== "number" || orderIndex < 0) {
+    return c.json(
+      {
+        error: "Bad Request",
+        message: "Order index must be a non-negative number.",
       },
       400,
     );
