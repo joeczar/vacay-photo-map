@@ -7,7 +7,7 @@ import { trips } from "./routes/trips";
 import { upload } from "./routes/upload";
 import { invites } from "./routes/invites";
 import { tripAccess } from "./routes/trip-access";
-import { connectWithRetry } from "./db/client";
+import { connectWithRetry, startConnectionHealthCheck } from "./db/client";
 
 const app = new Hono();
 
@@ -58,6 +58,10 @@ async function startServer() {
 
   try {
     await connectWithRetry();
+
+    // Start periodic health check (every 60 seconds)
+    startConnectionHealthCheck(60_000);
+
     console.log(`Server ready on port ${port}`);
   } catch (error) {
     console.error(
