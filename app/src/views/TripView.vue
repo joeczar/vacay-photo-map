@@ -111,7 +111,11 @@
               :options="{ scrollWheelZoom: true }"
               @ready="onMapReady"
             >
-              <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttribution" />
+              <l-tile-layer
+                :url="tileLayerUrl"
+                :attribution="tileLayerAttribution"
+                :class-name="isDark ? 'tiles-dark' : ''"
+              />
 
               <!-- Photo Markers -->
               <l-marker
@@ -697,14 +701,12 @@ const currentPhotoIndex = computed(() => {
   return photos.value.findIndex(p => p.id === selectedPhoto.value!.id)
 })
 
-const tileLayerUrl = computed(() => {
-  return isDark.value
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-})
+// OpenStreetMap raster tiles: no API key needed (CARTO basemaps now require one).
+// Dark mode is achieved with a CSS filter on the tile pane (see <style>).
+const tileLayerUrl = computed(() => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png')
 
 const tileLayerAttribution = computed(() => {
-  return '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 })
 
 // Methods
@@ -792,6 +794,11 @@ function formatDate(dateString: string): string {
 </script>
 
 <style scoped>
+/* Dark basemap without an API key: invert OSM tiles and restore hue */
+:deep(.tiles-dark) {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+}
+
 /* Scoped z-index management for Leaflet map to prevent covering overlays */
 :deep(.leaflet-container) {
   z-index: 0;
