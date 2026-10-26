@@ -88,6 +88,8 @@ export interface Database {
           caption: string | null
           album: string | null
           rotation: number
+          description: string | null
+          section_id: string | null
           created_at: string
         }
         Insert: {
@@ -102,6 +104,8 @@ export interface Database {
           caption?: string | null
           album?: string | null
           rotation?: number
+          description?: string | null
+          section_id?: string | null
           created_at?: string
         }
         Update: {
@@ -116,6 +120,8 @@ export interface Database {
           caption?: string | null
           album?: string | null
           rotation?: number
+          description?: string | null
+          section_id?: string | null
           created_at?: string
         }
       }
