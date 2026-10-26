@@ -594,6 +594,66 @@ describe("Trip Routes", () => {
       expect(data.message).toBe("Rotation must be one of: 0, 90, 180, 270.");
     });
 
+    it("assigns photo to a section of its trip and clears it with null", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const trip = await createTrip({ title: "Section Assign" });
+      createdTripIds.push(trip.id);
+      const photo = await createPhoto({ tripId: trip.id });
+      const [section] = await db<{ id: string }[]>`
+        INSERT INTO sections (trip_id, title, order_index)
+        VALUES (${trip.id}, 'Day 1', 0) RETURNING id
+      `;
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ sectionId: section.id }),
+        }),
+      );
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as PhotoResponse;
+      expect(data.sectionId).toBe(section.id);
+
+      const res2 = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ sectionId: null }),
+        }),
+      );
+      expect(res2.status).toBe(200);
+      const data2 = (await res2.json()) as PhotoResponse;
+      expect(data2.sectionId).toBeNull();
+    });
+
+    it("rejects a section belonging to another trip", async () => {
+      const db = getDbClient();
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const trip = await createTrip({ title: "Trip A" });
+      const otherTrip = await createTrip({ title: "Trip B" });
+      createdTripIds.push(trip.id, otherTrip.id);
+      const photo = await createPhoto({ tripId: trip.id });
+      const [section] = await db<{ id: string }[]>`
+        INSERT INTO sections (trip_id, title, order_index)
+        VALUES (${otherTrip.id}, 'Elsewhere', 0) RETURNING id
+      `;
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/photos/${photo.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...authHeader },
+          body: JSON.stringify({ sectionId: section.id }),
+        }),
+      );
+      expect(res.status).toBe(400);
+      const data = (await res.json()) as ErrorResponse;
+      expect(data.message).toBe("Section not found for this photo's trip.");
+    });
+
     it("successfully updates photo rotation", async () => {
       const db = getDbClient();
       const app = createTestApp();
