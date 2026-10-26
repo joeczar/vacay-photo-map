@@ -1,6 +1,6 @@
 import { ref, watch, type Ref } from 'vue'
 import { useIntersectionObserver } from '@vueuse/core'
-import { getTripBySlugPaginated, type ApiTrip } from '@/utils/database'
+import { getTripBySlugPaginated, type ApiTrip, type ApiSectionResponse } from '@/utils/database'
 import type { TablesRow } from '@/lib/database.types'
 import { ApiError } from '@/lib/api'
 
@@ -31,7 +31,7 @@ export function useInfinitePhotos(
 
   // State
   const photos = ref<Photo[]>([])
-  const tripMetadata = ref<ApiTrip | null>(null)
+  const tripMetadata = ref<(ApiTrip & { sections: ApiSectionResponse[] }) | null>(null)
   const loading = ref(true)
   const loadingMore = ref(false)
   const hasMore = ref(false)
