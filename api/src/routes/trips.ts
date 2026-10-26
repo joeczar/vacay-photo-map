@@ -75,6 +75,7 @@ export interface TripResponse {
 
 export interface TripWithPhotosResponse extends TripResponse {
   photos: PhotoResponse[];
+  sections: SectionResponse[];
   pagination: {
     total: number;
     hasMore: boolean;
@@ -334,12 +335,21 @@ async function buildTripWithPhotosResponse(
     OFFSET ${offset}
   `;
 
+  // Fetch all sections for this trip (not paginated - sections are few)
+  const sections = await db<DbSection[]>`
+    SELECT id, trip_id, title, order_index, created_at, updated_at
+    FROM sections
+    WHERE trip_id = ${trip.id}
+    ORDER BY order_index ASC
+  `;
+
   // Calculate if there are more photos
   const hasMore = offset + photos.length < total;
 
   return {
     ...toTripResponse(trip, total, dateRange),
     photos: photos.map(toPhotoResponse),
+    sections: sections.map(toSectionResponse),
     pagination: {
       total,
       hasMore,

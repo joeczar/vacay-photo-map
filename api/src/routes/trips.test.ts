@@ -788,6 +788,70 @@ describe("Trip Routes", () => {
   // ==========================================================================
   // GET /api/trips/slug/:slug - Pagination tests
   // ==========================================================================
+  describe("GET /api/trips/slug/:slug - sections", () => {
+    const createdTripIds: string[] = [];
+
+    afterEach(async () => {
+      for (const id of createdTripIds) await cleanupTrip(id);
+      createdTripIds.length = 0;
+    });
+
+    it("returns empty sections array for trip without sections", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const trip = await createTrip({ title: "No Sections" });
+      createdTripIds.push(trip.id);
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/slug/${trip.slug}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripWithPhotosResponse;
+      expect(data.sections).toEqual([]);
+    });
+
+    it("returns sections ordered by order_index and photos with sectionId", async () => {
+      const app = createTestApp();
+      const authHeader = await getAdminAuthHeader();
+      const db = getDbClient();
+      const trip = await createTrip({ title: "With Sections" });
+      createdTripIds.push(trip.id);
+
+      const [second] = await db<{ id: string }[]>`
+        INSERT INTO sections (trip_id, title, order_index)
+        VALUES (${trip.id}, 'Second', 1) RETURNING id
+      `;
+      const [first] = await db<{ id: string }[]>`
+        INSERT INTO sections (trip_id, title, order_index)
+        VALUES (${trip.id}, 'First', 0) RETURNING id
+      `;
+      const photo = await createPhoto({ tripId: trip.id });
+      await db`UPDATE photos SET section_id = ${first.id} WHERE id = ${photo.id}`;
+
+      const res = await app.fetch(
+        new Request(`http://localhost/api/trips/slug/${trip.slug}`, {
+          method: "GET",
+          headers: authHeader,
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as TripWithPhotosResponse;
+      expect(data.sections.map((s) => s.title)).toEqual(["First", "Second"]);
+      expect(data.sections[0]).toMatchObject({
+        id: first.id,
+        tripId: trip.id,
+        orderIndex: 0,
+      });
+      expect(data.sections[1].id).toBe(second.id);
+      expect(data.photos[0].sectionId).toBe(first.id);
+    });
+  });
+
   describe("GET /api/trips/slug/:slug - pagination", () => {
     const createdTripIds: string[] = [];
 
