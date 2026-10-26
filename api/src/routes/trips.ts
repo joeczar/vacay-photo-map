@@ -75,6 +75,7 @@ export interface TripResponse {
 
 export interface TripWithPhotosResponse extends TripResponse {
   photos: PhotoResponse[];
+  sections: SectionResponse[];
   pagination: {
     total: number;
     hasMore: boolean;
@@ -334,12 +335,21 @@ async function buildTripWithPhotosResponse(
     OFFSET ${offset}
   `;
 
+  // Fetch all sections for this trip (not paginated - sections are few)
+  const sections = await db<DbSection[]>`
+    SELECT id, trip_id, title, order_index, created_at, updated_at
+    FROM sections
+    WHERE trip_id = ${trip.id}
+    ORDER BY order_index ASC
+  `;
+
   // Calculate if there are more photos
   const hasMore = offset + photos.length < total;
 
   return {
     ...toTripResponse(trip, total, dateRange),
     photos: photos.map(toPhotoResponse),
+    sections: sections.map(toSectionResponse),
     pagination: {
       total,
       hasMore,
@@ -1055,7 +1065,7 @@ trips.delete("/photos/:id", requireAdmin, async (c) => {
 });
 
 // =============================================================================
-// PATCH /api/trips/photos/:id - Update photo rotation and/or description (admin or editor)
+// PATCH /api/trips/photos/:id - Update photo rotation, description and/or section (admin or editor)
 // =============================================================================
 trips.patch("/photos/:id", requireAuth, async (c) => {
   const id = c.req.param("id");
@@ -1063,9 +1073,10 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
   const body = await c.req.json<{
     rotation?: number;
     description?: string | null;
+    sectionId?: string | null;
   }>();
 
-  const { rotation, description } = body;
+  const { rotation, description, sectionId } = body;
 
   // Validate UUID format
   if (!UUID_REGEX.test(id)) {
@@ -1076,9 +1087,21 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
   }
 
   // Validate at least one field is provided
-  if (rotation === undefined && description === undefined) {
+  if (
+    rotation === undefined &&
+    description === undefined &&
+    sectionId === undefined
+  ) {
     return c.json(
       { error: "Bad Request", message: "No fields to update." },
+      400,
+    );
+  }
+
+  // Validate sectionId format if provided (null clears the section)
+  if (sectionId != null && !UUID_REGEX.test(sectionId)) {
+    return c.json(
+      { error: "Bad Request", message: "Invalid section ID format." },
       400,
     );
   }
@@ -1131,11 +1154,29 @@ trips.patch("/photos/:id", requireAuth, async (c) => {
     }
   }
 
+  // Section must belong to the photo's trip
+  if (sectionId != null) {
+    const [section] = await db<{ id: string }[]>`
+      SELECT id FROM sections
+      WHERE id = ${sectionId} AND trip_id = ${photo.trip_id}
+    `;
+    if (!section) {
+      return c.json(
+        {
+          error: "Bad Request",
+          message: "Section not found for this photo's trip.",
+        },
+        400,
+      );
+    }
+  }
+
   // Build dynamic update - only update provided fields
   const updates: Record<string, unknown> = {};
   if (rotation !== undefined) updates.rotation = rotation;
   if (description !== undefined)
     updates.description = description?.trim() || null;
+  if (sectionId !== undefined) updates.section_id = sectionId;
 
   // Update photo
   const [updatedPhoto] = await db<DbPhoto[]>`

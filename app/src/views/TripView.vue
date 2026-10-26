@@ -111,7 +111,11 @@
               :options="{ scrollWheelZoom: true }"
               @ready="onMapReady"
             >
-              <l-tile-layer :url="tileLayerUrl" :attribution="tileLayerAttribution" />
+              <l-tile-layer
+                :url="tileLayerUrl"
+                :attribution="tileLayerAttribution"
+                :class-name="isDark ? 'tiles-dark' : ''"
+              />
 
               <!-- Photo Markers -->
               <l-marker
@@ -176,50 +180,55 @@
             :class="viewMode === 'map' && !isDesktop ? 'hidden' : ''"
           >
             <h3 class="text-lg font-semibold mb-4">All Photos</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              <Card
-                v-for="photo in photos"
-                :key="photo.id"
-                class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
-                :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
-                @click="selectPhoto(photo)"
-              >
-                <div :style="{ transform: `rotate(${photo.rotation}deg)` }" class="w-full h-full">
-                  <ProgressiveImage
-                    :src="gridFallback(photo)"
-                    :srcset="gridSrcset(photo)"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                    :alt="photo.caption || 'Photo'"
-                    wrapper-class="w-full h-full"
-                    class="w-full h-full object-cover"
-                  />
-                </div>
-                <div
-                  v-if="!photo.latitude || !photo.longitude"
-                  class="absolute top-1 right-1 bg-rose-500 rounded-full p-1"
-                  title="No location data"
+            <template v-for="(group, groupIndex) in photoGroups" :key="group.key">
+              <Separator v-if="groupIndex > 0" class="my-6" />
+              <h4 v-if="group.title" class="text-base font-semibold mb-3 text-foreground">
+                {{ group.title }}
+                <span class="text-sm font-normal text-muted-foreground ml-1">
+                  {{ group.photos.length }}
+                </span>
+              </h4>
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                <Card
+                  v-for="photo in group.photos"
+                  :key="photo.id"
+                  class="relative aspect-square cursor-pointer overflow-hidden group hover:ring-2 hover:ring-primary transition-all"
+                  :class="selectedPhoto?.id === photo.id ? 'ring-2 ring-primary' : ''"
+                  @click="selectPhoto(photo)"
                 >
-                  <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fill-rule="evenodd"
-                      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                      clip-rule="evenodd"
+                  <div :style="{ transform: `rotate(${photo.rotation}deg)` }" class="w-full h-full">
+                    <ProgressiveImage
+                      :src="gridFallback(photo)"
+                      :srcset="gridSrcset(photo)"
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                      :alt="photo.caption || 'Photo'"
+                      wrapper-class="w-full h-full"
+                      class="w-full h-full object-cover"
                     />
-                  </svg>
-                </div>
-              </Card>
+                  </div>
+                  <div
+                    v-if="!photo.latitude || !photo.longitude"
+                    class="absolute top-1 right-1 bg-rose-500 rounded-full p-1"
+                    title="No location data"
+                  >
+                    <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fill-rule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </Card>
+              </div>
+            </template>
 
-              <!-- Infinite scroll sentinel -->
-              <div
-                v-if="hasMore"
-                ref="sentinelRef"
-                class="col-span-full flex items-center justify-center py-8"
-              >
-                <div v-if="loadingMore" class="flex gap-3">
-                  <Skeleton class="w-24 h-24 rounded" />
-                  <Skeleton class="w-24 h-24 rounded" />
-                  <Skeleton class="w-24 h-24 rounded" />
-                </div>
+            <!-- Infinite scroll sentinel -->
+            <div v-if="hasMore" ref="sentinelRef" class="flex items-center justify-center py-8">
+              <div v-if="loadingMore" class="flex gap-3">
+                <Skeleton class="w-24 h-24 rounded" />
+                <Skeleton class="w-24 h-24 rounded" />
+                <Skeleton class="w-24 h-24 rounded" />
               </div>
             </div>
           </CardContent>
@@ -300,6 +309,12 @@
           <div class="mt-4 text-white">
             <p v-if="selectedPhoto.caption" class="text-lg font-medium mb-2">
               {{ selectedPhoto.caption }}
+            </p>
+            <p
+              v-if="selectedPhoto.description"
+              class="text-base text-gray-200 whitespace-pre-line mb-2 max-w-2xl"
+            >
+              {{ selectedPhoto.description }}
             </p>
             <p class="text-sm text-gray-300">{{ formatDate(selectedPhoto.taken_at) }}</p>
           </div>
@@ -611,6 +626,35 @@ onMounted(async () => {
 })
 
 // Computed properties
+interface PhotoGroup {
+  key: string
+  title: string | null
+  photos: Photo[]
+}
+
+/**
+ * Photos grouped for display: unsectioned first, then sections by orderIndex.
+ * Without sections this is a single untitled group (original layout).
+ */
+const photoGroups = computed<PhotoGroup[]>(() => {
+  const sections = trip.value?.sections ?? []
+  if (sections.length === 0) {
+    return [{ key: 'all', title: null, photos: photos.value }]
+  }
+  const groups: PhotoGroup[] = []
+  const unsectioned = photos.value.filter(p => !p.section_id)
+  if (unsectioned.length > 0) {
+    groups.push({ key: 'unsectioned', title: null, photos: unsectioned })
+  }
+  for (const section of [...sections].sort((a, b) => a.orderIndex - b.orderIndex)) {
+    const inSection = photos.value.filter(p => p.section_id === section.id)
+    if (inSection.length > 0) {
+      groups.push({ key: section.id, title: section.title, photos: inSection })
+    }
+  }
+  return groups
+})
+
 const photosWithCoordinates = computed(() => {
   return photos.value.filter(p => p.latitude !== null && p.longitude !== null)
 })
@@ -657,14 +701,12 @@ const currentPhotoIndex = computed(() => {
   return photos.value.findIndex(p => p.id === selectedPhoto.value!.id)
 })
 
-const tileLayerUrl = computed(() => {
-  return isDark.value
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-})
+// OpenStreetMap raster tiles: no API key needed (CARTO basemaps now require one).
+// Dark mode is achieved with a CSS filter on the tile pane (see <style>).
+const tileLayerUrl = computed(() => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png')
 
 const tileLayerAttribution = computed(() => {
-  return '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 })
 
 // Methods
@@ -752,6 +794,11 @@ function formatDate(dateString: string): string {
 </script>
 
 <style scoped>
+/* Dark basemap without an API key: invert OSM tiles and restore hue */
+:deep(.tiles-dark) {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+}
+
 /* Scoped z-index management for Leaflet map to prevent covering overlays */
 :deep(.leaflet-container) {
   z-index: 0;

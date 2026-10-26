@@ -50,11 +50,23 @@ interface ApiPhotoResponse {
   caption: string | null
   album: string | null
   rotation: number
+  description: string | null
+  sectionId: string | null
   createdAt: string
+}
+
+export interface ApiSectionResponse {
+  id: string
+  tripId: string
+  title: string
+  orderIndex: number
+  createdAt: string
+  updatedAt: string
 }
 
 interface ApiTripWithPhotosResponse extends ApiTripResponse {
   photos: ApiPhotoResponse[]
+  sections?: ApiSectionResponse[]
   pagination?: {
     total: number
     hasMore: boolean
@@ -125,16 +137,19 @@ function transformApiPhoto(apiPhoto: ApiPhotoResponse): Photo {
     caption: apiPhoto.caption,
     album: apiPhoto.album,
     rotation: apiPhoto.rotation,
+    description: apiPhoto.description ?? null,
+    section_id: apiPhoto.sectionId ?? null,
     created_at: apiPhoto.createdAt
   }
 }
 
-function transformApiTripWithPhotos(
-  apiTrip: ApiTripWithPhotosResponse
-): ApiTrip & { photos: Photo[] } {
+export type TripWithPhotos = ApiTrip & { photos: Photo[]; sections: ApiSectionResponse[] }
+
+function transformApiTripWithPhotos(apiTrip: ApiTripWithPhotosResponse): TripWithPhotos {
   return {
     ...transformApiTrip(apiTrip),
-    photos: apiTrip.photos.map(transformApiPhoto)
+    photos: apiTrip.photos.map(transformApiPhoto),
+    sections: apiTrip.sections ?? []
   }
 }
 
@@ -182,7 +197,7 @@ export async function createPhotos(photos: PhotoInsert[]): Promise<Photo[]> {
 /**
  * Get a trip by slug (requires authentication)
  */
-export async function getTripBySlug(slug: string): Promise<(ApiTrip & { photos: Photo[] }) | null> {
+export async function getTripBySlug(slug: string): Promise<TripWithPhotos | null> {
   try {
     const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/slug/${slug}`)
     return transformApiTripWithPhotos(trip)
@@ -201,7 +216,7 @@ export async function getTripBySlugPaginated(
   slug: string,
   offset: number = 0,
   limit: number = 50
-): Promise<(ApiTrip & { photos: Photo[]; pagination: PaginationMeta }) | null> {
+): Promise<(TripWithPhotos & { pagination: PaginationMeta }) | null> {
   try {
     const trip = await api.get<ApiTripWithPhotosResponse>(
       `/api/trips/slug/${slug}?limit=${limit}&offset=${offset}`
@@ -289,13 +304,42 @@ export async function deleteTrip(tripId: string): Promise<void> {
  * Get a trip by ID (admin-only)
  * Used for editing draft trips
  */
-export async function getTripById(tripId: string): Promise<(ApiTrip & { photos: Photo[] }) | null> {
+export async function getTripById(tripId: string): Promise<TripWithPhotos | null> {
   const { getToken } = useAuth()
   requireAuth(getToken)
 
   try {
     const trip = await api.get<ApiTripWithPhotosResponse>(`/api/trips/id/${tripId}`)
     return transformApiTripWithPhotos(trip)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+/**
+ * Get a trip by ID with ALL its photos (follows pagination). For admin tooling.
+ */
+export async function getTripByIdWithAllPhotos(tripId: string): Promise<TripWithPhotos | null> {
+  const { getToken } = useAuth()
+  requireAuth(getToken)
+
+  const limit = 100
+  try {
+    const first = await api.get<ApiTripWithPhotosResponse>(
+      `/api/trips/id/${tripId}?limit=${limit}&offset=0`
+    )
+    const total = first.pagination?.total ?? first.photos.length
+    const photos = [...first.photos]
+    for (let offset = limit; offset < total; offset += limit) {
+      const page = await api.get<ApiTripWithPhotosResponse>(
+        `/api/trips/id/${tripId}?limit=${limit}&offset=${offset}`
+      )
+      photos.push(...page.photos)
+    }
+    return transformApiTripWithPhotos({ ...first, photos })
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       return null
@@ -322,4 +366,27 @@ export async function updatePhotoRotation(photoId: string, rotation: number): Pr
   requireAuth(getToken)
 
   await api.patch(`/api/trips/photos/${photoId}`, { rotation })
+}
+
+/**
+ * Update photo description (admin or editor). Pass null/empty to clear.
+ */
+export async function updatePhotoDescription(
+  photoId: string,
+  description: string | null
+): Promise<void> {
+  const { getToken } = useAuth()
+  requireAuth(getToken)
+
+  await api.patch(`/api/trips/photos/${photoId}`, { description })
+}
+
+/**
+ * Assign a photo to a section (admin or editor). Pass null to unassign.
+ */
+export async function updatePhotoSection(photoId: string, sectionId: string | null): Promise<void> {
+  const { getToken } = useAuth()
+  requireAuth(getToken)
+
+  await api.patch(`/api/trips/photos/${photoId}`, { sectionId })
 }
