@@ -320,6 +320,35 @@ export async function getTripById(tripId: string): Promise<TripWithPhotos | null
 }
 
 /**
+ * Get a trip by ID with ALL its photos (follows pagination). For admin tooling.
+ */
+export async function getTripByIdWithAllPhotos(tripId: string): Promise<TripWithPhotos | null> {
+  const { getToken } = useAuth()
+  requireAuth(getToken)
+
+  const limit = 100
+  try {
+    const first = await api.get<ApiTripWithPhotosResponse>(
+      `/api/trips/id/${tripId}?limit=${limit}&offset=0`
+    )
+    const total = first.pagination?.total ?? first.photos.length
+    const photos = [...first.photos]
+    for (let offset = limit; offset < total; offset += limit) {
+      const page = await api.get<ApiTripWithPhotosResponse>(
+        `/api/trips/id/${tripId}?limit=${limit}&offset=${offset}`
+      )
+      photos.push(...page.photos)
+    }
+    return transformApiTripWithPhotos({ ...first, photos })
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null
+    }
+    throw error
+  }
+}
+
+/**
  * Delete a photo from a trip (admin-only)
  */
 export async function deletePhoto(photoId: string): Promise<void> {

@@ -124,6 +124,17 @@
                 />
               </svg>
             </Button>
+            <!-- Workshop Button - only for admin/editor -->
+            <Button
+              v-if="userRole && ['admin', 'editor'].includes(userRole)"
+              variant="ghost"
+              size="icon"
+              class="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+              @click.prevent.stop="navigateToWorkshop"
+              title="Open in workshop"
+            >
+              <Hammer class="h-4 w-4" />
+            </Button>
             <Button
               v-if="onDelete"
               variant="ghost"
@@ -160,6 +171,7 @@ import ProgressiveImage from '@/components/ProgressiveImage.vue'
 import RoleBadge from '@/components/RoleBadge.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Hammer } from 'lucide-vue-next'
 
 const router = useRouter()
 
@@ -195,6 +207,10 @@ function navigateToEdit() {
 
 function navigateToDarkroom() {
   router.push(`/admin/darkroom/${props.trip.id}`)
+}
+
+function navigateToWorkshop() {
+  router.push(`/admin/workshop/${props.trip.id}`)
 }
 
 function handleDelete() {

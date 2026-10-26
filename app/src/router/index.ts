@@ -98,6 +98,12 @@ const router = createRouter({
       meta: { requiresAuth: true } // Access controlled at API level (admin or editor)
     },
     {
+      path: '/admin/workshop/:tripId',
+      name: 'admin-workshop',
+      component: () => import('../views/admin/WorkshopView.vue'),
+      meta: { requiresAuth: true } // Access controlled at API level (admin or editor)
+    },
+    {
       path: '/trip/:slug',
       name: 'trip',
       component: () => import('../views/TripView.vue'),
